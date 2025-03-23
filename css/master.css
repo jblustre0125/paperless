@@ -1,0 +1,51 @@
+/* General Styles */
+body {
+  background-color: #f8f9fa;
+}
+
+/* Navbar Styling */
+.navbar {
+  padding: 15px;
+}
+
+/* Navbar Links */
+.navbar-nav .nav-link {
+  font-size: 1.2rem;
+  padding: 10px 15px;
+}
+
+/* Dropdown Button */
+.dropdown-toggle {
+  padding: 10px 15px;
+  font-size: 1.2rem;
+}
+
+/* Main Container */
+.container-lg {
+  max-width: 1100px;
+}
+
+/* Button Styling */
+.btn-outline-light {
+  padding: 10px 15px;
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+/* Log Out Button */
+.dropdown-menu .dropdown-item {
+  font-size: 1.1rem;
+  padding: 12px 15px;
+}
+
+/* Hover Effects */
+.navbar-nav .nav-link:hover,
+.btn-outline-light:hover {
+  opacity: 0.8;
+}
+
+.navbar-text.device-name {
+  font-size: 1.5rem; /* Adjust size as needed */
+  font-weight: bold;
+  color: #fff; /* Ensures visibility */
+}

@@ -1,0 +1,41 @@
+/* General Styles */
+body {
+  background-color: #f8f9fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  padding: 10px;
+}
+
+/* Center the login container */
+.login-container {
+  width: 100%;
+  max-width: 450px; /* Decrease width for better visibility */
+  padding: 0 15px; /* Add space to the left and right */
+}
+
+/* Style the Card */
+.card {
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  width: 100%; /* Ensure card doesn’t stretch unnecessarily */
+}
+
+/* Adjust the Card Body Padding */
+.card-body {
+  padding: 25px; /* Adjust padding for better spacing */
+}
+
+/* Larger Input Fields */
+.form-control-lg {
+  font-size: 1.5rem;
+  padding: 15px;
+}
+
+/* Button Styling */
+.btn-lg {
+  font-size: 1.5rem; /* Increase button text size */
+  padding: 18px;
+  font-weight: bold;
+}
