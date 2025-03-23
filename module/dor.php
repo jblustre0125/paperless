@@ -178,8 +178,28 @@ $selectedShift = ($currentHour >= 7 && $currentHour < 19) ? "DS" : "NS";
             }
         }
         ?>
-
     </div>
+
+    <!-- QR Code Scanner Modal -->
+    <div class="modal fade" id="qrScannerModal" tabindex="-1" aria-labelledby="qrScannerLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Scan ID Tag</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <video id="qr-video" class="w-100 rounded shadow" autoplay></video>
+                    <p class="text-muted mt-2">Align the QR code within the frame.</p>
+                </div>
+                <div class="modal-footer d-flex justify-content-between">
+                    <button type="button" class="btn btn-secondary" id="enterManually">Enter Manually</button>
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 </form>
 
 <!-- Bootstrap Modal for Error Messages -->
@@ -235,6 +255,123 @@ $selectedShift = ($currentHour >= 7 && $currentHour < 19) ? "DS" : "NS";
         });
     });
 </script>
+
+<script src="../js/jsQR.min.js"></script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const modelInput = document.getElementById("txtModelName");
+        const qtyInput = document.getElementById("txtQty");
+        const scannerModal = new bootstrap.Modal(document.getElementById("qrScannerModal"));
+        let enterManually = false; // Flag to track manual entry
+
+        let video = document.getElementById("qr-video");
+        let canvas = document.createElement("canvas");
+        let ctx = canvas.getContext("2d");
+        let scanning = false;
+
+        // Open QR Scanner when Model Input is Selected
+        modelInput.addEventListener("focus", function() {
+            if (!enterManually) {
+                startScanning();
+            }
+        });
+
+        function startScanning() {
+            scannerModal.show();
+            navigator.mediaDevices
+                .getUserMedia({
+                    video: {
+                        facingMode: "environment"
+                    }
+                })
+                .then(function(stream) {
+                    video.srcObject = stream;
+                    video.setAttribute("playsinline", true);
+                    video.play();
+                    scanning = true;
+                    scanQRCode();
+                })
+                .catch(function(err) {
+                    alert("Camera access denied: " + err.message);
+                });
+        }
+
+        function scanQRCode() {
+            if (!scanning) return;
+
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                let qrCodeData = jsQR(imageData.data, imageData.width, imageData.height);
+
+                if (qrCodeData) {
+                    let scannedText = qrCodeData.data.trim();
+                    let parts = scannedText.split(" "); // Split by space
+
+                    if (parts.length === 1) {
+                        // If only 1 value is provided, assume it's the model name
+                        modelInput.value = parts[0];
+                        qtyInput.value = ""; // Clear qty
+                        stopScanning();
+                    } else if (parts.length === 3) {
+                        // If exactly 3 values are provided, take the 1st as model and 3rd as quantity
+                        let model = parts[0];
+                        let qty = parts[2];
+
+                        if (!isNaN(qty)) {
+                            modelInput.value = model;
+                            qtyInput.value = qty;
+                            stopScanning();
+                        } else {
+                            alert("Invalid QR format. Quantity must be a number.");
+                        }
+                    } else {
+                        alert("Invalid QR format. Please scan a valid code with 1 or 3 values.");
+                    }
+                }
+            }
+
+            requestAnimationFrame(scanQRCode);
+        }
+
+        function stopScanning() {
+            scanning = false;
+            let tracks = video.srcObject?.getTracks();
+            if (tracks) {
+                tracks.forEach((track) => track.stop());
+            }
+            scannerModal.hide();
+        }
+
+        // Stop scanning when modal closes
+        document.getElementById("qrScannerModal").addEventListener("hidden.bs.modal", function() {
+            stopScanning();
+        });
+
+        // Handle "Enter Manually" Button
+        document.getElementById("enterManually").addEventListener("click", function() {
+            enterManually = true; // Prevent QR scanner from reopening
+            stopScanning();
+            scannerModal.hide();
+            setTimeout(() => modelInput.focus(), 300); // Ensure focus shifts properly
+        });
+
+        // Reset flag when the user types manually
+        modelInput.addEventListener("input", function() {
+            enterManually = true; // Keeps scanner disabled while typing
+        });
+
+        // Reset flag when input loses focus (so QR scanner works next time)
+        modelInput.addEventListener("blur", function() {
+            setTimeout(() => enterManually = false, 1000); // Delay prevents immediate re-trigger
+        });
+    });
+</script>
+
 
 <?php
 $content = ob_get_clean();
