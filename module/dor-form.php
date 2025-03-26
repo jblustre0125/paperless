@@ -118,6 +118,22 @@ foreach ($resA as $row) {
             color: white;
         }
 
+        .navbar {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1030;
+            /* Ensures it stays on top */
+            background-color: #f8f9fa;
+            /* Bootstrap light background */
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            padding-top: 80px;
+            /* Added to prevent content overlap */
+        }
+
         .navbar-brand {
             white-space: normal !important;
             /* Allow text wrapping */
@@ -130,16 +146,66 @@ foreach ($resA as $row) {
             /* Adjust font size for responsiveness */
         }
     </style>
+
+    <style>
+        /* Floating Window Styling */
+        .floating-window {
+            display: none;
+            position: absolute;
+            width: 500px;
+            height: auto;
+            background: white;
+            border: 2px solid #555;
+            box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            top: 50px;
+            left: 50px;
+        }
+
+        /* Header for Dragging */
+        .floating-header {
+            padding: 10px;
+            background: #007bff;
+            color: white;
+            cursor: move;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Close Button */
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 18px;
+            color: white;
+            cursor: pointer;
+        }
+
+        .floating-body {
+            padding: 10px;
+            text-align: center;
+        }
+
+        .floating-body img {
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
 </head>
 
 <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-light shadow-sm">
-        <div class="container-fluid d-flex justify-content-between">
+        <div class="container-fluid d-flex justify-content-between align-items-center">
             <button class="btn btn-secondary btn-lg" onclick="goBack()">Back</button>
-            <span class="navbar-brand text-center fw-bold d-block">
-                A. Required Item and Jig Condition VS Work Instruction
-            </span>
-
+            <div class="d-flex flex-column align-items-center">
+                <div class="d-flex gap-2 mt-2">
+                    <button class="btn btn-secondary btn-lg" onclick="showDrawing()">Drawing</button>
+                    <button class="btn btn-secondary btn-lg">Work Instructions</button>
+                    <button class="btn btn-secondary btn-lg">Guidelines</button>
+                    <button class="btn btn-secondary btn-lg">Prep Card</button>
+                </div>
+            </div>
             <button class="btn btn-primary btn-lg" onclick="submitForm()">Proceed to DOR</button>
         </div>
     </nav>
@@ -152,10 +218,13 @@ foreach ($resA as $row) {
         <?php endif; ?>
 
         <div class="tab-container">
-            <div class="tab-nav">
-                <?php for ($i = 1; $i <= 4; $i++) : ?>
-                    <button class="tab-button" onclick="openTab(event, 'Process<?php echo $i; ?>')">Process <?php echo $i; ?></button>
-                <?php endfor; ?>
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold">A. Required Item and Jig Condition VS Work Instruction</h5>
+                <div class="tab-nav d-flex">
+                    <?php for ($i = 1; $i <= 4; $i++) : ?>
+                        <button class="tab-button" onclick="openTab(event, 'Process<?php echo $i; ?>')">Process <?php echo $i; ?></button>
+                    <?php endfor; ?>
+                </div>
             </div>
 
             <?php for ($i = 1; $i <= 4; $i++) : ?>
@@ -196,6 +265,17 @@ foreach ($resA as $row) {
             <?php endfor; ?>
         </div>
     </div>
+
+    <!-- Floating Window for Drawing -->
+    <div id="drawingWindow" class="floating-window">
+        <div id="drawingHeader" class="floating-header">
+            <span>Drawing</span>
+            <button onclick="closeDrawing()" class="close-btn">&times;</button>
+        </div>
+        <div class="floating-body">
+            <img id="drawingImage" src="" class="img-fluid" alt="Drawing Image">
+        </div>
+    </div>
 </body>
 
 <script>
@@ -223,6 +303,70 @@ foreach ($resA as $row) {
 
     function submitForm() {
         document.getElementById("myForm").submit();
+    }
+</script>
+
+<script>
+    function showDrawing() {
+        const dorTypeId = 1; // Change dynamically based on the selected DOR type
+
+        fetch(`get_drawing.php?dorTypeId=${dorTypeId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.drawing) {
+                    document.getElementById("drawingImage").src = data.drawing;
+                    document.getElementById("drawingWindow").style.display = "block";
+                } else {
+                    alert(data.error);
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                alert("An error occurred while fetching the drawing.");
+            });
+    }
+
+    // Close the floating window
+    function closeDrawing() {
+        document.getElementById("drawingWindow").style.display = "none";
+    }
+
+    // Make the floating window draggable
+    dragElement(document.getElementById("drawingWindow"));
+
+    function dragElement(el) {
+        let pos1 = 0,
+            pos2 = 0,
+            pos3 = 0,
+            pos4 = 0;
+        const header = document.getElementById("drawingHeader");
+
+        if (header) {
+            header.onmousedown = dragMouseDown;
+        }
+
+        function dragMouseDown(e) {
+            e.preventDefault();
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+            document.onmouseup = closeDragElement;
+            document.onmousemove = elementDrag;
+        }
+
+        function elementDrag(e) {
+            e.preventDefault();
+            pos1 = pos3 - e.clientX;
+            pos2 = pos4 - e.clientY;
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+            el.style.top = (el.offsetTop - pos2) + "px";
+            el.style.left = (el.offsetLeft - pos1) + "px";
+        }
+
+        function closeDragElement() {
+            document.onmouseup = null;
+            document.onmousemove = null;
+        }
     }
 </script>
 

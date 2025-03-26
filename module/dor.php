@@ -270,6 +270,17 @@ $selectedShift = ($currentHour >= 7 && $currentHour < 19) ? "DS" : "NS";
         let ctx = canvas.getContext("2d");
         let scanning = false;
 
+        // Retrieve camera setting from PHP session
+        let cameraSetting = <?php echo isset($_SESSION['cameraSetting']) ? $_SESSION['cameraSetting'] : 1; ?>;
+
+        function getCameraConstraints() {
+            return {
+                video: {
+                    facingMode: cameraSetting === 1 ? "environment" : "user"
+                }
+            };
+        }
+
         // Open QR Scanner when Model Input is Selected
         modelInput.addEventListener("focus", function() {
             if (!enterManually) {
@@ -280,11 +291,7 @@ $selectedShift = ($currentHour >= 7 && $currentHour < 19) ? "DS" : "NS";
         function startScanning() {
             scannerModal.show();
             navigator.mediaDevices
-                .getUserMedia({
-                    video: {
-                        facingMode: "environment"
-                    }
-                })
+                .getUserMedia(getCameraConstraints())
                 .then(function(stream) {
                     video.srcObject = stream;
                     video.setAttribute("playsinline", true);

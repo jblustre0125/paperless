@@ -16,7 +16,7 @@
     <div class="login-container">
         <div class="card">
             <div class="card-header text-center">
-                <h2>Sub-Assy DOR System</h2>
+                <h2>DOR System</h2>
             </div>
             <div class="card-body">
                 <form id="myForm" action="" method="POST">

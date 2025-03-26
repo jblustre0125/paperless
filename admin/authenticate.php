@@ -59,6 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 				$_SESSION['isManager'] = $row1['IsManager'];
 				$_SESSION['isLoggedIn'] = $row1['IsLoggedIn'];
 				$_SESSION['isActive'] = $row1['IsActive'];
+				$_SESSION['cameraSetting'] = 2;
 
 				$updQry1 = "EXEC UpdGenOperator @OperatorId=?, @IsLoggedIn=?";
 				$db1->execute($updQry1, [$row1['OperatorId'], 1], 1);
