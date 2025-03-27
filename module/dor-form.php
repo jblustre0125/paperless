@@ -206,7 +206,7 @@ foreach ($resA as $row) {
                     <button class="btn btn-secondary btn-lg">Prep Card</button>
                 </div>
             </div>
-            <button class="btn btn-primary btn-lg" onclick="submitForm()">Proceed to DOR</button>
+            <button class="btn btn-primary btn-lg" onclick="GoDOR()">Proceed to DOR</button>
         </div>
     </nav>
 
@@ -299,6 +299,10 @@ foreach ($resA as $row) {
 
     function goBack() {
         window.location.href = "dor.php";
+    }
+
+    function GoDOR() {
+        window.location.href = "add-mntform.php";
     }
 
     function submitForm() {
