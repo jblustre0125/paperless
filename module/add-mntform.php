@@ -30,7 +30,6 @@
         <button class="btn btn-primary btn-lg" onclick="next()">Proceed to DOR</button>
       </div>
     </nav>
-    <!-- QR Code Scanner Modal -->
     <div class="modal fade" id="qrScannerModal" tabindex="-1" aria-labelledby="qrScannerLabel" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -70,18 +69,13 @@
           <td> <?= $i ?> </td>
           <td>
             <input type="text" class="form-control scan-box-no" id="boxNo
-										<?= $i ?>" placeholder="Scan QR" <?= $i === 1 ? '' : 'disabled' ?>>
+										<?= $i ?>" placeholder="Scan QR" <?= $i === 1 ? '' : 'disabled' ?> readyonly>
           </td>
           <td>
-            <input type="text" class="form-control" id="timeStart
-											<?= $i ?>" <?= $i === 1 ? '' : 'disabled' ?>>
+            <input type="text" class="form-control" id="timeStart <?= $i ?>" <?= $i === 1 ? '' : 'disabled' ?> readonly>
           </td>
           <td>
-            <input type="text" class="form-control scan-box-no time-end" id="timeEnd
-												<?= $i ?>" placeholder="Scan QR" <?= $i === 1 ? '' : 'disabled' ?>>
-          </td>
-          <td>
-            <input type="text" class="form-control" disabled>
+            <input type="text" class="form-control scan-box-no time-end" id="timeEnd <?= $i ?>" placeholder="Scan QR" <?= $i === 1 ? '' : 'disabled' ?>>
           </td>
           <td>
             <input type="text" class="form-control" disabled>
@@ -111,13 +105,12 @@ document.addEventListener("DOMContentLoaded", function () {
     let tableBody = document.querySelector("tbody");
     let video = document.getElementById("qr-video");
     let canvas = document.createElement("canvas");
-    let ctx = canvas.getContext("2d", { willReadFrequently: true }); // Optimize for QR reading
+    let ctx = canvas.getContext("2d", { willReadFrequently: true });
     let scannerModal = new bootstrap.Modal(document.getElementById("qrScannerModal"));
     let scanning = false;
     let activeInput = null;
     let lastScannedCode = "";
 
-    // Enable first row at the start
     enableRow(0);
 
     document.addEventListener("input", function (e) {
@@ -135,15 +128,14 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     function enableRow(index) {
-        let tableRows = tableBody.querySelectorAll("tr"); // Ensure updated row list
+        let tableRows = tableBody.querySelectorAll("tr");
         if (tableRows[index]) {
             let inputs = tableRows[index].querySelectorAll("input");
             inputs.forEach(input => {
-                if (!input.hasAttribute("readonly")) { // Prevent enabling readonly fields
+                if (!input.hasAttribute("readonly")) {
                     input.disabled = false;
                 }
             });
-            console.log(`⚡ Enabling row ${index + 1}`);
         }
     }
 
@@ -182,13 +174,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
             if (qrCodeData) {
                 let scannedText = qrCodeData.data.trim();
-                if (scannedText === lastScannedCode) return; // Prevent duplicate scans
+                if (scannedText === lastScannedCode) return;
                 lastScannedCode = scannedText;
 
                 let parts = scannedText.split(/\s+/);
                 if (parts.length >= 3) {
-                    let boxNo = parts[parts.length - 1]; // Extract last element (e.g., 4025)
-                    console.log("📦 Scanned Box No.:", boxNo);
+                    let boxNo = parts[parts.length - 1];
 
                     let now = new Date();
                     let hours = now.getHours();
@@ -200,20 +191,37 @@ document.addEventListener("DOMContentLoaded", function () {
                     let tableRows = tableBody.querySelectorAll("tr");
                     let found = false;
                     let emptyRow = null;
+                    let existingBoxWithNoEnd = null;
+
+                    for (let row of tableRows) {
+                        let boxNoInput = row.cells[1].querySelector("input");
+                        let timeEndInput = row.cells[3].querySelector("input");
+
+                        if (boxNoInput.value.trim() !== "" && timeEndInput.value.trim() === "") {
+                            existingBoxWithNoEnd = boxNoInput.value.trim();
+                            if (boxNo !== existingBoxWithNoEnd) {
+                                alert(`⚠️ Complete the Time End for Box No. ${existingBoxWithNoEnd} before scanning a new box.`);
+                                return;
+                            }
+                        }
+                    }
 
                     tableRows.forEach(row => {
                         let boxNoInput = row.cells[1].querySelector("input");
                         let timeStartInput = row.cells[2].querySelector("input");
                         let timeEndInput = row.cells[3].querySelector("input");
+                        let OperatorInput = row.cells[4].querySelector("input"); 
+
+
 
                         if (boxNoInput) {
                             if (boxNoInput.value.trim() === boxNo) {
                                 if (timeEndInput.value.trim() === "") {
                                     timeEndInput.value = currentTime;
-                                    console.log(`✅ Updated Time End for Box No.: ${boxNo}`);
+                                    timeStartInput.disabled = true;
                                     timeEndInput.disabled = true;
+                                    boxNoInput.disabled = true;
 
-                                    // Enable the next row after filling Time End
                                     let nextRow = row.nextElementSibling;
                                     if (nextRow) enableRow([...tableRows].indexOf(nextRow));
                                 }
@@ -231,7 +239,6 @@ document.addEventListener("DOMContentLoaded", function () {
                             emptyRow.cells[3].querySelector("input").disabled = false;
                             emptyRow.cells[1].querySelector("input").disabled = true;
                             emptyRow.cells[2].querySelector("input").disabled = true;
-                            console.log(`➕ Assigned Box No. ${boxNo} to an existing row.`);
                             enableRow([...tableRows].indexOf(emptyRow));
                         } else {
                             let newRow = document.createElement("tr");
@@ -239,10 +246,10 @@ document.addEventListener("DOMContentLoaded", function () {
                                 <td><input type="text" value="${tableRows.length + 1}" disabled></td>
                                 <td><input type="text" value="${boxNo}" disabled></td>
                                 <td><input type="text" value="${currentTime}" disabled></td>
-                                <td><input type="text" value="" ></td>
+                                <td><input type="text" value=""></td>
+                                <td><input type="text" value="${productionCode}" disabled></td>
                             `;
                             tableBody.appendChild(newRow);
-                            console.log(`➕ Added new row for Box No.: ${boxNo}`);
                             enableRow([...tableBody.querySelectorAll("tr")].length - 1);
                         }
                     }
@@ -273,8 +280,12 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 });
 
-
 </script>
+
+<script>
+    var productionCode = "<?php echo isset($_SESSION['productionCode']) ? $_SESSION['productionCode'] : ''; ?>";
+</script>
+
 
 
 </body>
