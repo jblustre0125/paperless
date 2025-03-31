@@ -197,20 +197,25 @@ foreach ($resA as $row) {
 <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-light shadow-sm">
         <div class="container-fluid d-flex justify-content-between align-items-center">
-            <button class="btn btn-secondary btn-lg" onclick="goBack()">Back</button>
+            <button class="btn btn-secondary btn-md" onclick="goBack()">Back</button>
             <div class="d-flex flex-column align-items-center">
                 <div class="d-flex gap-2 mt-2">
-                    <button class="btn btn-secondary btn-lg" onclick="showDrawing()">Drawing</button>
-                    <button class="btn btn-secondary btn-lg">Work Instructions</button>
-                    <button class="btn btn-secondary btn-lg">Guidelines</button>
-                    <button class="btn btn-secondary btn-lg">Prep Card</button>
+                    <button class="btn btn-secondary btn-lg" id="btnDrawing" onclick="showDrawing()">Drawing</button>
+                    <button class="btn btn-secondary btn-md" id="btnDrawing">Drawing</button>
+                    <button class="btn btn-secondary btn-md">Work Instructions</button>
+                    <button class="btn btn-secondary btn-md">Guidelines</button>
+                    <button class="btn btn-secondary btn-md">Prep Card</button>
                 </div>
             </div>
-            <button class="btn btn-primary btn-lg" onclick="GoDOR()">Proceed to DOR</button>
+            <<<<<<< Updated upstream
+                <button class="btn btn-primary btn-lg" onclick="GoDOR()">Proceed to DOR</button>
+                =======
+                <button class="btn btn-primary btn-md" onclick="submitForm()">Proceed to DOR</button>
+                >>>>>>> Stashed changes
         </div>
     </nav>
 
-    <div class="container-fluid mt-3">
+    <div class="container-fluid">
         <?php if (!empty($errorPrompt)) : ?>
             <div class="alert alert-danger" role="alert">
                 <?php echo $errorPrompt; ?>
@@ -311,8 +316,23 @@ foreach ($resA as $row) {
 </script>
 
 <script>
+    function showDrawing2() {
+        var win = window.open('', 'win', 'toolbar=no,location=no,status=no,menubar=no,scrollbars=no,resizable=no,width=520,height=400,left=350,top=100');
+
+        var img = win.document.createElement('img');
+        img.src = '../img/drawings/pre-assy/7L0030-7024.png';
+
+        var button = win.document.createElement('a');
+        button.href = 'javascript:window.close()';
+        button.innerHTML = 'Close';
+
+        win.document.body.appendChild(img);
+        win.document.body.appendChild(label);
+        win.document.body.appendChild(button);
+    }
+
     function showDrawing() {
-        const dorTypeId = 1; // Change dynamically based on the selected DOR type
+        const dorTypeId = $_SESSION['dorTypeId']; // Change dynamically based on the selected DOR type
 
         fetch(`get_drawing.php?dorTypeId=${dorTypeId}`)
             .then(response => response.json())
@@ -371,6 +391,52 @@ foreach ($resA as $row) {
             document.onmouseup = null;
             document.onmousemove = null;
         }
+    }
+</script>
+
+<script>
+    const videoElement =
+        document.querySelector('video');
+    const enterPiPButton =
+        document.getElementById('btnDrawing');
+    const exitPiPButton =
+        document.getElementById('btnExitDrawing');
+
+    // Check if PiP is supported in the browser
+    if (videoElement && 'pictureInPictureEnabled' in document) {
+        enterPiPButton.addEventListener('click', enterPiP);
+        exitPiPButton.addEventListener('click', exitPiP);
+
+        async function enterPiP() {
+            try {
+                // Request PiP mode
+                await videoElement.requestPictureInPicture();
+
+                // Hide the "Enter PiP" button and show the 
+                // "Exit PiP" button
+                enterPiPButton.classList.add('hidden');
+                exitPiPButton.classList.remove('hidden');
+            } catch (error) {
+                console.error('Error entering PiP:', error);
+            }
+        }
+
+        async function exitPiP() {
+            try {
+                // Exit PiP mode
+                await document.exitPictureInPicture();
+
+                // Hide the "Exit PiP" button and show the 
+                // "Enter PiP" button
+                exitPiPButton.classList.add('hidden');
+                enterPiPButton.classList.remove('hidden');
+            } catch (error) {
+                console.error('Error exiting PiP:', error);
+            }
+        }
+    } else {
+        console.error('PiP is not supported in this browser.');
+        enterPiPButton.style.display = 'none';
     }
 </script>
 
