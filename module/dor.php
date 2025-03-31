@@ -65,11 +65,15 @@ $response = ['success' => false, 'errors' => []];
 =======
             <input type="text" class="form-control form-control-lg" id="txtModelName" name="txtModelName"
                 placeholder="Scan or type product model" required>
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
         </div>
 
         <div class="mb-3">
             <label for="txtQty" class="form-label-lg fw-bold">Quantity</label>
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
             <input type="number" class="form-control form-control-lg" id="txtQty" name="txtQty" placeholder="Scan or type quantity" required>
         </div>
@@ -84,6 +88,13 @@ $response = ['success' => false, 'errors' => []];
         </div>
 
         <div class="d-grid gap-2">
+=======
+            <input type="number" class="form-control form-control-lg" id="txtQty" name="txtQty"
+                placeholder="Scan or type quantity" required>
+        </div>
+
+        <div class="d-grid gap-2">
+>>>>>>> Stashed changes
             <button type="submit" class="btn btn-primary btn-lg" id="btnCreateDor" name="btnCreateDor">Create DOR</button>
             <button type="submit" class="btn btn-secondary btn-lg" id="btnSearchDor" name="btnSearchDor">Search DOR</button>
         </div>
@@ -198,6 +209,7 @@ $response = ['success' => false, 'errors' => []];
         </div>
     </div>
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 
     <?php
     if ($_SERVER["REQUEST_METHOD"] === "POST") {
@@ -255,6 +267,8 @@ $response = ['success' => false, 'errors' => []];
         exit;
     }
     ?>
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
 </form>
@@ -380,6 +394,28 @@ $response = ['success' => false, 'errors' => []];
         let canvas = document.createElement("canvas");
         let ctx = canvas.getContext("2d", {
             willReadFrequently: true
+<<<<<<< Updated upstream
+=======
+        });
+        let scanning = false;
+
+        // Retrieve camera setting from PHP session
+        let cameraSetting = <?php echo isset($_SESSION['cameraSetting']) ? $_SESSION['cameraSetting'] : 1; ?>;
+
+        function getCameraConstraints() {
+            return {
+                video: {
+                    facingMode: cameraSetting === 1 ? "environment" : "user"
+                }
+            };
+        }
+
+        // Open QR Scanner when Model Input is Selected
+        modelInput.addEventListener("focus", function() {
+            if (!enterManually) {
+                startScanning();
+            }
+>>>>>>> Stashed changes
         });
         let scanning = false;
 >>>>>>> Stashed changes
