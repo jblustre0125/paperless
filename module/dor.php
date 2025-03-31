@@ -60,11 +60,17 @@ $response = ['success' => false, 'errors' => []];
 
         <div class="mb-3">
             <label for="txtModelName" class="form-label-lg fw-bold">Model</label>
+<<<<<<< Updated upstream
             <input type="text" class="form-control form-control-lg" id="txtModelName" name="txtModelName" placeholder="Scan or type product model" required>
+=======
+            <input type="text" class="form-control form-control-lg" id="txtModelName" name="txtModelName"
+                placeholder="Scan or type product model" required>
+>>>>>>> Stashed changes
         </div>
 
         <div class="mb-3">
             <label for="txtQty" class="form-label-lg fw-bold">Quantity</label>
+<<<<<<< Updated upstream
             <input type="number" class="form-control form-control-lg" id="txtQty" name="txtQty" placeholder="Scan or type quantity" required>
         </div>
 
@@ -72,6 +78,104 @@ $response = ['success' => false, 'errors' => []];
             <button type="submit" class="btn btn-primary btn-lg" name="btnCreateDor">Create DOR</button>
             <button type="submit" class="btn btn-secondary btn-lg" name="btnSearchDor">Search DOR</button>
         </div>
+=======
+            <input type="number" class="form-control form-control-lg" id="txtQty" name="txtQty"
+                placeholder="Scan or type quantity" required>
+        </div>
+
+        <div class="d-grid gap-2">
+            <button type="submit" class="btn btn-primary btn-lg" id="btnCreateDor" name="btnCreateDor">Create DOR</button>
+            <button type="submit" class="btn btn-secondary btn-lg" id="btnSearchDor" name="btnSearchDor">Search DOR</button>
+        </div>
+
+        <?php
+        if ($_SERVER["REQUEST_METHOD"] === "POST") {
+            $dorDate = testInput($_POST["dtpDate"]);
+            $shift = testInput($_POST['rdShift']);
+            $leaderId = testInput($_POST["cmbLeader"]);
+            $dorTypeId = testInput($_POST["cmbDorType"]);
+            $modelName = testInput($_POST["txtModelName"]);
+            $qty = testInput($_POST["txtQty"]);
+
+            if (empty($dorDate)) {
+                $errorMessages[] = "- Date is required. Select a date.";
+            }
+
+            if (empty($shift)) {
+                $errorMessages[] = "- Shift is required. Select a shift.";
+            }
+
+            if ($leaderId === "0") {
+                $errorMessages[] = "- Select a leader from the list.";
+            }
+
+            if ($dorTypeId === "0") {
+                $errorMessages[] = "- Select the type of DOR from the list.";
+            }
+            if (empty($modelName)) {
+                $errorMessages[] = "- Scan or type the product model.";
+            } else {
+                if (!isValidModel($modelName)) {
+                    $errorMessages[] = "- The model is not registered.";
+                }
+            }
+
+            if (empty($qty) || $qty === '0') {
+                $errorMessages[] = "- Enter the production quantity.";
+            }
+
+            // If there are errors, display them
+            if (!empty($errorMessages)) {
+                $errorPrompt = implode("<br>", $errorMessages); // Join errors with line breaks
+            } else {
+                if (isset($_POST['btnCreateDor'])) {
+                    $shiftId = $lineId = $modelId = 0;
+
+                    $selQry = "EXEC RdGenShift @ShiftCode=?";
+                    $res = $db1->execute($selQry, [$shift], 1);
+
+                    if ($res !== false) {
+                        foreach ($res as $row) {
+                            $shiftId = $row['ShiftId'];
+                        }
+                    }
+
+                    $selQry = "EXEC RdAtoLine @LineId=?";
+                    $res = $db1->execute($selQry, [$_SESSION["deviceName"]], 1);
+
+                    if (!empty($res)) {
+                        foreach ($res as $row) {
+                            $lineId = $row['LineId'];
+                        }
+                    }
+
+                    $selQry = "EXEC RdGenModel @IsActive=?, @ITEM_ID=?";
+                    $res = $db1->execute($selQry, [1, $modelName], 1);
+
+                    if ($res !== false) {
+                        foreach ($res as $row) {
+                            $modelId = $row['ITEM_ID'];
+                        }
+                    }
+
+                    if (isExistDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId) === true) {
+                        $errorPrompt = "DOR already exists.";
+                    } else {
+                        $_SESSION["dorDate"] = $dorDate;
+                        $_SESSION["dorShift"] = $shift;
+                        $_SESSION["dorLineId"] = $lineId;
+                        $_SESSION["dorQty"] = $qty;
+                        $_SESSION["dorModelId"] = $modelId;
+                        $_SESSION["dorLeaderId"] = $leaderId;
+                        $_SESSION["dorTypeId"] = $dorTypeId;
+
+                        header('Location: dor-form.php');
+                    }
+                }
+            }
+        }
+        ?>
+>>>>>>> Stashed changes
     </div>
 
     <!-- QR Code Scanner Modal -->
@@ -93,6 +197,7 @@ $response = ['success' => false, 'errors' => []];
             </div>
         </div>
     </div>
+<<<<<<< Updated upstream
 
     <?php
     if ($_SERVER["REQUEST_METHOD"] === "POST") {
@@ -150,6 +255,8 @@ $response = ['success' => false, 'errors' => []];
         exit;
     }
     ?>
+=======
+>>>>>>> Stashed changes
 </form>
 
 <!-- Bootstrap Modal for Error Messages -->
@@ -168,6 +275,23 @@ $response = ['success' => false, 'errors' => []];
 </div>
 
 <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.querySelector('form');
+
+        form.addEventListener('myForm', function(e) {
+            e.preventDefault(); // stop form from submitting normally
+
+            // use fetch API to submit the form data
+            fetch(form.action, {
+                    method: 'POST',
+                    body: new FormData(form)
+                })
+                .then(response => response.text())
+                .then(html => alert(html)) // display response
+                .catch(error => console.error('Error:', error));
+        });
+    });
+
     document.addEventListener('DOMContentLoaded', function() {
         const form = document.querySelector('#myForm');
         const errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
@@ -244,12 +368,21 @@ $response = ['success' => false, 'errors' => []];
     //     const scannerModal = new bootstrap.Modal(document.getElementById("qrScannerModal"));
     //     let enterManually = false; // Flag to track manual entry
 
+<<<<<<< Updated upstream
     //     let video = document.getElementById("qr-video");
     //     let canvas = document.createElement("canvas");
     //     let ctx = canvas.getContext("2d", {
     //         willReadFrequently: true
     //     });
     //     let scanning = false;
+=======
+        let video = document.getElementById("qr-video");
+        let canvas = document.createElement("canvas");
+        let ctx = canvas.getContext("2d", {
+            willReadFrequently: true
+        });
+        let scanning = false;
+>>>>>>> Stashed changes
 
     //     // Retrieve camera setting from PHP session
     //     let cameraSetting = <?php echo isset($_SESSION['cameraSetting']) ? $_SESSION['cameraSetting'] : 1; ?>;
@@ -288,6 +421,7 @@ $response = ['success' => false, 'errors' => []];
     //     function scanQRCode() {
     //         if (!scanning) return;
 
+<<<<<<< Updated upstream
     //         if (video.readyState === video.HAVE_ENOUGH_DATA) {
     //             canvas.width = video.videoWidth;
     //             canvas.height = video.videoHeight;
@@ -298,6 +432,14 @@ $response = ['success' => false, 'errors' => []];
     //             if (qrCodeData) {
     //                 let scannedText = qrCodeData.data.trim();
     //                 let parts = scannedText.split(" "); // Split by space
+=======
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                let qrCodeData = jsQR(imageData.data, imageData.width, imageData.height);
+>>>>>>> Stashed changes
 
     //                 if (parts.length === 1) {
     //                     // If only 1 value is provided, assume it's the model name
