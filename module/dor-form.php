@@ -209,11 +209,15 @@ foreach ($resA as $row) {
             </div>
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
             <<<<<<< Updated upstream
                 <button class="btn btn-primary btn-lg" onclick="GoDOR()">Proceed to DOR</button>
                 =======
                 <button class="btn btn-primary btn-md" onclick="submitForm()">Proceed to DOR</button>
                 >>>>>>> Stashed changes
+=======
+            <button class="btn btn-primary btn-md" onclick="submitForm()">Proceed to DOR</button>
+>>>>>>> Stashed changes
 =======
             <button class="btn btn-primary btn-md" onclick="submitForm()">Proceed to DOR</button>
 >>>>>>> Stashed changes
