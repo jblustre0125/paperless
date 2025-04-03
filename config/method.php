@@ -125,7 +125,12 @@ function isValidLine($lineNumber)
     $selQry = "SELECT COUNT(LineId) AS Count FROM dbo.AtoLine WHERE IsLoggedIn = 0 AND LineNumber = ?";
     $res = $db1->execute($selQry, [$lineNumber], 1);
 
-    return !empty($res) && $res[0]['Count'] > 0;
+    // Check if the result is empty or 'Count' is not set, return false
+    if (empty($res) || !isset($res[0]['Count']) || $res[0]['Count'] == 0) {
+        return false; // Model is not valid
+    }
+
+    return true;
 }
 
 function isValidModel($modelName)
@@ -134,7 +139,12 @@ function isValidModel($modelName)
     $selQry = "SELECT COUNT(MODEL_ID) AS Count FROM dbo.GenModel WHERE ISACTIVE = 1 AND ITEM_ID = ?";
     $res = $db1->execute($selQry, [$modelName], 1);
 
-    return !empty($res) && $res[0]['Count'] > 0;
+    // Check if the result is empty or 'Count' is not set, return false
+    if (empty($res) || !isset($res[0]['Count']) || $res[0]['Count'] == 0) {
+        return false; // Model is not valid
+    }
+
+    return true;
 }
 
 function isExistDor($date, $shiftId, $lineId, $modelId, $dortypeId)
@@ -143,7 +153,12 @@ function isExistDor($date, $shiftId, $lineId, $modelId, $dortypeId)
     $selSp = "EXEC CntAtoDOR @CreatedDate=?, @ShiftId=?, @LineId=?, @ModelId=?, @DorTypeId=?";
     $res = $db1->execute($selSp, [$date, $shiftId, $lineId, $modelId, $dortypeId], 1);
 
-    return !empty($res) && $res[0]['Count'] > 0;
+    // Check if the result is empty or 'Count' is not set, return false
+    if (empty($res) || !isset($res[0]['Count']) || $res[0]['Count'] == 0) {
+        return false; // Model is not valid
+    }
+
+    return true;
 }
 
 function getAutocompleteName($query, $departmentId)
