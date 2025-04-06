@@ -74,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 				$db1->execute($updQry2, ['SAATO 144', 1], 1);
 			}
 
-			header('Location: module/dor.php');
+			header('Location: module/dor-home.php');
 			exit();
 		} else {
 			$errorPrompt = "Employee or device not found.";

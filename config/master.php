@@ -32,7 +32,7 @@ if (isset($_GET['logOut'])) {
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link active fs-5" href="dor.php">Daily Operation Record</a>
+                        <a class="nav-link active fs-5" href="dor-home.php">Daily Operation Record</a>
                     </li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle fs-5" href="#" id="reportDropdown" role="button"

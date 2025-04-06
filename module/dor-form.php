@@ -1,6 +1,6 @@
 <?php
 
-$title = "DOR Form";
+$title = "DOR Form A";
 ob_start(); // start output buffering
 
 require_once "../config/dbop.php";
@@ -35,163 +35,7 @@ foreach ($resA as $row) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $title ?? 'Default Title'; ?></title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        body {
-            font-size: 1.2rem;
-            padding-top: 10px;
-        }
-
-        .tab-container {
-            margin-top: 0;
-        }
-
-        .table-checkpointA th {
-            text-align: center;
-        }
-
-        .table-checkpointA th,
-        .table-checkpointA td {
-            vertical-align: middle;
-            padding: 8px;
-        }
-
-        .checkpoint-cell {
-            text-align: left !important;
-            white-space: normal;
-            word-wrap: break-word;
-        }
-
-        .criteria-cell {
-            text-align: center;
-        }
-
-        .selection-cell {
-            width: 35%;
-            /* Increase width for better touch accessibility */
-        }
-
-        .process-radio {
-            display: flex;
-            justify-content: space-evenly;
-            /* Space out the radio buttons */
-            gap: 20px;
-            /* Increase spacing for touch-friendly selection */
-        }
-
-        .process-radio label {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-
-        .process-radio input {
-            transform: scale(1.5);
-            /* Make radio buttons larger */
-        }
-
-        .tab-nav {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            /* Reduce space between buttons */
-            flex-wrap: wrap;
-            /* Allows wrapping on smaller screens */
-            margin-bottom: 10px;
-        }
-
-        .tab-button {
-            font-size: 1.2rem;
-            /* Reduce font size slightly */
-            padding: 10px 20px;
-            /* Adjust padding */
-            min-width: 120px;
-            /* Reduce minimum width */
-            text-align: center;
-            flex: 1;
-            /* Makes buttons evenly distribute space */
-            max-width: 200px;
-            /* Prevents overly wide buttons */
-        }
-
-        .tab-button.active {
-            background-color: #007bff;
-            color: white;
-        }
-
-        .navbar {
-            position: fixed;
-            top: 0;
-            width: 100%;
-            z-index: 1030;
-            /* Ensures it stays on top */
-            background-color: #f8f9fa;
-            /* Bootstrap light background */
-            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
-        }
-
-        body {
-            padding-top: 80px;
-            /* Added to prevent content overlap */
-        }
-
-        .navbar-brand {
-            white-space: normal !important;
-            /* Allow text wrapping */
-            word-wrap: break-word;
-            max-width: 80%;
-            /* Limit width to prevent overflow */
-            text-align: center;
-            /* Center align */
-            font-size: 1.2rem;
-            /* Adjust font size for responsiveness */
-        }
-    </style>
-
-    <style>
-        /* Floating Window Styling */
-        .floating-window {
-            display: none;
-            position: absolute;
-            width: 500px;
-            height: auto;
-            background: white;
-            border: 2px solid #555;
-            box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.3);
-            z-index: 1000;
-            top: 50px;
-            left: 50px;
-        }
-
-        /* Header for Dragging */
-        .floating-header {
-            padding: 10px;
-            background: #007bff;
-            color: white;
-            cursor: move;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        /* Close Button */
-        .close-btn {
-            background: none;
-            border: none;
-            font-size: 18px;
-            color: white;
-            cursor: pointer;
-        }
-
-        .floating-body {
-            padding: 10px;
-            text-align: center;
-        }
-
-        .floating-body img {
-            max-width: 100%;
-            height: auto;
-        }
-    </style>
+    <link href="../css/dor-form.css" rel="stylesheet">
 </head>
 
 <body>
@@ -207,15 +51,6 @@ foreach ($resA as $row) {
                     <button class="btn btn-secondary btn-md">Prep Card</button>
                 </div>
             </div>
-
-            <button class="btn btn-primary btn-lg" onclick="GoDOR()">Proceed to DOR</button>
-
-            <button class="btn btn-primary btn-md" onclick="submitForm()">Proceed to DOR</button>
-
-            <button class="btn btn-primary btn-md" onclick="submitForm()">Proceed to DOR</button>
-
-            <button class="btn btn-primary btn-md" onclick="submitForm()">Proceed to DOR</button>
-
             <button class="btn btn-primary btn-md" onclick="submitForm()">Proceed to DOR</button>
         </div>
     </nav>
@@ -308,7 +143,7 @@ foreach ($resA as $row) {
     }
 
     function goBack() {
-        window.location.href = "dor.php";
+        window.location.href = "dor-home.php";
     }
 
     function GoDOR() {

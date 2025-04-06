@@ -64,57 +64,73 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $response['errors'] = $errorMessages;
 
     if (empty($response['errors'])) {
-        $response['success'] = true;
         if (isset($_POST['btnCreateDor'])) {
-            $shiftId = $lineId = $modelId = 0;
-
-            $selQry = "EXEC RdGenShift @ShiftCode=?";
-            $res = $db1->execute($selQry, [$shift], 1);
-
-            if ($res !== false) {
-                foreach ($res as $row) {
-                    $shiftId = $row['ShiftId'];
-                }
-            }
-
-            $selQry = "EXEC RdAtoLine @LineId=?";
-            $res = $db1->execute($selQry, [$_SESSION["deviceName"]], 1);
-
-            if (!empty($res)) {
-                foreach ($res as $row) {
-                    $lineId = $row['LineId'];
-                }
-            }
-
-            $selQry = "EXEC RdGenModel @IsActive=?, @ITEM_ID=?";
-            $res = $db1->execute($selQry, [1, $modelName], 1);
-
-            if ($res !== false) {
-                foreach ($res as $row) {
-                    $modelId = $row['ITEM_ID'];
-                }
-            }
-
-            if (isExistDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId) === true) {
-                $response['errors'][] = "DOR already exists.";
-            } else {
-                $_SESSION["dorDate"] = $dorDate;
-                $_SESSION["dorShift"] = $shift;
-                $_SESSION["dorLineId"] = $lineId;
-                $_SESSION["dorQty"] = $qty;
-                $_SESSION["dorModelId"] = $modelId;
-                $_SESSION["dorLeaderId"] = $leaderId;
-                $_SESSION["dorTypeId"] = $dorTypeId;
-
-                // Send a success response with the redirection URL
-                $response['success'] = true;
-            }
+            handleCreateDor($dorDate, $shift, $leaderId, $dorTypeId, $modelName, $qty, $response);
+        } elseif (isset($_POST['btnSearchDor'])) {
+            handleSearchDor($dorDate, $shift, $leaderId, $dorTypeId, $modelName, $qty, $response);
         }
+    } else {
     }
 
     echo json_encode($response);
     exit;
 }
+
+function handleCreateDor($dorDate, $shift, $leaderId, $dorTypeId, $modelName, $qty, &$response)
+{
+    global $db1;
+
+    $shiftId = $lineId = $modelId = 0;
+
+    $selQry = "EXEC RdGenShift @ShiftCode=?";
+    $res = $db1->execute($selQry, [$shift], 1);
+
+    if ($res !== false) {
+        foreach ($res as $row) {
+            $shiftId = $row['ShiftId'];
+        }
+    }
+
+    $selQry = "EXEC RdAtoLine @LineId=?";
+    $res = $db1->execute($selQry, [$_SESSION["deviceName"]], 1);
+
+    if (!empty($res)) {
+        foreach ($res as $row) {
+            $lineId = $row['LineId'];
+        }
+    }
+
+    $selQry = "EXEC RdGenModel @IsActive=?, @ITEM_ID=?";
+    $res = $db1->execute($selQry, [1, $modelName], 1);
+
+    if ($res !== false) {
+        foreach ($res as $row) {
+            $modelId = $row['ITEM_ID'];
+        }
+    }
+
+    if (isExistDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId) === true) {
+        $response['errors'][] = "DOR already exists.";
+    } else {
+        $_SESSION["dorDate"] = $dorDate;
+        $_SESSION["dorShift"] = $shift;
+        $_SESSION["dorLineId"] = $lineId;
+        $_SESSION["dorQty"] = $qty;
+        $_SESSION["dorModelId"] = $modelId;
+        $_SESSION["dorLeaderId"] = $leaderId;
+        $_SESSION["dorTypeId"] = $dorTypeId;
+
+        $response['success'] = true;
+        $response['redirectUrl'] = "dor-form.php";
+    }
+}
+
+function handleSearchDor($dorDate, $shift, $leaderId, $dorTypeId, $modelName, $qty, &$response)
+{
+    $response['success'] = true;
+    // add redirect URL for search DOR
+}
+
 ?>
 
 <form id="myForm" method="post" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" novalidate>
@@ -196,22 +212,25 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             </div>
         </div>
     </div>
-</form>
 
-<!-- Bootstrap Modal for Error Messages -->
-<div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="errorModalLabel"></h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div id="modalErrorMessage"></div>
+    <!-- Bootstrap Modal for Error Messages -->
+    <div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content border-danger">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="errorModalLabel">Form Submission Error</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="modalErrorMessage">
+                    <!-- Error messages will be injected here by JS -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
+                </div>
             </div>
         </div>
     </div>
-</div>
+</form>
 
 <script src="../js/jsQR.min.js"></script>
 
@@ -300,7 +319,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         modelInput.addEventListener("focus", function() {
             // uncomment the line below to activate scanning mode
-            // if (!enterManually) startScanning();
+            if (!enterManually) startScanning();
         });
         modelInput.addEventListener("input", function() {
             enterManually = true;
@@ -319,6 +338,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         const form = document.querySelector("#myForm");
         const errorModal = new bootstrap.Modal(document.getElementById("errorModal"));
         const modalErrorMessage = document.getElementById("modalErrorMessage");
+
+        let clickedButton = null;
+
+        // Track which submit button was clicked
+        document.querySelectorAll("button[type='submit']").forEach(button => {
+            button.addEventListener("click", function() {
+                clickedButton = this;
+            });
+        });
 
         form.addEventListener("submit", function(e) {
             e.preventDefault();
@@ -339,6 +367,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             let formData = new FormData(form);
 
+            if (clickedButton) {
+                formData.append(clickedButton.name, clickedButton.value || "1");
+            }
+
             fetch(form.action, {
                     method: "POST",
                     body: formData
@@ -352,7 +384,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     }
 
                     if (data.success) {
-                        window.location.href = "dor-form.php";
+                        if (clickedButton.name === "btnCreateDor") {
+                            window.location.href = data.redirectUrl;
+                            return;
+                        }
+                        if (clickedButton.name === "btnSearchDor") {
+                            window.location.href = data.redirectUrl;
+                            return;
+                        }
                     } else {
                         modalErrorMessage.innerHTML = "<ul><li>" + data.errors.join("</li><li>") + "</li></ul>";
                         errorModal.show();
