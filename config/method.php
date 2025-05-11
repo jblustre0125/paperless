@@ -171,30 +171,16 @@ function getAutocompleteName($query, $departmentId)
 }
 
 // function to get image URL based on model number
-function getImageUrl($dorTypeId, $modelNumber)
+function getDrawing($modelName)
 {
-    $dorTypeName = "";
+    $imageDirectory = "/dor-system/drawing/"; // URL relative to the web root
+    $imagePath = $_SERVER['DOCUMENT_ROOT'] . $imageDirectory;
+    $imageExtension = ".png";
 
-    switch ($dorTypeId) {
-        case 1:
-            $dorTypeName = "pre-assy";
-            break;
-        case 2:
-            $dorTypeName = "clamp-assy";
-            break;
-        case 3:
-            $dorTypeName = "taping";
-            break;
-        default:
-            $dorTypeName = "pre-assy";
+    $fullPath = $imagePath . $modelName . $imageExtension;
+    if (file_exists($fullPath)) {
+        return $imageDirectory . $modelName . $imageExtension; // Return the web-accessible URL
     }
 
-    $imagePath = "../img/drawings/" . $dorTypeName . "/"; // directory where images are stored
-    $imageExtension = ".png"; // assuming images are in jpg format
-
-    if (file_exists($imagePath . $modelNumber . $imageExtension)) {
-        return $imagePath . $modelNumber . $imageExtension;
-    } else {
-        return $imagePath . "default.jpg"; // fallback image if model-specific image is not found
-    }
+    return ""; // Optional: return empty string or default image if not found
 }
