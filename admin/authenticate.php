@@ -1,28 +1,22 @@
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<title></title>
-	<link rel="stylesheet" href="css/bootstrap.min.css">
-	<link rel="icon" type="image/png" href="../img/nbc.jpg">
-</head>
-
 <?php
+ini_set('session.gc_maxlifetime', 86400);
 
-session_status() === PHP_SESSION_ACTIVE ?: session_start();
-
-require_once "config/dbop.php";
-require_once "config/method.php";
+require_once "../config/dbop.php";
+require_once "../config/header.php";
 
 $errorPrompt = '';
-
 $db1 = new DbOp(1);
+$deviceName = gethostname();
+
+// Developer override
+if ($deviceName === 'NBCP-LT-144') {
+	$deviceName = 'TAB-ATO1';
+}
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 	try {
 		$productionCode = testInput($_POST["txtProductionCode"]);
+
 		$isActive = 1;
 		$isLoggedIn = 0;
 
@@ -30,16 +24,32 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 		$res1 = $db1->execute($spRd1, [$productionCode, $isActive, $isLoggedIn], 1);
 
 		$spRd2 = "EXEC RdAtoLine @LineNumber=?, @IsLoggedIn=?";
-		$res2 = $db1->execute($spRd2, ['SAATO 144', 0], 1);
+		$res2 = $db1->execute($spRd2, [$deviceName, $isLoggedIn], 1);
 
+		// Validate employee
 		if (empty($res1)) {
-			$errorPrompt = "Employee not found or already logged in.";
+			// Check if registered but already logged in
+			$spChkEmp = "EXEC RdGenOperator @ProductionCode=?, @IsActive=?, @IsLoggedIn=NULL";
+			$chkEmp = $db1->execute($spChkEmp, [$productionCode, $isActive], 1);
+			if (!empty($chkEmp)) {
+				$errorPrompt = "Employee already logged in.";
+			} else {
+				$errorPrompt = "Employee not registered.";
+			}
 		}
 
+		// Validate device
 		if (empty($res2)) {
-			$errorPrompt = "Device not found or already logged in.";
+			$spChkDev = "EXEC RdAtoLine @LineNumber=?, @IsLoggedIn=NULL";
+			$chkDev = $db1->execute($spChkDev, [$deviceName], 1);
+			if (!empty($chkDev)) {
+				$errorPrompt .= ($errorPrompt ? " " : "") . "Device already logged in.";
+			} else {
+				$errorPrompt .= ($errorPrompt ? " " : "") . "Device not registered.";
+			}
 		}
 
+		// If both valid
 		if (!empty($res1) && !empty($res2)) {
 			foreach ($res1 as $row1) {
 				$_SESSION['loggedIn'] = true;
@@ -59,25 +69,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 				$_SESSION['isManager'] = $row1['IsManager'];
 				$_SESSION['isLoggedIn'] = $row1['IsLoggedIn'];
 				$_SESSION['isActive'] = $row1['IsActive'];
-				$_SESSION['cameraSetting'] = 2;
 
 				$updQry1 = "EXEC UpdGenOperator @OperatorId=?, @IsLoggedIn=?";
 				$db1->execute($updQry1, [$row1['OperatorId'], 1], 1);
 			}
 
 			foreach ($res2 as $row2) {
-				$_SESSION['deviceName'] = $row2['LineNumber'];
+				$_SESSION['deviceName'] = $deviceName;
 				$_SESSION['lineId'] = $row2["LineId"];
 				$_SESSION['processId'] = $row2['ProcessId'];
 
 				$updQry2 = "EXEC UpdAtoLine @LineNumber=?, @IsLoggedIn=?";
-				$db1->execute($updQry2, ['SAATO 144', 1], 1);
+				$db1->execute($updQry2, [$deviceName, 1], 1);
 			}
 
-			header('Location: module/dor-home.php');
+			header('Location: ../module/dor-home.php');
 			exit();
-		} else {
-			$errorPrompt = "Employee or device not found.";
 		}
 	} catch (Exception $e) {
 		globalExceptionHandler($e);

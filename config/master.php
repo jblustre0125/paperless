@@ -1,9 +1,9 @@
 <?php
 require_once "../config/header.php";
-
 $db1 = new DbOp(1);
 
 if (isset($_GET['logOut'])) {
+    echo $_SESSION['operatorId'];
     $updQry = "EXEC UpdGenOperator @OperatorId=?, @IsLoggedIn=?";
     $db1->execute($updQry, [$_SESSION['operatorId'], 0], 1);
     header('Location: ../logout.php');
@@ -18,7 +18,7 @@ if (isset($_GET['logOut'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $title ?? 'Default Title'; ?></title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
-    <link href="../css/master.css" rel="stylesheet"> <!-- New CSS file for styling -->
+    <link href="../css/master.css" rel="stylesheet">
 </head>
 
 <body>
@@ -49,7 +49,7 @@ if (isset($_GET['logOut'])) {
                 <ul class="navbar-nav">
                     <li class="nav-item">
                         <span class="nav-link text-info fw-bold">
-                            <?= testInput($_SESSION['deviceName']); ?>
+                            <?= isset($_SESSION['deviceName']) ? testInput($_SESSION['deviceName']) : '—'; ?>
                         </span>
                     </li>
 
@@ -57,7 +57,7 @@ if (isset($_GET['logOut'])) {
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle fs-5" href="#" id="userDropdown" role="button"
                             data-bs-toggle="dropdown" aria-expanded="false">
-                            <?= testInput($_SESSION['employeeName']); ?>
+                            <?= isset($_SESSION['employeeName']) ? testInput($_SESSION['employeeName']) : 'User'; ?>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><a class="dropdown-item text-danger fw-bold" href="?logOut">Log Out</a></li>

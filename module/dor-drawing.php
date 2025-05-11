@@ -13,9 +13,7 @@ if (!$dorTypeId) {
 $dorFolders = [
     1 => "pre-assy",
     2 => "clamp-assy",
-    3 => "taping",
-    4 => "insertion",
-    5 => "offline"
+    3 => "taping"
 ];
 
 // Check if the selected DOR type exists in the mapping

@@ -26,7 +26,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo htmlspecialchars($title ?? 'Work I Checkpoint'); ?></title>
+    <title><?php echo htmlspecialchars($title ?? 'Refreshment Checkpoint'); ?></title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link href="../css/dor-form.css" rel="stylesheet">
 </head>
@@ -49,8 +49,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $errorPrompt = '';
 
     // Fetch checkpoints based on DOR Type
-    $procA = "EXEC RdAtoDorCheckpointStart @DorTypeId=?";
-    $resA = $db1->execute($procA, [$_SESSION['dorTypeId']], 1);
+    $procA = "EXEC RdAtoDorCheckpointRefresh";
+    $resA = $db1->execute($procA, [], 1);
 
     // Prepare data for the tabs
     $tabData = [];
@@ -83,7 +83,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                             <button type="button" class="btn btn-secondary btn-lg" id="btnPrepCard" aria-label="Open Preparation Card">Preparation Card</button>
                         </div>
 
-                        <button class="btn btn-primary btn-lg mt-2 mt-lg-0" type="submit" id="btnProceed" name="btnProceed" aria-label="Proceed to Refresher Checkpoint">Proceed to Refresher</button>
+                        <button class="btn btn-primary btn-lg mt-2 mt-lg-0" type="submit" id="btnProceed" name="btnProceed" aria-label="Proceed to DOR">Proceed to DOR</button>
                     </div>
                 </div>
             </div>
@@ -98,92 +98,59 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             <div class="tab-container">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <!-- Title -->
                     <h6 class="fw-bold mb-0" style="font-size: 1rem; max-width: 60%; word-wrap: break-word;">
-                        A. Required Item and Jig Condition VS Work Instruction
+                        Refreshment Checkpoint
                     </h6>
-
-                    <!-- Process Buttons and Textboxes -->
-                    <div class="d-flex gap-3">
-                        <?php for ($i = 1; $i <= $_SESSION['tabQty']; $i++) : ?>
-                            <div class="d-flex flex-column align-items-center">
-                                <!-- Process Button -->
-                                <button type="button" class="tab-button btn btn-secondary btn-sm mb-1" onclick="openTab(event, 'Process<?php echo $i; ?>')">Process <?php echo $i; ?></button>
-
-                                <!-- Textbox for User Code -->
-                                <input type="text" class="form-control form-control-md" id="userCode<?php echo $i; ?>" name="userCode<?php echo $i; ?>" placeholder="MP Code" style="width: 120px;">
-                            </div>
-                        <?php endfor; ?>
-                    </div>
                 </div>
 
-                <?php for ($i = 1; $i <= $_SESSION['tabQty']; $i++) : ?>
-                    <div id="Process<?php echo $i; ?>" class="tab-content" style="display: none;">
-                        <table class="table-checkpointA table table-bordered align-middle">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Checkpoint</th>
-                                    <th colspan="2">Criteria</th>
-                                    <th class="col-auto text-nowrap">Selection</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($tabData as $checkpointName => $rows) : ?>
-                                    <tr>
-                                        <td rowspan="<?php echo count($rows); ?>" class="checkpoint-cell">
-                                            <?php echo $rows[0]['SequenceId'] . ". " . $checkpointName; ?>
-                                        </td>
-                                        <?php foreach ($rows as $index => $row) : ?>
-                                            <?php if ($index > 0) echo "<tr>"; ?>
+                <table class="table-checkpointA table table-bordered align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Checkpoint</th>
+                            <th colspan="2">Criteria</th>
+                            <th class="col-auto text-nowrap">Selection</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($tabData as $checkpointName => $rows) : ?>
+                            <tr>
+                                <td rowspan="<?php echo count($rows); ?>" class="checkpoint-cell">
+                                    <?php echo $rows[0]['SequenceId'] . ". " . $checkpointName; ?>
+                                </td>
+                                <?php foreach ($rows as $index => $row) : ?>
+                                    <?php if ($index > 0) echo "<tr>"; ?>
 
-                                            <?php
-                                            $criteriaTypeId = $row['CheckpointTypeId'];
-                                            $criteriaGood = $row['CriteriaGood'] ?? '';
-                                            $criteriaNotGood = $row['CriteriaNotGood'] ?? '';
-                                            ?>
+                                    <?php
+                                    $criteriaTypeId = $row['CheckpointTypeId'];
+                                    $criteriaGood = $row['CriteriaGood'] ?? '';
+                                    $criteriaNotGood = $row['CriteriaNotGood'] ?? '';
+                                    ?>
 
-                                            <?php if (empty($criteriaNotGood)) : ?>
-                                                <td class="criteria-cell" colspan="2"><?php echo $criteriaGood; ?></td>
-                                            <?php else : ?>
-                                                <td class="criteria-cell"><?php echo $criteriaGood; ?></td>
-                                                <td class="criteria-cell"><?php echo $criteriaNotGood; ?></td>
-                                            <?php endif; ?>
+                                    <?php if (empty($criteriaNotGood)) : ?>
+                                        <td class="criteria-cell" colspan="2"><?php echo $criteriaGood; ?></td>
+                                    <?php else : ?>
+                                        <td class="criteria-cell"><?php echo $criteriaGood; ?></td>
+                                        <td class="criteria-cell"><?php echo $criteriaNotGood; ?></td>
+                                    <?php endif; ?>
 
-                                            <td class="selection-cell">
-                                                <?php if ($criteriaTypeId == 1) : ?>
-                                                    <!-- Type 1: OK, NG, NA -->
-                                                    <div class='process-radio'>
-                                                        <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='OK'> OK</label>
-                                                        <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='NG'> NG</label>
-                                                        <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='NA'> NA</label>
-                                                    </div>
-                                                <?php elseif ($criteriaTypeId == 2) : ?>
-                                                    <!-- Type 2: Free text -->
-                                                    <input type="text" class="form-control" name="Process<?php echo $i . "_" . $row['SequenceId']; ?>">
-                                                <?php elseif ($criteriaTypeId == 3) : ?>
-                                                    <!-- Type 3: NJ, CJ -->
-                                                    <div class='process-radio'>
-                                                        <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='CJ'> CJ</label>
-                                                        <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='NJ'> NJ</label>
-                                                    </div>
-                                                <?php elseif ($criteriaTypeId == 4) : ?>
-                                                    <!-- Type 3: NJ, CJ -->
-                                                    <div class='process-radio'>
-                                                        <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='M'> M</label>
-                                                        <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='NM'> NM</label>
-                                                    </div>
-                                                <?php endif; ?>
-                                            </td>
+                                    <td class="selection-cell">
+                                        <?php if ($criteriaTypeId == 1) : ?>
+                                            <!-- Type 1: OK, NG, NA -->
+                                            <div class='process-radio'>
+                                                <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='OK'> OK</label>
+                                                <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='NG'> NG</label>
+                                                <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='NA'> NA</label>
+                                            </div>
+                                        <?php endif; ?>
+                                    </td>
 
-                                            <?php if ($index == count($rows) - 1) : ?>
-                                    </tr>
-                                <?php endif; ?>
-                            <?php endforeach; ?>
-                        <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                <?php endfor; ?>
+                                    <?php if ($index == count($rows) - 1) : ?>
+                            </tr>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
+                <?php endforeach; ?>
+                    </tbody>
+                </table>
             </div>
         </div>
 
@@ -215,177 +182,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 </div>
             </div>
         </div>
-
-        <!-- QR Code Scanner Modal -->
-        <div class="modal fade" id="qrScannerModal" tabindex="-1" aria-labelledby="qrScannerLabel" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Scan SA Code</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body text-center">
-                        <video id="qr-video" style="width: 100%; height: auto;" autoplay muted playsinline></video>
-                        <p class="text-muted mt-2">Align the QR code within the frame.</p>
-                    </div>
-                    <div class="modal-footer d-flex justify-content-between">
-                        <button type="button" class="btn btn-secondary" id="enterManually">Enter Manually</button>
-                        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Cancel</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Bootstrap Modal for Error Messages -->
-        <div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content border-danger">
-                    <div class="modal-header bg-danger text-white">
-                        <h5 class="modal-title" id="errorModalLabel">Form Submission Error</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body" id="modalErrorMessage">
-                        <!-- Error messages will be injected here by JS -->
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
-                    </div>
-                </div>
-            </div>
-        </div>
     </form>
 
     <!-- To fix `Uncaught ReferenceError: Modal is not defined` -->
     <script src="../js/bootstrap.bundle.min.js"></script>
-    <script src="../js/jsQR.min.js"></script>
-
-    <script>
-        function checkCameraAccessBeforeScanning() {
-            const constraints = {
-                video: {
-                    facingMode: {
-                        ideal: "environment"
-                    }
-                }
-            };
-
-            return navigator.mediaDevices.getUserMedia(constraints)
-                .then(stream => {
-                    // Stop the stream immediately after checking
-                    stream.getTracks().forEach(track => track.stop());
-                    return true;
-                })
-                .catch(error => {
-                    console.error("Camera access failed:", error);
-                    showErrorModal("Unable to access camera. Please check your browser permissions or device settings.");
-                    return false;
-                });
-        }
-
-        function showErrorModal(message) {
-            const modalErrorMessage = document.getElementById("modalErrorMessage");
-            modalErrorMessage.innerText = message;
-            const errorModal = new bootstrap.Modal(document.getElementById("errorModal"));
-            errorModal.show();
-        }
-    </script>
-
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            const scannerModal = new bootstrap.Modal(document.getElementById("qrScannerModal"));
-            let video = document.getElementById("qr-video");
-            let canvas = document.createElement("canvas");
-            let ctx = canvas.getContext("2d", {
-                willReadFrequently: true
-            });
-            let scanning = false;
-
-            function getCameraConstraints() {
-                return {
-                    video: {
-                        facingMode: {
-                            ideal: "environment"
-                        }
-                    }
-                };
-            }
-
-            function startScanning() {
-                scannerModal.show();
-                navigator.mediaDevices.getUserMedia(getCameraConstraints())
-                    .then(setupVideoStream)
-                    .catch(() => navigator.mediaDevices.getUserMedia({
-                        video: {
-                            facingMode: "user"
-                        }
-                    }).then(setupVideoStream));
-            }
-
-            function setupVideoStream(stream) {
-                video.srcObject = stream;
-                video.setAttribute("playsinline", true);
-                video.setAttribute("autoplay", true);
-                video.style.width = "100%";
-                video.muted = true;
-                video.play().then(() => scanQRCode());
-                scanning = true;
-            }
-
-            function scanQRCode() {
-                if (!scanning) return;
-                if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
-                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                    let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                    let qrCodeData = jsQR(imageData.data, imageData.width, imageData.height);
-                    if (qrCodeData) {
-                        let scannedText = qrCodeData.data.trim();
-                        if (activeInput) activeInput.value = scannedText;
-                        stopScanning();
-                    }
-                }
-                requestAnimationFrame(scanQRCode);
-            }
-
-            function stopScanning() {
-                scanning = false;
-                let tracks = video.srcObject?.getTracks();
-                if (tracks) tracks.forEach(track => track.stop());
-                scannerModal.hide();
-            }
-
-            let activeInput = null;
-            document.querySelectorAll("input[id^='userCode']").forEach(input => {
-                input.addEventListener("click", async function() {
-                    const accessGranted = await navigator.mediaDevices.getUserMedia({
-                        video: true
-                    }).then(stream => {
-                        stream.getTracks().forEach(track => track.stop());
-                        return true;
-                    }).catch(() => false);
-
-                    if (accessGranted) {
-                        activeInput = this;
-                        startScanning();
-                    } else {
-                        alert("Camera access denied");
-                    }
-                });
-            });
-
-            document.getElementById("qrScannerModal").addEventListener("hidden.bs.modal", stopScanning);
-            document.getElementById("enterManually").addEventListener("click", () => {
-                stopScanning();
-                setTimeout(() => {
-                    if (activeInput) activeInput.focus();
-                }, 300); // Delay to wait for modal fade-out animation
-            });
-
-        });
-    </script>
-
-
     <script>
         let isMinimized = false;
 
@@ -676,7 +476,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             }
 
             // Navigate back to dor-home.php
-            window.location.href = "dor-home.php";
+            window.location.href = "dor-form.php";
         }
 
         // Form submission handling

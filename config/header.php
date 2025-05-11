@@ -15,10 +15,15 @@ require_once "../config/method.php";
 <body>
     <?php
 
-    // check if the user is logged in, otherwise redirect to login page
-    if (!isset($_SESSION['loggedIn']) || $_SESSION['loggedIn'] !== true) {
-        header("Location: /index.php");  // redirect to the login page
-        exit;
+    $deviceName = gethostname();
+    $isTablet = str_starts_with($deviceName, 'TAB-');
+
+    if ($isTablet) {
+        // Require login for tablet users
+        if (!isset($_SESSION['loggedIn']) || $_SESSION['loggedIn'] !== true) {
+            header("Location: ../index.php");
+            exit;
+        }
     }
 
     ?>
