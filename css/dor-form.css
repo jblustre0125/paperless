@@ -1,6 +1,7 @@
 body {
   font-size: 1.2rem;
-  padding-top: 80px; /* use only one */
+  padding-top: 80px;
+  /* use only one */
 }
 
 .tab-container {
@@ -103,161 +104,99 @@ body {
   /* Adjust font size for responsiveness */
 }
 
-#pipModal {
+.pip-viewer {
   position: fixed;
-  background: #fff;
-  border: 1px solid #ccc;
+  /* REQUIRED for fixed placement */
   z-index: 1050;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
-  border-radius: 8px;
-  display: none;
+  /* Ensure it's above other elements */
+  background: #fff;
+  border: 2px solid #999;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+  display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.pip-viewer.maximize-mode {
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90vw;
+  height: 90vh;
+  max-width: 1024px;
+  max-height: 768px;
+  resize: none;
+  cursor: default;
+}
+
+body.no-scroll {
+  overflow: hidden !important;
+}
+
+.pip-viewer.minimize-mode {
+  bottom: 1rem;
+  right: 1rem;
+  width: 300px;
+  height: 200px;
+  resize: both;
+  cursor: move;
+}
+
+#pipHeader {
+  background: #333;
+  color: white;
+  padding: 0.25rem;
+  text-align: right;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.25rem;
+}
+
+.pip-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  padding: 0 0.5rem;
+  cursor: pointer;
 }
 
 #pipContent {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 1rem;
-  overflow-y: auto;
-  overflow-x: hidden;
-}
-
-.pip-body {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
   position: relative;
-}
-
-.pip-body img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-
-.pip-body img,
-.pip-body canvas {
-  max-width: 100%;
-  max-height: 100%;
-  width: auto;
-  height: auto;
-  object-fit: contain;
-  display: block;
-  margin: 0 !important;
-  transform: scale(1);
-  transform-origin: center center;
-  align-self: center;
-  justify-self: center;
-}
-
-.pip-controls {
+  flex: 1 1 auto;
   display: flex;
-  gap: 12px;
-}
-
-.pip-controls button {
-  display: inline-flex;
-  justify-content: center;
   align-items: center;
-  width: 48px;
-  height: 48px;
-  font-size: 24px;
-  border-radius: 5px;
-}
-
-.pip-controls button:focus {
-  outline: 2px solid #007bff;
-  outline-offset: 2px;
-}
-
-#pipModal.maximized {
-  width: 80vw;
-  /* Default width for larger screens */
-  height: 80vh;
-  /* Default height for larger screens */
-}
-
-#pipModal.maximized .modal-body {
-  display: flex;
   justify-content: center;
-  align-items: center;
   overflow: hidden;
-  height: 100%;
-  padding: 0;
 }
 
-#pipModal.minimized .pip-body {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 100%;
-}
-
-#pipModal.minimized .pip-body img {
+#pipContent iframe,
+#pipContent img {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  display: block;
-  margin: 0;
 }
 
-#pipModal.maximized img,
-#pipModal.maximized .pdf-container {
+#pipContent img,
+#pipContent canvas {
+  transform-origin: center center;
+}
+
+#pipContent img {
   max-width: 100%;
-  /* Ensure image does not overflow the modal width */
   max-height: 100%;
-  /* Ensure content does not overflow the modal height */
   object-fit: contain;
-  /* Ensure image scales uniformly to fit */
+  transform-origin: center center;
 }
 
-.pdf-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 100%;
-  height: 100%;
-}
-
-#pipModal iframe {
-  width: 100%;
-  height: 100%;
-}
-
-@media (max-width: 767px) {
-  #pipModal {
-    width: 95vw;
-    height: 95vh;
-  }
-}
-
-@media (max-width: 768px) {
-  #pipModal.maximized .pip-body {
-    width: 95%;
-    /* On smaller screens, use a larger width */
-    height: 95%;
-  }
-}
-
-/* Adjust PDF page fit for initial page */
-@media (max-width: 1024px) {
-  #pipModal.maximized img,
-  #pipModal.maximized .pdf-container {
-    max-width: 90%;
-    /* Adjust image/pdf width for smaller screens */
-    max-height: 90%;
-    /* Adjust height for smaller screens */
-  }
-}
-
-#pipModal.maximized .pip-maximize-btn,
-#pipModal.minimized .pip-minimize-btn {
+/* Optional subtle backdrop */
+#pipBackdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.2);
+  z-index: 1049;
   display: none;
 }
