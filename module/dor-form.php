@@ -100,7 +100,7 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <!-- Title -->
                     <h6 class="fw-bold mb-0" style="font-size: 1rem; max-width: 60%; word-wrap: break-word;">
-                        A. Required Item and Jig Condition VS Work Instruction
+                        Required Item and Jig Condition VS Work Instruction
                     </h6>
 
                     <!-- Process Buttons and Textboxes -->
@@ -173,6 +173,12 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
                                                         <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='NM'> NM</label>
                                                     </div>
                                                 <?php endif; ?>
+
+                                                <?php
+                                                $inputName = "Process{$i}_{$row['SequenceId']}";
+                                                ?>
+                                                <input type="hidden" name="meta[<?php echo $inputName ?>][tabIndex]" value="<?php echo $i ?>">
+                                                <input type="hidden" name="meta[<?php echo $inputName ?>][checkpoint]" value="<?php echo htmlspecialchars($row['CheckpointName']) ?>">
                                             </td>
 
                                             <?php if ($index == count($rows) - 1) : ?>
@@ -192,7 +198,7 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
             <div class="modal-dialog">
                 <div class="modal-content border-danger">
                     <div class="modal-header bg-danger text-white">
-                        <h5 class="modal-title" id="errorModalLabel">Form Submission Error</h5>
+                        <h5 class="modal-title" id="errorModalLabel">Please complete the information</h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body" id="modalErrorMessage">
@@ -220,24 +226,6 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
                     <div class="modal-footer d-flex justify-content-between">
                         <button type="button" class="btn btn-secondary" id="enterManually">Enter Manually</button>
                         <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Cancel</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Bootstrap Modal for Error Messages -->
-        <div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content border-danger">
-                    <div class="modal-header bg-danger text-white">
-                        <h5 class="modal-title" id="errorModalLabel">Form Submission Error</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body" id="modalErrorMessage">
-                        <!-- Error messages will be injected here by JS -->
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
                     </div>
                 </div>
             </div>
@@ -422,16 +410,96 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
 
             form.addEventListener("submit", function(e) {
                 e.preventDefault();
-                let errors = [];
 
-                if (errors.length > 0) {
-                    modalErrorMessage.innerHTML = "<ul><li>" + errors.join("</li><li>") + "</li></ul>";
+                const errorsByOperator = {};
+                const meta = {};
+                const userCodes = {};
+                const userCodeValues = [];
+
+                let userCodeErrorHtml = "";
+
+                // Loop through up to 4 tabs
+                for (let i = 1; i <= 4; i++) {
+                    const input = form.querySelector(`#userCode${i}`);
+                    if (!input) continue;
+
+                    const code = input.value.trim();
+                    if (!code) {
+                        userCodeErrorHtml += `<li>Enter MP Code for Process ${i}.</li>`;
+                    } else {
+                        if (userCodeValues.includes(code)) {
+                            userCodeErrorHtml += `<li>MP code "${code}" is duplicated.</li>`;
+                        }
+                        userCodes[i] = code;
+                        userCodeValues.push(code);
+                    }
+                }
+
+                if (userCodeErrorHtml) {
+                    modalErrorMessage.innerHTML = `${userCodeErrorHtml}`;
                     errorModal.show();
                     return;
                 }
 
-                let formData = new FormData(form);
+                // Collect meta info per ProcessX_Y
+                form.querySelectorAll("input[name^='meta[']").forEach(input => {
+                    const match = input.name.match(/meta\[(.*?)\]\[(.*?)\]/);
+                    if (match) {
+                        const field = match[1]; // e.g. Process1_105
+                        const key = match[2]; // checkpoint or tabIndex
+                        if (!meta[field]) meta[field] = {};
+                        meta[field][key] = input.value;
+                    }
+                });
 
+                const groups = {};
+
+                // Group radio and text inputs by field name
+                form.querySelectorAll("input[name^='Process'], input[type='text'][name^='Process']").forEach(input => {
+                    const name = input.name;
+                    if (!groups[name]) groups[name] = [];
+                    groups[name].push(input);
+                });
+
+                for (const name in groups) {
+                    const group = groups[name];
+                    const type = group[0].type;
+
+                    let valid = false;
+                    if (type === "radio") {
+                        valid = group.some(input => input.checked);
+                    } else if (type === "text") {
+                        valid = group[0].value.trim() !== "";
+                    }
+
+                    if (!valid) {
+                        const checkpoint = meta[name]?.checkpoint || name;
+                        const tabIndex = meta[name]?.tabIndex;
+                        const operator = tabIndex && userCodes[tabIndex] ? userCodes[tabIndex] : `Process ${tabIndex}`;
+
+                        if (!errorsByOperator[operator]) errorsByOperator[operator] = [];
+                        errorsByOperator[operator].push(checkpoint);
+                    }
+                }
+
+                // Show modal if errors exist
+                const operatorList = Object.keys(errorsByOperator);
+                if (operatorList.length > 0) {
+                    let html = ``;
+                    operatorList.forEach(op => {
+                        html += `<div><strong>${op}</strong><ul>`;
+                        errorsByOperator[op].forEach(cp => {
+                            html += `<li>${cp}</li>`;
+                        });
+                        html += `</ul></div>`;
+                    });
+                    modalErrorMessage.innerHTML = html;
+                    errorModal.show();
+                    return;
+                }
+
+                // Submit if valid
+                let formData = new FormData(form);
                 if (clickedButton) {
                     formData.append(clickedButton.name, clickedButton.value || "1");
                 }
@@ -454,6 +522,7 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
                     })
                     .catch(error => console.error("Error:", error));
             });
+
         });
 
         function openTab(event, tabName) {
@@ -534,7 +603,7 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
             currentScale = 1;
             currentPage = 1;
 
-            // 🔥 FIX: Ensure viewer is visible before applying mode
+            // FIX: Ensure viewer is visible before applying mode
             pipViewer.classList.remove('d-none');
             pipViewer.classList.remove('minimize-mode');
             pipViewer.classList.remove('maximize-mode'); // Reset both first

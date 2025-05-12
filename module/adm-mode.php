@@ -11,7 +11,7 @@ $title = "Choose Mode";
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $title ?? 'Default Title'; ?></title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
-    <link href="../css/master.css" rel="stylesheet"> <!-- New CSS file for styling -->
+    <link href="../css/master.css" rel="stylesheet">
 </head>
 
 <body>

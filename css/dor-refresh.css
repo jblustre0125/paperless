@@ -200,19 +200,3 @@ body.no-scroll {
   z-index: 1049;
   display: none;
 }
-
-#errorModal .modal-dialog {
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-}
-
-#errorModal .modal-content {
-  flex: 1 1 auto;
-  overflow: hidden;
-}
-
-#modalErrorMessage {
-  overflow-y: auto;
-  max-height: 60vh;
-}

@@ -20,51 +20,51 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 }
 ?>
 
+<?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+$title = "DOR Form A";
+session_start(); // Start the session
+ob_start(); // start output buffering
+
+require_once "../config/dbop.php";
+require_once "../config/method.php";
+
+$db1 = new DbOp(1);
+
+$errorPrompt = '';
+
+// Fetch checkpoints based on DOR Type
+$procA = "EXEC RdAtoDorCheckpointStart @DorTypeId=?";
+$resA = $db1->execute($procA, [$_SESSION['dorTypeId']], 1);
+
+// Prepare data for the tabs
+$tabData = [];
+foreach ($resA as $row) {
+    $checkpointName = $row['CheckpointName'];
+    if (!isset($tabData[$checkpointName])) {
+        $tabData[$checkpointName] = [];
+    }
+    $tabData[$checkpointName][] = $row;
+}
+
+$drawingFile = getDrawing($_SESSION["dorModelName"]);
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo htmlspecialchars($title ?? 'Refreshment Checkpoint'); ?></title>
+    <title><?php echo htmlspecialchars($title ?? 'Work I Checkpoint'); ?></title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
-    <link href="../css/dor-form.css" rel="stylesheet">
+    <link href="../css/dor-refresh.css" rel="stylesheet">
 </head>
 
 <body>
-    <?php
-    ini_set('display_errors', 1);
-    ini_set('display_startup_errors', 1);
-    error_reporting(E_ALL);
-
-    $title = "DOR Form A";
-    session_start(); // Start the session
-    ob_start(); // start output buffering
-
-    require_once "../config/dbop.php";
-    require_once "../config/method.php";
-
-    $db1 = new DbOp(1);
-
-    $errorPrompt = '';
-
-    // Fetch checkpoints based on DOR Type
-    $procA = "EXEC RdAtoDorCheckpointRefresh";
-    $resA = $db1->execute($procA, [], 1);
-
-    // Prepare data for the tabs
-    $tabData = [];
-    foreach ($resA as $row) {
-        $checkpointName = $row['CheckpointName'];
-        if (!isset($tabData[$checkpointName])) {
-            $tabData[$checkpointName] = [];
-        }
-        $tabData[$checkpointName][] = $row;
-    }
-
-    $drawingFile = getDrawing($_SESSION["dorModelName"]);
-    ?>
-
     <form id="myForm" method="post" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" novalidate>
         <nav class="navbar navbar-expand-lg navbar-light bg-light shadow-sm">
             <div class="container-fluid">
@@ -98,71 +98,93 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             <div class="tab-container">
                 <div class="d-flex justify-content-between align-items-center mb-3">
+                    <!-- Title -->
                     <h6 class="fw-bold mb-0" style="font-size: 1rem; max-width: 60%; word-wrap: break-word;">
                         Refreshment Checkpoint
                     </h6>
+
+                    <!-- Process Buttons and Textboxes -->
+                    <div class="d-flex gap-3">
+                        <?php for ($i = 1; $i <= $_SESSION['tabQty']; $i++) : ?>
+                            <div class="d-flex flex-column align-items-center">
+                                <!-- Process Button -->
+                                <button type="button" class="tab-button btn btn-secondary btn-sm mb-1" onclick="openTab(event, 'Process<?php echo $i; ?>')">Process <?php echo $i; ?></button>
+
+                                <!-- Textbox for User Code -->
+                                <input type="text" class="form-control form-control-md" id="userCode<?php echo $i; ?>" name="userCode<?php echo $i; ?>" placeholder="MP Code" style="width: 120px;">
+                            </div>
+                        <?php endfor; ?>
+                    </div>
                 </div>
 
-                <table class="table-checkpointA table table-bordered align-middle">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Checkpoint</th>
-                            <th colspan="2">Criteria</th>
-                            <th class="col-auto text-nowrap">Selection</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($tabData as $checkpointName => $rows) : ?>
-                            <tr>
-                                <td rowspan="<?php echo count($rows); ?>" class="checkpoint-cell">
-                                    <?php echo $rows[0]['SequenceId'] . ". " . $checkpointName; ?>
-                                </td>
-                                <?php foreach ($rows as $index => $row) : ?>
-                                    <?php if ($index > 0) echo "<tr>"; ?>
+                <?php for ($i = 1; $i <= $_SESSION['tabQty']; $i++) : ?>
+                    <div id="Process<?php echo $i; ?>" class="tab-content" style="display: none;">
+                        <table class="table-checkpointA table table-bordered align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Checkpoint</th>
+                                    <th colspan="2">Criteria</th>
+                                    <th class="col-auto text-nowrap">Selection</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($tabData as $checkpointName => $rows) : ?>
+                                    <tr>
+                                        <td rowspan="<?php echo count($rows); ?>" class="checkpoint-cell">
+                                            <?php echo $rows[0]['SequenceId'] . ". " . $checkpointName; ?>
+                                        </td>
+                                        <?php foreach ($rows as $index => $row) : ?>
+                                            <?php if ($index > 0) echo "<tr>"; ?>
 
-                                    <?php
-                                    $criteriaTypeId = $row['CheckpointTypeId'];
-                                    $criteriaGood = $row['CriteriaGood'] ?? '';
-                                    $criteriaNotGood = $row['CriteriaNotGood'] ?? '';
-                                    ?>
+                                            <?php
+                                            $criteriaTypeId = $row['CheckpointTypeId'];
+                                            $criteriaGood = $row['CriteriaGood'] ?? '';
+                                            $criteriaNotGood = $row['CriteriaNotGood'] ?? '';
+                                            ?>
 
-                                    <?php if (empty($criteriaNotGood)) : ?>
-                                        <td class="criteria-cell" colspan="2"><?php echo $criteriaGood; ?></td>
-                                    <?php else : ?>
-                                        <td class="criteria-cell"><?php echo $criteriaGood; ?></td>
-                                        <td class="criteria-cell"><?php echo $criteriaNotGood; ?></td>
-                                    <?php endif; ?>
+                                            <?php if (empty($criteriaNotGood)) : ?>
+                                                <td class="criteria-cell" colspan="2"><?php echo $criteriaGood; ?></td>
+                                            <?php else : ?>
+                                                <td class="criteria-cell"><?php echo $criteriaGood; ?></td>
+                                                <td class="criteria-cell"><?php echo $criteriaNotGood; ?></td>
+                                            <?php endif; ?>
 
-                                    <td class="selection-cell">
-                                        <?php if ($criteriaTypeId == 1) : ?>
-                                            <!-- Type 1: OK, NG, NA -->
-                                            <div class='process-radio'>
-                                                <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='OK'> OK</label>
-                                                <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='NG'> NG</label>
-                                                <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='NA'> NA</label>
-                                            </div>
-                                        <?php endif; ?>
-                                    </td>
+                                            <td class="selection-cell">
+                                                <?php if ($criteriaTypeId == 1) : ?>
+                                                    <!-- Type 1: OK, NG, NA -->
+                                                    <div class='process-radio'>
+                                                        <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='OK'> OK</label>
+                                                        <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='NG'> NG</label>
+                                                        <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='NA'> NA</label>
+                                                    </div>
+                                                <?php elseif ($criteriaTypeId == 2) : ?>
+                                                    <!-- Type 2: Free text -->
+                                                    <input type="text" class="form-control" name="Process<?php echo $i . "_" . $row['SequenceId']; ?>">
+                                                <?php elseif ($criteriaTypeId == 3) : ?>
+                                                    <!-- Type 3: NJ, CJ -->
+                                                    <div class='process-radio'>
+                                                        <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='CJ'> CJ</label>
+                                                        <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='NJ'> NJ</label>
+                                                    </div>
+                                                <?php elseif ($criteriaTypeId == 4) : ?>
+                                                    <!-- Type 3: NJ, CJ -->
+                                                    <div class='process-radio'>
+                                                        <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='M'> M</label>
+                                                        <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='NM'> NM</label>
+                                                    </div>
+                                                <?php endif; ?>
+                                            </td>
 
-                                    <?php if ($index == count($rows) - 1) : ?>
-                            </tr>
-                        <?php endif; ?>
-                    <?php endforeach; ?>
-                <?php endforeach; ?>
-                    </tbody>
-                </table>
+                                            <?php if ($index == count($rows) - 1) : ?>
+                                    </tr>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                        <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endfor; ?>
             </div>
-        </div>
-
-        <div id="pipModal" role="dialog" aria-labelledby="pipTitle" aria-hidden="true">
-            <div id="pipHeader" class="pip-header d-flex justify-content-end align-items-center bg-light px-2 py-1 border-bottom rounded-top">
-                <div class="pip-controls">
-                    <button type="button" class="btn btn-sm btn-outline-secondary pip-minimize-btn" id="pip-minimize" onclick="minimizePiP()" aria-label="Minimize">_</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary pip-maximize-btn" id="pip-maximize" onclick="maximizePiP()" aria-label="Maximize">+</button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary pip-close-btn" id="pip-close" onclick="closePiP()" aria-label="Close">×</button>
-                </div>
-            </div>
-            <div id="pipContent" class="pip-body p-2"></div>
         </div>
 
         <!-- Bootstrap Modal for Error Messages -->
@@ -170,7 +192,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             <div class="modal-dialog">
                 <div class="modal-content border-danger">
                     <div class="modal-header bg-danger text-white">
-                        <h5 class="modal-title" id="errorModalLabel">Form Submission Error</h5>
+                        <h5 class="modal-title" id="errorModalLabel">Please complete the information</h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body" id="modalErrorMessage">
@@ -182,29 +204,189 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 </div>
             </div>
         </div>
+
+        <!-- QR Code Scanner Modal -->
+        <div class="modal fade" id="qrScannerModal" tabindex="-1" aria-labelledby="qrScannerLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Scan SA Code</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body text-center">
+                        <video id="qr-video" style="width: 100%; height: auto;" autoplay muted playsinline></video>
+                        <p class="text-muted mt-2">Align the QR code within the frame.</p>
+                    </div>
+                    <div class="modal-footer d-flex justify-content-between">
+                        <button type="button" class="btn btn-secondary" id="enterManually">Enter Manually</button>
+                        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </form>
+
+    <!-- PiP Viewer HTML: supports maximize and minimize modes -->
+    <div id="pipViewer" class="pip-viewer d-none maximize-mode">
+        <div id="pipHeader">
+            <button id="pipMaximize" class="pip-btn d-none">&#x26F6;</button>
+            <button id="pipMinimize" class="pip-btn">&#x1F5D5;</button>
+            <button id="pipClose" class="pip-btn">&#x2715;</button>
+        </div>
+        <div id="pipContent"></div>
+    </div>
+
+    <div id="pipBackdrop"></div>
 
     <!-- To fix `Uncaught ReferenceError: Modal is not defined` -->
     <script src="../js/bootstrap.bundle.min.js"></script>
+    <script src="../js/jsQR.min.js"></script>
+
+    <script>
+        function checkCameraAccessBeforeScanning() {
+            const constraints = {
+                video: {
+                    facingMode: {
+                        ideal: "environment"
+                    }
+                }
+            };
+
+            return navigator.mediaDevices.getUserMedia(constraints)
+                .then(stream => {
+                    // Stop the stream immediately after checking
+                    stream.getTracks().forEach(track => track.stop());
+                    return true;
+                })
+                .catch(error => {
+                    console.error("Camera access failed:", error);
+                    showErrorModal("Unable to access camera. Please check your browser permissions or device settings.");
+                    return false;
+                });
+        }
+
+        function showErrorModal(message) {
+            const modalErrorMessage = document.getElementById("modalErrorMessage");
+            modalErrorMessage.innerText = message;
+            const errorModal = new bootstrap.Modal(document.getElementById("errorModal"));
+            errorModal.show();
+        }
+    </script>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const scannerModal = new bootstrap.Modal(document.getElementById("qrScannerModal"));
+            let video = document.getElementById("qr-video");
+            let canvas = document.createElement("canvas");
+            let ctx = canvas.getContext("2d", {
+                willReadFrequently: true
+            });
+            let scanning = false;
+
+            function getCameraConstraints() {
+                return {
+                    video: {
+                        facingMode: {
+                            ideal: "environment"
+                        }
+                    }
+                };
+            }
+
+            function startScanning() {
+                scannerModal.show();
+                navigator.mediaDevices.getUserMedia(getCameraConstraints())
+                    .then(setupVideoStream)
+                    .catch(() => navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: "user"
+                        }
+                    }).then(setupVideoStream));
+            }
+
+            function setupVideoStream(stream) {
+                video.srcObject = stream;
+                video.setAttribute("playsinline", true);
+                video.setAttribute("autoplay", true);
+                video.style.width = "100%";
+                video.muted = true;
+                video.play().then(() => scanQRCode());
+                scanning = true;
+            }
+
+            function scanQRCode() {
+                if (!scanning) return;
+                if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    let qrCodeData = jsQR(imageData.data, imageData.width, imageData.height);
+                    if (qrCodeData) {
+                        let scannedText = qrCodeData.data.trim();
+                        if (activeInput) activeInput.value = scannedText;
+                        stopScanning();
+                    }
+                }
+                requestAnimationFrame(scanQRCode);
+            }
+
+            function stopScanning() {
+                scanning = false;
+                let tracks = video.srcObject?.getTracks();
+                if (tracks) tracks.forEach(track => track.stop());
+                scannerModal.hide();
+            }
+
+            let activeInput = null;
+            document.querySelectorAll("input[id^='userCode']").forEach(input => {
+                input.addEventListener("click", async function() {
+                    const accessGranted = await navigator.mediaDevices.getUserMedia({
+                        video: true
+                    }).then(stream => {
+                        stream.getTracks().forEach(track => track.stop());
+                        return true;
+                    }).catch(() => false);
+
+                    if (accessGranted) {
+                        activeInput = this;
+                        startScanning();
+                    } else {
+                        alert("Camera access denied");
+                    }
+                });
+            });
+
+            document.getElementById("qrScannerModal").addEventListener("hidden.bs.modal", stopScanning);
+            document.getElementById("enterManually").addEventListener("click", () => {
+                stopScanning();
+                setTimeout(() => {
+                    if (activeInput) activeInput.focus();
+                }, 300); // Delay to wait for modal fade-out animation
+            });
+
+        });
+    </script>
+
     <script>
         let isMinimized = false;
 
         document.addEventListener("DOMContentLoaded", function() {
             // Attach event listeners to buttons
             document.getElementById("btnDrawing").addEventListener("click", function() {
-                openPiP('image', "<?php echo $drawingFile; ?>");
+                openPiPViewer("<?php echo $drawingFile; ?>", 'image');
             });
 
             document.getElementById("btnWorkInstruction").addEventListener("click", function() {
-                openPiP('pdf', '../img/wi/<?php echo $_SESSION['dorModelName']; ?>.pdf');
+                openPiPViewer('../img/wi/<?php echo $_SESSION['dorModelName']; ?>.pdf', 'pdf');
             });
 
             document.getElementById("btnGuideline").addEventListener("click", function() {
-                openPiP('pdf', '../img/guideline/<?php echo $_SESSION['dorModelName']; ?>.pdf');
+                openPiPViewer('../img/guideline/<?php echo $_SESSION['dorModelName']; ?>.pdf', 'pdf');
             });
 
             document.getElementById("btnPrepCard").addEventListener("click", function() {
-                openPiP('pdf', '../img/prepcard/<?php echo $_SESSION['dorModelName']; ?>.pdf');
+                openPiPViewer('../img/prepcard/<?php echo $_SESSION['dorModelName']; ?>.pdf', 'pdf');
             });
 
             let storedTab = sessionStorage.getItem("activeTab");
@@ -218,138 +400,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 const defaultTab = "Process1";
                 document.getElementById(defaultTab).style.display = "block";
                 document.querySelector(`[onclick="openTab(event, '${defaultTab}')"]`).classList.add("active");
-            }
-
-            let isDragging = false;
-            let dragOffsetX = 0;
-            let dragOffsetY = 0;
-
-            // Dragging functionality when minimized
-            const pipModal = document.getElementById("pipModal");
-            const pipHeader = document.getElementById("pipHeader");
-
-            if (pipHeader) {
-                pipHeader.addEventListener("mousedown", (e) => {
-                    if (!pipModal.classList.contains("minimized")) return; // Only allow dragging in minimized mode
-                    isDragging = true;
-                    const rect = pipModal.getBoundingClientRect();
-                    dragOffsetX = e.clientX - rect.left;
-                    dragOffsetY = e.clientY - rect.top;
-                    document.body.style.userSelect = "none"; // Prevent text selection
-                });
-            }
-
-            document.addEventListener("mouseup", () => {
-                isDragging = false;
-                document.body.style.userSelect = ""; // Allow text selection again
-            });
-
-            document.addEventListener("mousemove", (e) => {
-                if (!isDragging || !pipModal.classList.contains("minimized")) return;
-                pipModal.style.left = `${e.clientX - dragOffsetX}px`;
-                pipModal.style.top = `${e.clientY - dragOffsetY}px`;
-                pipModal.style.right = "auto";
-                pipModal.style.bottom = "auto";
-            });
-
-            function openPiP(type, src) {
-                const modal = document.getElementById("pipModal"); // Define the modal element
-                const content = document.getElementById("pipContent"); // Define the content element
-
-                // Reset modal styles to maximized state
-                setModalStyles(modal, {
-                    top: "50%",
-                    left: "50%",
-                    transform: "translate(-50%, -50%)",
-                    bottom: "",
-                    right: "",
-                    width: "80vw",
-                    height: "80vh",
-                    zIndex: "",
-                    position: "fixed"
-                });
-
-                // Ensure modal is maximized
-                modal.classList.add("maximized");
-                modal.classList.remove("minimized");
-                modal.style.display = "block";
-
-                content.innerHTML = ""; // Clear previous content
-                modal.setAttribute("tabindex", "-1"); // Make modal focusable
-                modal.focus(); // Set focus to the modal
-
-                if (type === 'image') {
-                    openImageInPiP(content, src);
-                } else if (type === 'pdf') {
-                    openPdfInPiP(content, src)
-                }
-            }
-
-            function openImageInPiP(content, src) {
-                const img = document.createElement("img");
-                img.src = src;
-                img.style.maxWidth = "100%";
-                img.style.maxHeight = "100%";
-                img.style.objectFit = "contain";
-                img.style.display = "block";
-
-                // Remove previous content
-                content.innerHTML = "";
-                content.style.position = "relative"; // Needed for absolute positioning of image
-                content.appendChild(img);
-
-                // Optional: support pinch zoom
-                const hammer = new Hammer.Manager(img);
-                hammer.add(new Hammer.Pinch());
-
-                let currentScale = 1;
-                let lastScale = 1;
-
-                hammer.on("pinchstart", function() {
-                    lastScale = currentScale;
-                });
-
-                hammer.on("pinch", function(ev) {
-                    currentScale = lastScale * ev.scale;
-                    currentScale = Math.min(Math.max(1, currentScale), 3); // Clamp between 1x and 3x
-                    img.style.transform = `scale(${currentScale})`;
-                    img.style.transformOrigin = "center center";
-                });
-
-                hammer.on("doubletap", function() {
-                    currentScale = currentScale === 1 ? 2 : 1;
-                    img.style.transform = `scale(${currentScale})`;
-                    img.style.transformOrigin = "center center";
-                });
-            }
-
-            function openPdfInPiP(content, src) {
-                const canvas = document.createElement("canvas");
-                content.innerHTML = "<div class='text-center w-100'>Loading PDF...</div>";
-                content.appendChild(canvas);
-
-                pdfjsLib.getDocument(src).promise.then(pdf => {
-                    content.innerHTML = ""; // Remove spinner once loaded
-
-                    for (let i = 1; i <= pdf.numPages; i++) {
-                        pdf.getPage(i).then(page => {
-                            const viewport = page.getViewport({
-                                scale: 1.5
-                            });
-                            const canvas = document.createElement("canvas");
-                            const context = canvas.getContext("2d");
-
-                            canvas.width = viewport.width;
-                            canvas.height = viewport.height;
-                            content.appendChild(canvas);
-
-                            page.render({
-                                canvasContext: context,
-                                viewport: viewport
-                            });
-                        });
-                    }
-                });
             }
 
             form.addEventListener("submit", function(e) {
@@ -401,57 +451,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             sessionStorage.setItem("activeTab", tabName);
         }
 
-        // Modal-related functions
-        function setModalStyles(modal, styles) {
-            Object.assign(modal.style, styles);
-        }
-
-        function maximizePiP() {
-            const modal = document.getElementById("pipModal");
-
-            setModalStyles(modal, {
-                top: "50%",
-                left: "50%",
-                transform: "translate(-50%, -50%)",
-                bottom: "",
-                right: "",
-                width: "",
-                height: "",
-                zIndex: "",
-                position: "fixed"
-            });
-
-            modal.classList.add("maximized");
-            modal.classList.remove("minimized");
-        }
-
-        function minimizePiP() {
-            const modal = document.getElementById("pipModal");
-
-            setModalStyles(modal, {
-                position: "fixed",
-                bottom: "20px",
-                right: "20px",
-                width: "300px",
-                height: "300px",
-                top: "auto",
-                left: "auto",
-                transform: "none",
-                zIndex: "9999"
-            });
-
-            modal.classList.add("minimized");
-            modal.classList.remove("maximized");
-        }
-
-        function closePiP() {
-            const modal = document.getElementById("pipModal");
-            modal.style.display = "none";
-            modal.classList.remove("maximized");
-            modal.classList.remove("minimized");
-            document.body.style.overflow = "";
-        }
-
         function goBack() {
             // Get all inputs inside the tab-container
             const tabContainer = document.querySelector(".tab-container");
@@ -475,7 +474,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 }
             }
 
-            // Navigate back to dor-home.php
+            // Navigate back to dor-form.php
             window.location.href = "dor-form.php";
         }
 
@@ -493,10 +492,223 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             });
         });
     </script>
+
+    <script src="../js/hammer.min.js"></script>
     <script src="../js/pdf.min.js"></script>
+    <script src="../js/pdf.worker.min.js"></script>
+
     <script>
-        pdfjsLib.GlobalWorkerOptions.workerSrc = "../js/pdf.worker.min.js";
+        const pipViewer = document.getElementById('pipViewer');
+        const pipContent = document.getElementById('pipContent');
+        const btnMin = document.getElementById('pipMinimize');
+        const btnMax = document.getElementById('pipMaximize');
+        const btnClose = document.getElementById('pipClose');
+
+        let currentType = '',
+            currentPath = '',
+            currentScale = 1,
+            currentPdf = null,
+            currentPage = 1;
+
+        function openPiPViewer(path, type) {
+            currentType = type;
+            currentPath = path;
+            currentScale = 1;
+            currentPage = 1;
+
+            // FIX: Ensure viewer is visible before applying mode
+            pipViewer.classList.remove('d-none');
+            pipViewer.classList.remove('minimize-mode');
+            pipViewer.classList.remove('maximize-mode'); // Reset both first
+            pipViewer.style.top = '';
+            pipViewer.style.left = '';
+            pipViewer.style.right = '';
+            pipViewer.style.bottom = '';
+            pipViewer.style.transform = '';
+            pipViewer.classList.add('maximize-mode');
+
+            pipContent.innerHTML = '';
+            btnMin.classList.remove('d-none');
+            btnMax.classList.add('d-none');
+
+            document.body.classList.add('no-scroll');
+            document.getElementById('pipBackdrop').style.display = 'block';
+
+            if (type === 'image') {
+                const img = document.createElement('img');
+                img.src = path;
+                img.id = 'pipImage';
+                pipContent.appendChild(img);
+                initImageZoom(img);
+            } else if (type === 'pdf') {
+                pdfjsLib.getDocument(path).promise.then(pdf => {
+                    currentPdf = pdf;
+                    showPdfPage(currentPage);
+                });
+            }
+        }
+
+        function showPdfPage(pageNum) {
+            currentPdf.getPage(pageNum).then(page => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                // Get container size (minimized or maximized)
+                const contentRect = pipContent.getBoundingClientRect();
+                const containerWidth = contentRect.width;
+                const containerHeight = contentRect.height;
+
+                // Get original size at scale 1
+                const viewportAt1 = page.getViewport({
+                    scale: 1
+                });
+                const pageWidth = viewportAt1.width;
+                const pageHeight = viewportAt1.height;
+
+                // Compute scale that fits the page into the container
+                const widthScale = containerWidth / pageWidth;
+                const heightScale = containerHeight / pageHeight;
+                const scale = Math.min(widthScale, heightScale);
+
+                const viewport = page.getViewport({
+                    scale
+                });
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+
+                page.render({
+                    canvasContext: ctx,
+                    viewport
+                });
+
+                pipContent.innerHTML = '';
+                pipContent.appendChild(canvas);
+
+                initPdfSwipe(canvas);
+                initPdfPinchZoom(canvas); // include if you're preserving pinch-zoom
+            });
+        }
+
+        function initImageZoom(img) {
+            const hammer = new Hammer(img);
+            hammer.get('pinch').set({
+                enable: true
+            });
+            hammer.on('pinch', ev => {
+                currentScale = Math.min(Math.max(1, ev.scale), 5);
+                img.style.transform = `scale(${currentScale})`;
+            });
+            hammer.on('tap', ev => {
+                if (pipViewer.classList.contains('minimize-mode')) maximizeViewer();
+                else if (ev.tapCount === 2) minimizeViewer();
+            });
+        }
+
+        function initPdfSwipe(canvas) {
+            const hammer = new Hammer(canvas);
+            hammer.get('swipe').set({
+                direction: Hammer.DIRECTION_VERTICAL
+            });
+            hammer.on('swipeup', () => {
+                if (currentPage < currentPdf.numPages) showPdfPage(++currentPage);
+            });
+            hammer.on('swipedown', () => {
+                if (currentPage > 1) showPdfPage(--currentPage);
+            });
+            hammer.on('tap', ev => {
+                if (pipViewer.classList.contains('minimize-mode')) maximizeViewer();
+                else minimizeViewer();
+            });
+        }
+
+        function minimizeViewer() {
+            pipViewer.classList.remove('maximize-mode');
+            pipViewer.classList.add('minimize-mode');
+
+            pipViewer.style.top = '';
+            pipViewer.style.left = '';
+            pipViewer.style.right = '1rem';
+            pipViewer.style.bottom = '1rem';
+            pipViewer.style.transform = '';
+
+            document.body.classList.remove('no-scroll');
+            document.getElementById('pipBackdrop').style.display = 'none';
+
+            btnMin.classList.add('d-none');
+            btnMax.classList.remove('d-none');
+
+            if (currentType === 'pdf' && currentPdf) {
+                showPdfPage(currentPage); // ⬅ redraw PDF smaller
+            }
+        }
+
+        function maximizeViewer() {
+            // CLEAR inline styles BEFORE class switch
+            pipViewer.style.right = '';
+            pipViewer.style.bottom = '';
+            pipViewer.style.top = '';
+            pipViewer.style.left = '';
+            pipViewer.style.transform = '';
+
+            pipViewer.classList.remove('minimize-mode');
+            pipViewer.classList.add('maximize-mode');
+
+            document.body.classList.add('no-scroll');
+            document.getElementById('pipBackdrop').style.display = 'block';
+
+            btnMin.classList.remove('d-none');
+            btnMax.classList.add('d-none');
+
+            if (currentType === 'pdf' && currentPdf) {
+                showPdfPage(currentPage); // ⬅ redraw PDF at full scale
+            }
+        }
+
+        btnMin.onclick = minimizeViewer;
+        btnMax.onclick = maximizeViewer;
+        btnClose.onclick = () => {
+            pipViewer.classList.add('d-none');
+            pipContent.innerHTML = '';
+            currentPdf = null;
+
+            document.body.classList.remove('no-scroll');
+            document.getElementById('pipBackdrop').style.display = 'none';
+        };
+
+        // Drag logic only when minimized
+        let offsetX, offsetY;
+        document.getElementById('pipHeader').onmousedown = function(e) {
+            if (!pipViewer.classList.contains('minimize-mode')) return;
+
+            const viewer = pipViewer;
+            const rect = viewer.getBoundingClientRect();
+            const offsetX = e.clientX - rect.left;
+            const offsetY = e.clientY - rect.top;
+
+            document.onmousemove = function(e) {
+                let x = e.clientX - offsetX;
+                let y = e.clientY - offsetY;
+
+                // Clamp within screen
+                const maxX = window.innerWidth - viewer.offsetWidth;
+                const maxY = window.innerHeight - viewer.offsetHeight;
+
+                x = Math.max(0, Math.min(x, maxX));
+                y = Math.max(0, Math.min(y, maxY));
+
+                viewer.style.left = x + 'px';
+                viewer.style.top = y + 'px';
+                viewer.style.right = '';
+                viewer.style.bottom = '';
+            };
+
+            document.onmouseup = function() {
+                document.onmousemove = null;
+                document.onmouseup = null;
+            };
+        };
     </script>
+
 </body>
 
 </html>
