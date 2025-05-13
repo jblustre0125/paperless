@@ -21,8 +21,8 @@
             <div class="card-body">
                 <form id="myForm" action="" method="POST">
                     <div class="mb-4">
-                        <label for="productionCode" class="form-label">Production Code</label>
-                        <input type="text" class="form-control form-control-lg" id="productionCode" name="txtProductionCode" required data-scan value="SA001">
+                        <label for="productionCode" class="form-label">Employee ID</label>
+                        <input type="text" class="form-control form-control-lg" id="productionCode" name="txtProductionCode" required data-scan value="2410-016">
                     </div>
                     <div class="d-grid gap-2">
                         <button type="submit" class="btn btn-primary btn-lg" name="btnlogin">Login</button>

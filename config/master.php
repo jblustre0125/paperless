@@ -3,9 +3,12 @@ require_once "../config/header.php";
 $db1 = new DbOp(1);
 
 if (isset($_GET['logOut'])) {
-    echo $_SESSION['operatorId'];
-    $updQry = "EXEC UpdGenOperator @OperatorId=?, @IsLoggedIn=?";
-    $db1->execute($updQry, [$_SESSION['operatorId'], 0], 1);
+    $updQry1 = "EXEC UpdGenEmployeeAll @EmployeeCode=?, @IsLoggedIn=?";
+    $db1->execute($updQry1, [$_SESSION['employeeCode'], 0], 1);
+
+    $updQry2 = "EXEC UpdAtoLine @LineId=?, @IsLoggedIn=?";
+    $db1->execute($updQry2, [$_SESSION['lineId'], 0], 1);
+
     header('Location: ../logout.php');
 }
 ?>
@@ -48,7 +51,7 @@ if (isset($_GET['logOut'])) {
                 <!-- Device Name Styled & Aligned -->
                 <ul class="navbar-nav">
                     <li class="nav-item">
-                        <span class="nav-link text-info fw-bold">
+                        <span id="lblDeviceName" class="nav-link text-info fw-bold" style="pointer-events: none;">
                             <?= isset($_SESSION['deviceName']) ? testInput($_SESSION['deviceName']) : '—'; ?>
                         </span>
                     </li>
@@ -68,8 +71,8 @@ if (isset($_GET['logOut'])) {
         </div>
     </nav>
 
+    <!-- Main content will be added here -->
     <div class="container-lg mt-4">
-        <!-- Main content will be added here -->
         <?php echo $content ?? ''; ?>
     </div>
 

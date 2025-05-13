@@ -118,7 +118,7 @@ function handleCreateDor($dorDate, $shift, $dorTypeId, $modelName, $qty, &$respo
         }
     }
 
-    $selQry = "EXEC RdAtoLine @LineId=?";
+    $selQry = "EXEC RdAtoLine @LineNumber=?";
     $res = $db1->execute($selQry, [$_SESSION["deviceName"]], 1);
 
     if (!empty($res)) {

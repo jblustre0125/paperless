@@ -20,7 +20,7 @@ require_once "../config/method.php";
 
     if ($isTablet) {
         // Require login for tablet users
-        if (!isset($_SESSION['loggedIn']) || $_SESSION['loggedIn'] !== true) {
+        if (!isset($_SESSION['isLoggedIn']) || $_SESSION['isLoggedIn'] !== true) {
             header("Location: ../index.php");
             exit;
         }

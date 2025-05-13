@@ -10,49 +10,48 @@ $deviceName = gethostname();
 
 // Developer override
 if ($deviceName === 'NBCP-LT-144') {
-	$deviceName = 'TAB-ATO1';
+	$deviceName = 'TAB-ATO-001';
 }
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 	try {
-		$productionCode = testInput($_POST["txtProductionCode"]);
+		$employeeCode = testInput($_POST["txtProductionCode"]); // Employee code
 
 		$isActive = 1;
 		$isLoggedIn = 0;
 
-		$spRd1 = "EXEC RdGenOperator @ProductionCode=?, @IsActive=?, @IsLoggedIn=?";
-		$res1 = $db1->execute($spRd1, [$productionCode, $isActive, $isLoggedIn], 1);
+		$spRd1 = "EXEC RdGenEmployeeAll @EmployeeCode=?, @IsActive=?";
+		$res1 = $db1->execute($spRd1, [$employeeCode, $isActive], 1);
 
-		$spRd2 = "EXEC RdAtoLine @LineNumber=?, @IsLoggedIn=?";
-		$res2 = $db1->execute($spRd2, [$deviceName, $isLoggedIn], 1);
+		$spRd2 = "EXEC RdAtoLine @LineNumber=?, @IsActive=?";
+		$res2 = $db1->execute($spRd2, [$deviceName, $isActive], 1);
 
 		// Validate employee
 		if (empty($res1)) {
 			// Check if registered but already logged in
-			$spChkEmp = "EXEC RdGenOperator @ProductionCode=?, @IsActive=?, @IsLoggedIn=NULL";
-			$chkEmp = $db1->execute($spChkEmp, [$productionCode, $isActive], 1);
+			$spChkEmp = "EXEC RdGenEmployeeAll @ProductionCode=?, @IsLoggedIn=?";
+			$chkEmp = $db1->execute($spChkEmp, [$employeeCode, $isLoggedIn], 1);
 			if (!empty($chkEmp)) {
 				$errorPrompt = "Employee already logged in.";
 			} else {
-				$errorPrompt = "Employee not registered.";
+				$errorPrompt = "Employee not registered or inactive.";
 			}
 		}
 
 		// Validate device
 		if (empty($res2)) {
-			$spChkDev = "EXEC RdAtoLine @LineNumber=?, @IsLoggedIn=NULL";
-			$chkDev = $db1->execute($spChkDev, [$deviceName], 1);
+			$spChkDev = "EXEC RdAtoLine @LineNumber=?, @IsLoggedIn=?";
+			$chkDev = $db1->execute($spChkDev, [$deviceName, $isLoggedIn], 1);
 			if (!empty($chkDev)) {
 				$errorPrompt .= ($errorPrompt ? " " : "") . "Device already logged in.";
 			} else {
-				$errorPrompt .= ($errorPrompt ? " " : "") . "Device not registered.";
+				$errorPrompt .= ($errorPrompt ? " " : "") . "Device not registered or inactive.";
 			}
 		}
 
 		// If both valid
 		if (!empty($res1) && !empty($res2)) {
 			foreach ($res1 as $row1) {
-				$_SESSION['loggedIn'] = true;
 				$_SESSION['operatorId'] = $row1['OperatorId'];
 				$_SESSION['processId'] = $row1['ProcessId'];
 				$_SESSION['employeeCode'] = $row1['EmployeeCode'];
@@ -61,17 +60,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 				$_SESSION['lastName'] = $row1['LastName'];
 				$_SESSION['productionCode'] = $row1['ProductionCode'];
 				$_SESSION['positionId'] = $row1['PositionId'];
-				$_SESSION['companyId'] = $row1['CompanyId'];
-				$_SESSION['isAbnormality'] = $row1['IsAbnormality'];
+
 				$_SESSION['isLeader'] = $row1['IsLeader'];
 				$_SESSION['isSrLeader'] = $row1['IsSrLeader'];
-				$_SESSION['isSupervisor'] = $row1['IsSupervisor'];
-				$_SESSION['isManager'] = $row1['IsManager'];
+
+				$positionId = (int)$row1['PositionId'];
+				$_SESSION['isManager'] = in_array($positionId, [2, 13, 15, 21, 43]) ? 1 : 0;
+				$_SESSION['isSupervisor'] = in_array($positionId, [19, 48]) ? 1 : 0;
+				$_SESSION['isAssistantSupervisor'] = $positionId === 4 ? 1 : 0;
+				$_SESSION['isLineLeader'] = in_array($positionId, [7, 51]) ? 1 : 0;
+				$_SESSION['isSeniorLineLeader'] = $positionId === 17 ? 1 : 0;
+
 				$_SESSION['isLoggedIn'] = $row1['IsLoggedIn'];
 				$_SESSION['isActive'] = $row1['IsActive'];
 
-				$updQry1 = "EXEC UpdGenOperator @OperatorId=?, @IsLoggedIn=?";
-				$db1->execute($updQry1, [$row1['OperatorId'], 1], 1);
+				$updQry1 = "EXEC UpdGenEmployeeAll @EmployeeCode=?, @IsLoggedIn=?";
+				$db1->execute($updQry1, [$row1['EmployeeCode'], 1], 1);
 			}
 
 			foreach ($res2 as $row2) {
@@ -79,8 +83,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 				$_SESSION['lineId'] = $row2["LineId"];
 				$_SESSION['processId'] = $row2['ProcessId'];
 
-				$updQry2 = "EXEC UpdAtoLine @LineNumber=?, @IsLoggedIn=?";
-				$db1->execute($updQry2, [$deviceName, 1], 1);
+				echo $row2["LineId"];
+
+				$updQry2 = "EXEC UpdAtoLine @LineId=?, @IsLoggedIn=?";
+				$db1->execute($updQry2, [$row2["LineId"], 1], 1);
 			}
 
 			header('Location: ../module/dor-home.php');
