@@ -1,11 +1,5 @@
 <?php
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
-date_default_timezone_set('Asia/Manila'); // Replace with your desired time zone
-
-$title = "Home";
+$title = "DOR Home";
 ob_start();
 
 require_once "../config/dbop.php";
@@ -36,81 +30,60 @@ if ($res !== false && !empty($res)) {
     // Fallback if the query fails
     $today = date('Y-m-d H:i:s'); // Include both date and time
     $currentHour = date('H');
-    $selectedShift = ($currentHour >= 7 && $currentHour < 19) ? "DS" : "NS";
+    $selectedShift = ($currentHour >= 7 && $currentHour <= 19) ? "DS" : "NS";
 }
 
-$response = ['success' => false, 'isValidModel' => false, 'errors' => []];
+$response = ['success' => false, 'errors' => []];
 
-?>
-
-<?php
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     ob_end_clean();
     header('Content-Type: application/json; charset=utf-8');
 
+    $errorMessages = [];
+
     $dorDate = testInput($_POST["dtpDate"]);
-    $shift = testInput($_POST['rdShift']);
+    $shiftCode = testInput($_POST['rdShift']);
+    $lineNumber = testInput($_POST["txtLineNumber"]);
     $dorTypeId = testInput($_POST["cmbDorType"]);
     $modelName = testInput($_POST["txtModelName"]);
     $qty = (int) testInput($_POST["txtQty"]);
 
-    // Server-Side Validation
-    $errorMessages = [];
-
     if (empty($dorDate)) {
-        $errorMessages[] = "Select a date.";
+        $errorMessages[] = "Select date.";
     }
 
-    if (empty($shift)) {
-        $errorMessages[] = "Select a shift.";
+    if (empty($shiftCode)) {
+        $errorMessages[] = "Select shift.";
     }
 
-    if ($dorTypeId == "0") {
-        $errorMessages[] = "Select a DOR type.";
+    if (empty(trim($lineNumber)) || $lineNumber == "0") {
+        $errorMessages[] = "Enter line number.";
+    } else {
+        if (!isValidLine($lineNumber)) {
+            $errorMessages[] = "Line number is not valid or inactive.";
+        }
+    }
+
+    if (testInput($dorTypeId == "0")) {
+        $errorMessages[] = "Select DOR type.";
     }
 
     if (empty(trim($modelName))) {
-        $errorMessages[] = "Enter the model name.";
+        $errorMessages[] = "Enter model name.";
     } else {
         if (!isValidModel($modelName)) {
-            $response['isValidModel'] = false;
-            $errorMessages[] = "Invalid model name.";
-        } else {
-            $response['isValidModel'] = true;
+            $errorMessages[] = "Model name is not registered or inactive.";
         }
     }
 
     if (empty(trim($qty)) || $qty == 0) {
-        $errorMessages[] = "Enter the quantity.";
+        $errorMessages[] = "Enter quantity.";
     }
-
-    if (!is_numeric($qty) || $qty <= 0) {
-        $errorMessages[] = "Enter the quantity.";
-    }
-
-    $response['errors'] = $errorMessages;
-
-    if (empty($response['errors'])) {
-        if (isset($_POST['btnCreateDor'])) {
-            handleCreateDor($dorDate, $shift, $dorTypeId, $modelName, $qty, $response);
-        } elseif (isset($_POST['btnSearchDor'])) {
-            handleSearchDor($dorDate, $shift, $dorTypeId, $modelName, $qty, $response);
-        }
-    } else {
-    }
-
-    echo json_encode($response);
-    exit;
-}
-
-function handleCreateDor($dorDate, $shift, $dorTypeId, $modelName, $qty, &$response)
-{
-    global $db1;
 
     $shiftId = $lineId = $modelId = 0;
 
     $selQry = "EXEC RdGenShift @ShiftCode=?";
-    $res = $db1->execute($selQry, [$shift], 1);
+    $res = $db1->execute($selQry, [$shiftCode], 1);
 
     if ($res !== false) {
         foreach ($res as $row) {
@@ -118,8 +91,8 @@ function handleCreateDor($dorDate, $shift, $dorTypeId, $modelName, $qty, &$respo
         }
     }
 
-    $selQry = "EXEC RdAtoLine @LineNumber=?";
-    $res = $db1->execute($selQry, [$_SESSION["deviceName"]], 1);
+    $selQry = "EXEC RdGenLine @LineNumber=?";
+    $res = $db1->execute($selQry, [$lineNumber], 1);
 
     if (!empty($res)) {
         foreach ($res as $row) {
@@ -132,50 +105,90 @@ function handleCreateDor($dorDate, $shift, $dorTypeId, $modelName, $qty, &$respo
 
     if ($res !== false) {
         foreach ($res as $row) {
-            $modelId = $row['ITEM_ID'];
+            $modelId = $row['MODEL_ID'];
         }
     }
 
-    if (isExistDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId) === true) {
-        $response['errors'][] = "DOR already exists.";
-    } else {
-        $_SESSION["dorDate"] = $dorDate;
-        $_SESSION["dorShift"] = $shift;
-        $_SESSION["dorLineId"] = $lineId;
-        $_SESSION["dorQty"] = $qty;
-        $_SESSION["dorModelId"] = $modelId;
-        $_SESSION["dorModelName"] = $modelName;
-        $_SESSION["dorTypeId"] = $dorTypeId;
-
-        $selProcessTab = "SELECT ISNULL(MP, 0) AS 'MP' FROM dbo.GenModel WHERE ITEM_ID = ?";
-        $res = $db1->execute($selProcessTab, [$modelId], 1);
-
-        if ($res !== false) {
-            foreach ($res as $row) {
-                $_SESSION["tabQty"] = $row['MP'];
+    if (empty($response['errors'])) {
+        if (isset($_POST['btnCreateDor'])) {
+            if (isExistDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId)) {
+                $errorMessages[] = "DOR already exists.";
+            } else {
+                handleCreateDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty, $response);
             }
-        } else {
-            $_SESSION["tabQty"] = 0;
+        } elseif (isset($_POST['btnSearchDor'])) {
+            handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty, $response);
         }
+    }
 
-        // Check if tabQty is 0
-        if ($_SESSION["tabQty"] === 0) {
-            $response['success'] = false;
-            $response['errors'][] = "No process MP set to the selected model.";
-            return; // Stop further execution
+    $response['errors'] = $errorMessages;
+    echo json_encode($response);
+    exit;
+}
+
+function handleCreateDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty, &$response)
+{
+    global $db1;
+
+    // Fetch the tabQty from the database     
+    $selProcessTab = "SELECT ISNULL(MP, 0) AS 'MP' FROM dbo.GenModel WHERE MODEL_ID = ?";
+    $res = $db1->execute($selProcessTab, [$modelId], 1);
+
+    if ($res !== false) {
+        foreach ($res as $row) {
+            $_SESSION["tabQty"] = $row['MP'];
         }
+    } else {
+        $_SESSION["tabQty"] = 0;
+    }
 
-        // $response['tabQty'] = $_SESSION["tabQty"]; // Uncomment to debug process MP
+    // Check if tabQty is 0
+    if ($_SESSION["tabQty"] === 0) {
+        $response['success'] = false;
+        $response['errors'][] = "No process MP set to the selected model.";
+        return; // Stop further execution
+    }
+
+    $recordId = 0;
+
+    $insQry = "EXEC InsAtoDor @DorTypeId=?, @ShiftId=?, @DorDate=?, @CreatedBy=?, @ModelId=?, @LineId=?, @Quantity=?, @HostnameId=?, @RecordId=?";
+    $params = [
+        $dorTypeId,
+        $shiftId,
+        $dorDate,
+        $_SESSION["employeeCode"],
+        $modelId,
+        $lineId,
+        $qty,
+        $_SESSION["hostnameId"],
+        [&$recordId, SQLSRV_PARAM_OUT]
+    ];
+
+    $res = $db1->execute($insQry, $params, 1);
+
+    if ($res === false) {
+        $errorMessages[] = "SQL execution failed: </br>" . print_r(sqlsrv_errors(), true);
+    } elseif ($res === false || $recordId === 0) {
+        $errorMessages[] = "No rows affected. Insert failed.";
+    } else {
+        $_SESSION["dorRecordId"] = $recordId;
         $response['success'] = true;
         $response['redirectUrl'] = "dor-form.php";
     }
 }
 
-function handleSearchDor($dorDate, $shift, $dorTypeId, $modelName, $qty, &$response)
+//TODO: Populate the DOR form with the selected DOR details
+function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty, &$response)
 {
-    $response['success'] = true;
-    // add redirect URL for search DOR
+    if (isExistDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId)) {
+        $response['success'] = true;
+        $response['redirectUrl'] = "dor-form.php";
+    } else {
+        $response['success'] = false;
+        $response['errors'][] = "No DOR found for the selected criteria.";
+    }
 }
+
 
 ?>
 
@@ -208,6 +221,12 @@ function handleSearchDor($dorDate, $shift, $dorTypeId, $modelName, $qty, &$respo
         </div>
 
         <div class="mb-3">
+            <label for="txtLineNumber" class="form-label-lg fw-bold">Line No</label>
+            <input type="number" class="form-control form-control-lg" id="txtLineNumber" name="txtLineNumber" min="1" required
+                value="<?php echo $_POST["txtLineNumber"] ?? '1'; ?>">
+        </div>
+
+        <div class="mb-3">
             <label for="cmbDorType" class="form-label-lg fw-bold">DOR Type</label>
             <select class="form-select form-select-lg" id="cmbDorType" name="cmbDorType">
                 <option value="0">Select DOR Type</option>
@@ -219,13 +238,13 @@ function handleSearchDor($dorDate, $shift, $dorTypeId, $modelName, $qty, &$respo
 
         <div class="mb-3">
             <label for="txtModelName" class="form-label-lg fw-bold">Model</label>
-            <input type="text" class="form-control form-control-lg" id="txtModelName" name="txtModelName" placeholder="Scan or type product model" required
+            <input type="text" class="form-control form-control-lg" id="txtModelName" name="txtModelName" placeholder="Tap to scan ID tag" required
                 value="<?php echo $_POST["txtModelName"] ?? '7L0113-7021C'; ?>">
         </div>
 
         <div class="mb-3">
             <label for="txtQty" class="form-label-lg fw-bold">Quantity</label>
-            <input type="number" class="form-control form-control-lg" id="txtQty" name="txtQty" placeholder="Scan or type quantity" required
+            <input type="number" class="form-control form-control-lg" id="txtQty" name="txtQty" min="1" placeholder="Tap to scan ID tag" required
                 value="<?php echo $_POST["txtQty"] ?? '100'; ?>">
         </div>
 
@@ -456,12 +475,6 @@ function handleSearchDor($dorDate, $shift, $dorTypeId, $modelName, $qty, &$respo
             e.preventDefault();
             let errors = [];
 
-            if (document.getElementById("dtpDate").value.trim() === "") errors.push("Select a date.");
-            if (!document.querySelector("input[name='rdShift']:checked")) errors.push("Select a shift.");
-            if (document.getElementById("cmbDorType").value === "0") errors.push("Select a DOR type.");
-            if (modelInput.value.trim() === "") errors.push("Enter the model name.");
-            if (qtyInput.value.trim() === "" || qtyInput.value == 0) errors.push("Enter the quantity.");
-
             if (errors.length > 0) {
                 modalErrorMessage.innerHTML = "<ul><li>" + errors.join("</li><li>") + "</li></ul>";
                 errorModal.show();
@@ -480,20 +493,8 @@ function handleSearchDor($dorDate, $shift, $dorTypeId, $modelName, $qty, &$respo
                 })
                 .then(response => response.json())
                 .then((data) => {
-                    if (!data.isValidModel) {
-                        modalErrorMessage.innerHTML = "<ul><li>Invalid model name.</li></ul>";
-                        errorModal.show();
-                        return;
-                    }
-
-                    // Uncomment to debug process MP
-                    // if (data.tabQty !== undefined) {
-                    //     console.log("Tab Quantity:", data.tabQty); // Log tabQty specifically
-                    // }
-
                     if (data.success) {
                         if (clickedButton.name === "btnCreateDor") {
-                            // alert(data.tabQty); // Uncomment to debug process MP
                             window.location.href = data.redirectUrl;
                             return;
                         }

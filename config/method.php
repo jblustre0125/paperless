@@ -122,7 +122,7 @@ function loadLeader($processId, $isActive)
 function isValidLine($lineNumber)
 {
     $db1 = new DbOp(1);
-    $selQry = "SELECT COUNT(LineId) AS Count FROM dbo.AtoLine WHERE IsLoggedIn = 0 AND LineNumber = ?";
+    $selQry = "SELECT COUNT(LineId) AS Count FROM dbo.GenLine WHERE IsLoggedIn = 0 AND LineNumber = ? AND IsActive = 1";
     $res = $db1->execute($selQry, [$lineNumber], 1);
 
     // Check if the result is empty or 'Count' is not set, return false
@@ -147,11 +147,11 @@ function isValidModel($modelName)
     return true;
 }
 
-function isExistDor($date, $shiftId, $lineId, $modelId, $dortypeId)
+function isExistDor($dorDate, $shiftId, $lineId, $modelId, $dortypeId)
 {
     $db1 = new DbOp(1);
-    $selSp = "EXEC CntAtoDOR @CreatedDate=?, @ShiftId=?, @LineId=?, @ModelId=?, @DorTypeId=?";
-    $res = $db1->execute($selSp, [$date, $shiftId, $lineId, $modelId, $dortypeId], 1);
+    $selSp = "EXEC CntAtoDOR @DorDate=?, @ShiftId=?, @LineId=?, @ModelId=?, @DorTypeId=?";
+    $res = $db1->execute($selSp, [$dorDate, $shiftId, $lineId, $modelId, $dortypeId], 1);
 
     // Check if the result is empty or 'Count' is not set, return false
     if (empty($res) || !isset($res[0]['Count']) || $res[0]['Count'] == 0) {
@@ -183,4 +183,99 @@ function getDrawing($modelName)
     }
 
     return ""; // Optional: return empty string or default image if not found
+}
+
+function initQRScanner($pageType)
+{
+?>
+    <script>
+        let stream;
+        let scanInterval;
+
+        function openQRScanner(title, callback) {
+            const qrModal = new bootstrap.Modal(document.getElementById('qrScannerModal'));
+            document.querySelector('#qrScannerModal .modal-title').innerText = title;
+            const video = document.getElementById('qrVideo');
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+
+            navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: 'environment'
+                    }
+                })
+                .then(function(s) {
+                    stream = s;
+                    video.srcObject = s;
+                    video.play();
+                    qrModal.show();
+
+                    scanInterval = setInterval(() => {
+                        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                            canvas.width = video.videoWidth;
+                            canvas.height = video.videoHeight;
+                            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                            const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                            const code = jsQR(imageData.data, canvas.width, canvas.height);
+
+                            if (code) {
+                                stopQRScan();
+                                handleQRResult(code.data.trim(), callback);
+                            }
+                        }
+                    }, 300);
+                })
+                .catch(err => {
+                    alert('Camera error: ' + err.message);
+                });
+
+            document.getElementById('qrScannerModal').addEventListener('hidden.bs.modal', stopQRScan);
+        }
+
+        function stopQRScan() {
+            if (scanInterval) clearInterval(scanInterval);
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+        }
+
+        function handleQRResult(raw, callback) {
+            let result = {};
+            let valid = false;
+            let err = '';
+
+            switch ('<?= $pageType ?>') {
+                case 'dor-login':
+                case 'dor-form':
+                    if (/^(FMB-\d{4}|\d{4}-\d{3})$/.test(raw)) {
+                        result.employeeCode = raw;
+                        valid = true;
+                    } else {
+                        err = 'Invalid Employee Code format';
+                    }
+                    break;
+                case 'dor-home':
+                    const parts = raw.split(' ');
+                    if (parts.length === 1 || parts.length === 3) {
+                        result.model = parts[0];
+                        result.quantity = parts[1] ?? '';
+                        result.lotNumber = parts[2] ?? '';
+                        valid = true;
+                    } else {
+                        err = 'Expected: MODEL or MODEL QTY LOT';
+                    }
+                    break;
+            }
+
+            if (valid) {
+                const modal = bootstrap.Modal.getInstance(document.getElementById('qrScannerModal'));
+                modal.hide();
+                callback(result);
+            } else {
+                alert(err);
+            }
+        }
+    </script>
+<?php
 }

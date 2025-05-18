@@ -1,17 +1,24 @@
 <?php
-// Developer override by query param (safe only in localhost/dev)
-if (php_uname('n') === 'NBCP-LT-144' && isset($_GET['dev'])) {
-    header('Location: module/adm-mode.php');
+require_once "config/dbop.php";
+
+$db1 = new DbOp(1);
+$clientIp = $_SERVER['REMOTE_ADDR'];
+
+// Developer override via URL: index.php?dev
+if (isset($_GET['dev'])) {
+    header("Location: module/adm-mode.php");
     exit;
 }
 
-// Tablet detection (via REMOTE_HOST unreliable, so use User-Agent or enforce naming scheme)
-$hostname = gethostname();
-if (strpos($hostname, 'TAB-') === 0) {
-    header('Location: module/dor-login.php');
+// Check if IP is registered and active (indicates tablet device)
+$query = "SELECT TOP 1 HostnameId FROM GenHostname WHERE IpAddress = ? AND IsActive = 1";
+$result = $db1->execute($query, [$clientIp], 1);
+
+if ($result) {
+    header("Location: module/dor-login.php");
     exit;
 }
 
-// Default fallback
-header('Location: module/adm-dashboard.php');
+// Default: desktop/mobile/others
+header("Location: module/adm-dashboard.php");
 exit;

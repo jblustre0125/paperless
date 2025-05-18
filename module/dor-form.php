@@ -1,33 +1,7 @@
 <?php
-$response = ['success' => false, 'errors' => []];
-
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    ob_end_clean();
-    header('Content-Type: application/json; charset=utf-8');
-
-    if (empty($response['errors'])) {
-        if (isset($_POST['btnProceed'])) {
-            $response['success'] = true;
-            $response['redirectUrl'] = "dor-refresh.php";
-        } else {
-            $response['success'] = false;
-            $response['errors'][] = "Sample error.";
-        }
-    }
-
-    echo json_encode($response);
-    exit;
-}
-?>
-
-<?php
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
-$title = "DOR Form A";
-session_start(); // Start the session
-ob_start(); // start output buffering
+$title = "DOR Item/Jig Condition";
+session_start();
+ob_start();
 
 require_once "../config/dbop.php";
 require_once "../config/method.php";
@@ -36,8 +10,47 @@ $db1 = new DbOp(1);
 
 $errorPrompt = '';
 
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    ob_end_clean();
+    header('Content-Type: application/json; charset=utf-8');
+
+    $response = ['success' => false, 'errors' => []];
+
+    // Handle deletion request
+    if (isset($_POST['action']) && $_POST['action'] === 'delete_dor') {
+        $recordId = $_SESSION['dorRecordId'] ?? null;
+
+        if ($recordId) {
+            $db1->execute("DELETE FROM AtoDor WHERE RecordId = ?", [$recordId]);
+            unset($_SESSION['dorRecordId']);
+
+            $response['success'] = true;
+            $response['redirectUrl'] = 'dor-home.php';
+        } else {
+            $response['errors'][] = 'No RecordId in session';
+        }
+
+        echo json_encode($response);
+        exit;
+    }
+
+    // Regular form submit handler (btnProceed)
+    if (empty($response['errors'])) {
+        if (isset($_POST['btnProceed'])) {
+            $response['success'] = true;
+            $response['redirectUrl'] = "dor-refresh.php";
+        } else {
+            $response['success'] = false;
+            $response['errors'][] = "Error.";
+        }
+    }
+
+    echo json_encode($response);
+    exit;
+}
+
 // Fetch checkpoints based on DOR Type
-$procA = "EXEC RdAtoDorCheckpointStart @DorTypeId=?";
+$procA = "EXEC RdGenDorCheckpointDefinition @DorTypeId=?";
 $resA = $db1->execute($procA, [$_SESSION['dorTypeId']], 1);
 
 // Prepare data for the tabs
@@ -52,6 +65,7 @@ foreach ($resA as $row) {
 
 $drawingFile = getDrawing($_SESSION["dorModelName"]);
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -111,7 +125,7 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
                                 <button type="button" class="tab-button btn btn-secondary btn-sm mb-1" onclick="openTab(event, 'Process<?php echo $i; ?>')">Process <?php echo $i; ?></button>
 
                                 <!-- Textbox for User Code -->
-                                <input type="text" class="form-control form-control-md" id="userCode<?php echo $i; ?>" name="userCode<?php echo $i; ?>" placeholder="MP Code" style="width: 120px;">
+                                <input type="text" class="form-control form-control-md" id="userCode<?php echo $i; ?>" name="userCode<?php echo $i; ?>" placeholder="Employee ID" style="width: 120px;">
                             </div>
                         <?php endfor; ?>
                     </div>
@@ -124,7 +138,7 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
                                 <tr>
                                     <th>Checkpoint</th>
                                     <th colspan="2">Criteria</th>
-                                    <th class="col-auto text-nowrap">Selection</th>
+                                    <th class="col-auto text-nowrap">Plase complete all checkpoints</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -179,6 +193,7 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
                                                 ?>
                                                 <input type="hidden" name="meta[<?php echo $inputName ?>][tabIndex]" value="<?php echo $i ?>">
                                                 <input type="hidden" name="meta[<?php echo $inputName ?>][checkpoint]" value="<?php echo htmlspecialchars($row['CheckpointName']) ?>">
+                                                <input type="hidden" name="meta[<?php echo $inputName ?>][checkpointId]" value="<?php echo $row['CheckpointId'] ?>">
                                             </td>
 
                                             <?php if ($index == count($rows) - 1) : ?>
@@ -216,7 +231,7 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title">Scan SA Code</h5>
+                        <h5 class="modal-title">Scan Employee ID</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body text-center">
@@ -425,10 +440,10 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
 
                     const code = input.value.trim();
                     if (!code) {
-                        userCodeErrorHtml += `<li>Enter MP Code for Process ${i}.</li>`;
+                        userCodeErrorHtml += `<li>Enter Employee ID of P${i}.</li>`;
                     } else {
                         if (userCodeValues.includes(code)) {
-                            userCodeErrorHtml += `<li>MP code "${code}" is duplicated.</li>`;
+                            userCodeErrorHtml += `<li>Employee ID "${code}" is duplicated.</li>`;
                         }
                         userCodes[i] = code;
                         userCodeValues.push(code);
@@ -561,8 +576,26 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
                 }
             }
 
-            // Navigate back to dor-home.php
-            window.location.href = "dor-home.php";
+            fetch("", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    body: new URLSearchParams({
+                        action: "delete_dor"
+                    })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success && data.redirectUrl) {
+                        window.location.href = data.redirectUrl;
+                    } else {
+                        alert(data.errors?.[0] || "Failed to delete DOR record.");
+                    }
+                })
+                .catch(err => {
+                    alert("Error occurred while deleting.");
+                });
         }
 
         // Form submission handling
@@ -796,6 +829,11 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
         };
     </script>
 
+    <form id="deleteDorForm" method="POST" action="dor-form.php">
+        <input type="hidden" name="action" value="delete_dor">
+    </form>
+
 </body>
+
 
 </html>

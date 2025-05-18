@@ -1,5 +1,4 @@
 <?php
-ini_set('session.gc_maxlifetime', 86400);
 session_status() === PHP_SESSION_ACTIVE ?: session_start();
 require_once "../config/method.php";
 ?>
@@ -15,12 +14,13 @@ require_once "../config/method.php";
 <body>
     <?php
 
-    $deviceName = gethostname();
-    $isTablet = str_starts_with($deviceName, 'TAB-');
+    // Pages that don't require login
+    $openPages = ['adm-mode.php', 'adm-dashboard.php', 'dor-login.php'];
 
-    if ($isTablet) {
-        // Require login for tablet users
-        if (!isset($_SESSION['isLoggedIn']) || $_SESSION['isLoggedIn'] !== true) {
+    $currentFile = basename($_SERVER['PHP_SELF']);
+    if (!in_array($currentFile, $openPages)) {
+        // check if the user is logged in, otherwise redirect to login page
+        if (!isset($_SESSION['loggedIn']) || $_SESSION['loggedIn'] !== true) {
             header("Location: ../index.php");
             exit;
         }

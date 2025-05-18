@@ -1,15 +1,20 @@
 <?php
 require_once "../config/header.php";
+
 $db1 = new DbOp(1);
 
 if (isset($_GET['logOut'])) {
     $updQry1 = "EXEC UpdGenEmployeeAll @EmployeeCode=?, @IsLoggedIn=?";
     $db1->execute($updQry1, [$_SESSION['employeeCode'], 0], 1);
 
-    $updQry2 = "EXEC UpdAtoLine @LineId=?, @IsLoggedIn=?";
-    $db1->execute($updQry2, [$_SESSION['lineId'], 0], 1);
+    $updQry2 = "EXEC UpdGenHostname @HostnameId=?, @IsLoggedIn=?";
+    $db1->execute($updQry2, [$_SESSION['hostnameId'], 0], 1);
 
-    header('Location: ../logout.php');
+    if ($isProdMode === 1) {
+        header('Location: ../module/adm-mode.php');
+    } else {
+        header('Location: ../logout.php');
+    }
 }
 ?>
 
@@ -37,7 +42,7 @@ if (isset($_GET['logOut'])) {
                     <li class="nav-item">
                         <a class="nav-link active fs-5" href="dor-home.php">Daily Operation Record</a>
                     </li>
-                    <li class="nav-item dropdown">
+                    <!-- <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle fs-5" href="#" id="reportDropdown" role="button"
                             data-bs-toggle="dropdown" aria-expanded="false">
                             Reports
@@ -45,14 +50,14 @@ if (isset($_GET['logOut'])) {
                         <ul class="dropdown-menu">
                             <li><a class="dropdown-item" href="#">Downtime Report</a></li>
                         </ul>
-                    </li>
+                    </li> -->
                 </ul>
 
                 <!-- Device Name Styled & Aligned -->
                 <ul class="navbar-nav">
                     <li class="nav-item">
-                        <span id="lblDeviceName" class="nav-link text-info fw-bold" style="pointer-events: none;">
-                            <?= isset($_SESSION['deviceName']) ? testInput($_SESSION['deviceName']) : '—'; ?>
+                        <span class="nav-link text-info fw-bold" style="pointer-events: none;">
+                            <?= isset($_SESSION['hostname']) ? testInput($_SESSION['hostname']) : '—'; ?>
                         </span>
                     </li>
 

@@ -22,7 +22,7 @@
                 <form id="myForm" action="" method="POST">
                     <div class="mb-4">
                         <label for="productionCode" class="form-label">Employee ID</label>
-                        <input type="text" class="form-control form-control-lg" id="productionCode" name="txtProductionCode" required data-scan value="2410-016">
+                        <input type="text" class="form-control form-control-lg" id="productionCode" name="txtProductionCode" required data-scan placeholder="Tap to scan ID" value="2410-016">
                     </div>
                     <div class="d-grid gap-2">
                         <button type="submit" class="btn btn-primary btn-lg" name="btnlogin">Login</button>
@@ -46,7 +46,7 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Scan SA Tag</h5>
+                    <h5 class="modal-title">Scan Employee ID</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body text-center">
@@ -59,6 +59,7 @@
                 </div>
             </div>
         </div>
+
     </div>
 
     <script src="../js/jsQR.min.js"></script>
@@ -73,6 +74,12 @@
             let scanning = false;
             let activeInput = null;
 
+            navigator.permissions.query({
+                name: "camera"
+            }).then((result) => {
+                console.log("Camera permission:", result.state);
+            });
+
             function getCameraConstraints() {
                 return {
                     video: {
@@ -85,13 +92,24 @@
 
             function startScanning() {
                 scannerModal.show();
-                navigator.mediaDevices.getUserMedia(getCameraConstraints())
+                const constraints = getCameraConstraints();
+
+                navigator.mediaDevices.getUserMedia(constraints)
                     .then(setupVideoStream)
-                    .catch(() => navigator.mediaDevices.getUserMedia({
-                        video: {
-                            facingMode: "user"
-                        }
-                    }).then(setupVideoStream));
+                    .catch((err1) => {
+                        console.error("Back camera failed", err1);
+
+                        navigator.mediaDevices.getUserMedia({
+                                video: {
+                                    facingMode: "user"
+                                }
+                            })
+                            .then(setupVideoStream)
+                            .catch((err2) => {
+                                console.error("Front camera failed", err2);
+                                alert("Camera access is blocked or not available on this tablet.");
+                            });
+                    });
             }
 
             function setupVideoStream(stream) {
