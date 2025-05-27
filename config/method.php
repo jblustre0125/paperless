@@ -3,31 +3,6 @@
 require_once 'dbop.php'; // Ensure DbOp is included
 
 /**
- * Format and display errors for SQL Server and general exceptions.
- * @param mixed $error Exception or SQL error array
- */
-function formatErrors($error)
-{
-    echo "<div style='padding: 10px; background-color: #f44336; color: white;'>";
-
-    if ($error instanceof Exception) {
-        echo "<strong>Exception:</strong> " . $error->getMessage() . "<br/>";
-        echo "<strong>Line:</strong> " . $error->getLine() . "<br/>";
-        echo "<strong>File:</strong> " . $error->getFile() . "<br/>";
-    } elseif (is_array($error) && is_iterable($error)) {
-        echo "<strong>SQL Errors:</strong><br/>";
-        foreach ($error as $err) {
-            echo "Code: " . $err['code'] . "<br/>";
-            echo "Message: " . $err['message'] . "<br/>";
-        }
-    } else {
-        echo "<strong>Error:</strong> " . $error . "<br/>";
-    }
-
-    echo "</div>";
-}
-
-/**
  * Sanitize user input to prevent XSS and SQL injection.
  * @param string $data The input data
  * @return string Sanitized data
@@ -35,26 +10,6 @@ function formatErrors($error)
 function testInput($data)
 {
     return htmlspecialchars(stripslashes(trim($data)));
-}
-
-/**
- * Display an alert message in JavaScript.
- * @param string $message The message to display
- */
-function alertMsg($message)
-{
-    echo "<script>alert('$message');</script>";
-}
-
-/**
- * Debugging helper - prints formatted variable dump.
- * @param mixed $mixed The variable to dump
- */
-function var_dump_pre($mixed = null)
-{
-    echo '<pre>';
-    var_dump($mixed);
-    echo '</pre>';
 }
 
 /**
@@ -79,7 +34,6 @@ function var_dump_ret($mixed = null)
 function globalExceptionHandler($exception)
 {
     error_log('Uncaught Exception: ' . $exception->getMessage());
-    formatErrors($exception);
 }
 
 // Set the global exception handler
@@ -170,112 +124,128 @@ function getAutocompleteName($query, $departmentId)
     return !empty($res) && $res[0]['Count'] > 0;
 }
 
-// function to get image URL based on model number
-function getDrawing($modelName)
-{
-    $imageDirectory = "/dor-system/drawing/"; // URL relative to the web root
-    $imagePath = $_SERVER['DOCUMENT_ROOT'] . $imageDirectory;
-    $imageExtension = ".png";
 
-    $fullPath = $imagePath . $modelName . $imageExtension;
-    if (file_exists($fullPath)) {
-        return $imageDirectory . $modelName . $imageExtension; // Return the web-accessible URL
+function getDrawing($dorTypeId, $modelId)
+{
+    $db1 = new DbOp(1);
+    $dorType = '';
+    $modelName = '';
+
+    $selQry1 = "EXEC RdAtoDorType @DorTypeId=?";
+    $res1 = $db1->execute($selQry1, [$dorTypeId], 1);
+
+    if ($res1 !== false && isset($res1[0]['DorTypeName'])) {
+        $dorType = strtoupper(trim($res1[0]['DorTypeName']));
     }
 
-    return ""; // Optional: return empty string or default image if not found
+    $selQry2 = "EXEC RdGenModel @IsActive=?, @ModelId=?";
+    $res2 = $db1->execute($selQry2, [1, $modelId], 1);
+
+    if ($res2 !== false && isset($res2[0]['ITEM_ID'])) {
+        $modelName = strtoupper(trim($res2[0]['ITEM_ID']));
+    }
+
+    $imageExtension = ".PNG";
+    $webPath = "/paperless-data/DRAWING/{$dorType}/{$modelName}{$imageExtension}";
+    $localPath = $_SERVER['DOCUMENT_ROOT'] . $webPath;
+
+    if (file_exists($localPath)) {
+        return $webPath;
+    }
+
+    return "";
 }
 
-function initQRScanner($pageType)
+function getPreparationCard($modelId)
 {
-?>
-    <script>
-        let stream;
-        let scanInterval;
+    $db1 = new DbOp(1);
+    $modelName = '';
 
-        function openQRScanner(title, callback) {
-            const qrModal = new bootstrap.Modal(document.getElementById('qrScannerModal'));
-            document.querySelector('#qrScannerModal .modal-title').innerText = title;
-            const video = document.getElementById('qrVideo');
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
+    $selQry2 = "EXEC RdGenModel @IsActive=?, @ModelId=?";
+    $res2 = $db1->execute($selQry2, [1, $modelId], 1);
 
-            navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: 'environment'
-                    }
-                })
-                .then(function(s) {
-                    stream = s;
-                    video.srcObject = s;
-                    video.play();
-                    qrModal.show();
+    if ($res2 !== false && isset($res2[0]['ITEM_ID'])) {
+        $modelName = strtoupper(trim($res2[0]['ITEM_ID']));
+    }
 
-                    scanInterval = setInterval(() => {
-                        if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                            canvas.width = video.videoWidth;
-                            canvas.height = video.videoHeight;
-                            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-                            const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-                            const code = jsQR(imageData.data, canvas.width, canvas.height);
+    $imageExtension = ".pdf";
+    $webPath = "/paperless-data/PREPARATION CARD/{$modelName}{$imageExtension}";
+    $localPath = $_SERVER['DOCUMENT_ROOT'] . $webPath;
 
-                            if (code) {
-                                stopQRScan();
-                                handleQRResult(code.data.trim(), callback);
-                            }
-                        }
-                    }, 300);
-                })
-                .catch(err => {
-                    alert('Camera error: ' + err.message);
-                });
+    if (file_exists($localPath)) {
+        return $webPath;
+    }
 
-            document.getElementById('qrScannerModal').addEventListener('hidden.bs.modal', stopQRScan);
+    return "";
+}
+
+function getWorkInstruction($dorTypeId, $modelId)
+{
+    $db1 = new DbOp(1);
+    $dorType = '';
+    $modelName = '';
+
+    // Get DorTypeName (e.g., Offline, Taping, Clamp)
+    $selQry1 = "EXEC RdAtoDorType @DorTypeId=?";
+    $res1 = $db1->execute($selQry1, [$dorTypeId], 1);
+    if ($res1 && isset($res1[0]['DorTypeName'])) {
+        $rawType = strtoupper(trim($res1[0]['DorTypeName']));
+        if (strpos($rawType, "CLAMP") !== false) {
+            $dorType = "CLAMP";
+        } elseif (strpos($rawType, "TAPING") !== false) {
+            $dorType = "TAPING";
+        } elseif (strpos($rawType, "OFFLINE") !== false) {
+            $dorType = "OFFLINE";
+        } else {
+            $dorType = $rawType;
         }
+    }
 
-        function stopQRScan() {
-            if (scanInterval) clearInterval(scanInterval);
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-                stream = null;
+    // Get model ITEM_ID
+    $selQry2 = "EXEC RdGenModel @IsActive=?, @ModelId=?";
+    $res2 = $db1->execute($selQry2, [1, $modelId], 1);
+    if ($res2 && isset($res2[0]['ITEM_ID'])) {
+        $modelName = strtoupper(trim($res2[0]['ITEM_ID']));
+    } else {
+        return "";
+    }
+
+    // Start folder path
+    $basePath = $_SERVER['DOCUMENT_ROOT'] . "/paperless-data/WORK INSTRUCTION";
+
+    if (!is_dir($basePath)) {
+        return "";
+    }
+
+    $latestFile = null;
+    $latestMTime = 0;
+
+    // Search recursively
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($basePath, RecursiveDirectoryIterator::SKIP_DOTS)
+    );
+
+    foreach ($iterator as $file) {
+        if ($file->isFile() && strtolower($file->getExtension()) === 'pdf') {
+            $filename = strtoupper($file->getFilename());
+
+            // Match: contains model + dorType
+            if (strpos($filename, $modelName) !== false && strpos($filename, $dorType) !== false) {
+                $mtime = $file->getMTime();
+                if ($mtime > $latestMTime) {
+                    $latestMTime = $mtime;
+                    $latestFile = $file->getPathname();
+                }
             }
         }
+    }
 
-        function handleQRResult(raw, callback) {
-            let result = {};
-            let valid = false;
-            let err = '';
+    if ($latestFile) {
+        // Convert to web path
+        $webPath = str_replace($_SERVER['DOCUMENT_ROOT'], '', $latestFile);
+        $webPath = str_replace('\\', '/', $webPath); // normalize for web use
+        return $webPath;
+    }
 
-            switch ('<?= $pageType ?>') {
-                case 'dor-login':
-                case 'dor-form':
-                    if (/^(FMB-\d{4}|\d{4}-\d{3})$/.test(raw)) {
-                        result.employeeCode = raw;
-                        valid = true;
-                    } else {
-                        err = 'Invalid Employee Code format';
-                    }
-                    break;
-                case 'dor-home':
-                    const parts = raw.split(' ');
-                    if (parts.length === 1 || parts.length === 3) {
-                        result.model = parts[0];
-                        result.quantity = parts[1] ?? '';
-                        result.lotNumber = parts[2] ?? '';
-                        valid = true;
-                    } else {
-                        err = 'Expected: MODEL or MODEL QTY LOT';
-                    }
-                    break;
-            }
-
-            if (valid) {
-                const modal = bootstrap.Modal.getInstance(document.getElementById('qrScannerModal'));
-                modal.hide();
-                callback(result);
-            } else {
-                alert(err);
-            }
-        }
-    </script>
-<?php
+    return "";
 }

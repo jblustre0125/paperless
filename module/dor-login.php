@@ -7,9 +7,13 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Login</title>
-    <link rel="icon" type="image/png" href="../img/favicon.png">
+    <link rel="icon" type="image/png" href="../img/dor-1024.png">
     <link rel="stylesheet" href="../css/bootstrap.min.css" />
     <link rel="stylesheet" href="../css/index.css" />
+    <link rel="manifest" href="/paperless/manifest.json">
+    <meta name="theme-color" content="#0d6efd">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
 </head>
 
 <body>
@@ -25,7 +29,7 @@
                         <input type="text" class="form-control form-control-lg" id="productionCode" name="txtProductionCode" required data-scan placeholder="Tap to scan ID" value="2410-016">
                     </div>
                     <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-primary btn-lg" name="btnlogin">Login</button>
+                        <button type="submit" class="btn btn-primary btn-lg" name="btnlogin" id="btnlogin">Login</button>
                     </div>
                 </form>
 
@@ -59,7 +63,6 @@
                 </div>
             </div>
         </div>
-
     </div>
 
     <script src="../js/jsQR.min.js"></script>
@@ -79,6 +82,8 @@
             }).then((result) => {
                 console.log("Camera permission:", result.state);
             });
+
+            const idInput = document.getElementById("txtProductionCode");
 
             function getCameraConstraints() {
                 return {
@@ -107,7 +112,9 @@
                             .then(setupVideoStream)
                             .catch((err2) => {
                                 console.error("Front camera failed", err2);
-                                alert("Camera access is blocked or not available on this tablet.");
+                                if (!video.srcObject) {
+                                    alert("Camera access is blocked or not available on this tablet.");
+                                }
                             });
                     });
             }
@@ -115,7 +122,9 @@
             function setupVideoStream(stream) {
                 video.srcObject = stream;
                 video.setAttribute("playsinline", true);
-                video.play().then(() => scanQRCode());
+                video.onloadedmetadata = () => {
+                    video.play().then(() => scanQRCode());
+                };
                 scanning = true;
             }
 
@@ -127,10 +136,24 @@
                     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                     const qrCodeData = jsQR(imageData.data, imageData.width, imageData.height);
+
                     if (qrCodeData) {
                         const scannedText = qrCodeData.data.trim();
-                        if (activeInput) activeInput.value = scannedText;
-                        stopScanning();
+                        const parts = scannedText.split(" ");
+                        if (parts.length > 0) {
+                            const codeOnly = parts[0];
+                            if (activeInput) {
+                                activeInput.value = codeOnly;
+
+                                stopScanning();
+
+                                // Trigger submit after a tiny delay to allow DOM update
+                                setTimeout(() => {
+                                    const loginBtn = document.getElementById("btnlogin");
+                                    if (loginBtn) loginBtn.click();
+                                }, 100); // Delay ensures input is registered before submit
+                            }
+                        }
                     }
                 }
                 requestAnimationFrame(scanQRCode);

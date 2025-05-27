@@ -1,33 +1,7 @@
 <?php
-$response = ['success' => false, 'errors' => []];
-
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    ob_end_clean();
-    header('Content-Type: application/json; charset=utf-8');
-
-    if (empty($response['errors'])) {
-        if (isset($_POST['btnProceed'])) {
-            $response['success'] = true;
-            $response['redirectUrl'] = "dor-refresh.php";
-        } else {
-            $response['success'] = false;
-            $response['errors'][] = "Sample error.";
-        }
-    }
-
-    echo json_encode($response);
-    exit;
-}
-?>
-
-<?php
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
-$title = "DOR Form A";
-session_start(); // Start the session
-ob_start(); // start output buffering
+$title = "Checkpoint Refreshment";
+session_start();
+ob_start();
 
 require_once "../config/dbop.php";
 require_once "../config/method.php";
@@ -36,22 +10,119 @@ $db1 = new DbOp(1);
 
 $errorPrompt = '';
 
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    ob_end_clean();
+    header('Content-Type: application/json; charset=utf-8');
+
+    $response = ['success' => false, 'errors' => []];
+
+    // Handle deletion request
+    if (isset($_POST['action']) && $_POST['action'] === 'delete_dor') {
+        $recordId = $_SESSION['dorRecordId'] ?? null;
+
+        if ($recordId) {
+            $db1->execute("DELETE FROM AtoDor WHERE RecordId = ?", [$recordId]);
+            unset($_SESSION['dorRecordId']);
+
+            $response['success'] = true;
+            $response['redirectUrl'] = 'dor-form.php';
+        } else {
+            $response['errors'][] = 'No record ID in session.';
+        }
+
+        echo json_encode($response);
+        exit;
+    }
+
+    // Regular form submit handler (btnProceed)
+    if (empty($response['errors'])) {
+        if (isset($_POST['btnProceed'])) {
+            $recordId = $_SESSION['dorRecordId'] ?? 0;
+            if ($recordId > 0) {
+                foreach ($_POST as $key => $value) {
+                    if (preg_match('/^Process(\d+)_(\d+)$/', $key, $matches)) {
+                        $processIndex = (int)$matches[1];
+                        $sequenceId = (int)$matches[2];
+
+                        $meta = $_POST['meta'][$key] ?? [];
+                        $checkpointId = $meta['checkpointId'] ?? null;
+                        $employeeCode = $_POST["userCode{$processIndex}"] ?? '';
+
+                        if ($checkpointId && $employeeCode !== '') {
+                            $insSp = "EXEC InsAtoDorCheckpointDefinition @RecordId=?, @ProcessIndex=?, @EmployeeCode=?, @CheckpointId=?, @CheckpointResponse=?";
+                            $db1->execute($insSp, [
+                                $recordId,
+                                $processIndex,
+                                $employeeCode,
+                                $checkpointId,
+                                $value
+                            ]);
+                        }
+                    }
+                }
+            }
+
+            $response['success'] = true;
+            $response['redirectUrl'] = "dor-refresh.php";
+        } else {
+            $response['success'] = false;
+            $response['errors'][] = "Error.";
+        }
+    }
+
+    echo json_encode($response);
+    exit;
+}
+
 // Fetch checkpoints based on DOR Type
-$procA = "EXEC RdAtoDorCheckpointStart @DorTypeId=?";
+$procA = "EXEC RdGenDorCheckpointDefinition @DorTypeId=?";
 $resA = $db1->execute($procA, [$_SESSION['dorTypeId']], 1);
 
-// Prepare data for the tabs
 $tabData = [];
+
 foreach ($resA as $row) {
+    $checkpointId = $row['CheckpointId'];
     $checkpointName = $row['CheckpointName'];
+    $sequenceId = $row['SequenceId'];
+
+    // Use $checkpointName as top-level grouping key (to preserve your row merge)
     if (!isset($tabData[$checkpointName])) {
         $tabData[$checkpointName] = [];
     }
-    $tabData[$checkpointName][] = $row;
+
+    // If this checkpointId already added, just push the option
+    $found = false;
+    foreach ($tabData[$checkpointName] as &$existing) {
+        if ($existing['CheckpointId'] === $checkpointId) {
+            if (!empty($row['CheckpointTypeDetailName'])) {
+                $existing['Options'][] = $row['CheckpointTypeDetailName'];
+            }
+            $found = true;
+            break;
+        }
+    }
+
+    // New checkpoint entry
+    if (!$found) {
+        $tabData[$checkpointName][] = [
+            'CheckpointId' => $checkpointId,
+            'SequenceId' => $sequenceId,
+            'CheckpointName' => $checkpointName,
+            'CriteriaGood' => $row['CriteriaGood'],
+            'CriteriaNotGood' => $row['CriteriaNotGood'],
+            'CheckpointTypeId' => $row['CheckpointTypeId'],
+            'CheckpointControl' => $row['CheckpointControl'],
+            'Options' => !empty($row['CheckpointTypeDetailName']) ? [$row['CheckpointTypeDetailName']] : [],
+        ];
+    }
 }
 
-$drawingFile = getDrawing($_SESSION["dorModelName"]);
+$drawingFile = getDrawing($_SESSION["dorTypeId"], $_SESSION['dorModelId']);
+$preCardFile = getPreparationCard($_SESSION['dorModelId']);
+$workInstructFile = getWorkInstruction($_SESSION["dorTypeId"], $_SESSION['dorModelId']);
+
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -61,7 +132,7 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo htmlspecialchars($title ?? 'Work I Checkpoint'); ?></title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
-    <link href="../css/dor-refresh.css" rel="stylesheet">
+    <link href="../css/dor-form.css" rel="stylesheet">
 </head>
 
 <body>
@@ -79,7 +150,6 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
                         <div class="d-flex flex-wrap gap-3 mt-2 mt-lg-0 justify-content-center">
                             <button type="button" class="btn btn-secondary btn-lg" id="btnDrawing" aria-label="Open Drawing">Drawing</button>
                             <button type="button" class="btn btn-secondary btn-lg" id="btnWorkInstruction" aria-label="Open Work Instruction">Work Instruction</button>
-                            <button type="button" class="btn btn-secondary btn-lg" id="btnGuideline" aria-label="Open Guideline">Guideline</button>
                             <button type="button" class="btn btn-secondary btn-lg" id="btnPrepCard" aria-label="Open Preparation Card">Preparation Card</button>
                         </div>
 
@@ -100,7 +170,7 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <!-- Title -->
                     <h6 class="fw-bold mb-0" style="font-size: 1rem; max-width: 60%; word-wrap: break-word;">
-                        Refreshment Checkpoint
+                        Required Item and Jig Condition VS Work Instruction
                     </h6>
 
                     <!-- Process Buttons and Textboxes -->
@@ -111,7 +181,24 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
                                 <button type="button" class="tab-button btn btn-secondary btn-sm mb-1" onclick="openTab(event, 'Process<?php echo $i; ?>')">Process <?php echo $i; ?></button>
 
                                 <!-- Textbox for User Code -->
-                                <input type="text" class="form-control form-control-md" id="userCode<?php echo $i; ?>" name="userCode<?php echo $i; ?>" placeholder="MP Code" style="width: 120px;">
+                                <?php
+                                // DEBUG PRESET EMPLOYEE IDs — comment this block to disable
+                                $debugUserCodes = [
+                                    1 => '2503-004',
+                                    2 => '2503-005',
+                                    3 => 'FMB-0826',
+                                    4 => 'FMB-0570'
+                                ];
+                                $debugUserCodeValue = $debugUserCodes[$i] ?? '';
+                                ?>
+
+                                <input type="text"
+                                    class="form-control form-control-md"
+                                    id="userCode<?php echo $i; ?>"
+                                    name="userCode<?php echo $i; ?>"
+                                    placeholder="Employee ID"
+                                    value="<?php echo $debugUserCodeValue; ?>"
+                                    style="width: 120px;">
                             </div>
                         <?php endfor; ?>
                     </div>
@@ -124,7 +211,7 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
                                 <tr>
                                     <th>Checkpoint</th>
                                     <th colspan="2">Criteria</th>
-                                    <th class="col-auto text-nowrap">Selection</th>
+                                    <th class="col-auto text-nowrap">Plase complete all checkpoints</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -150,29 +237,47 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
                                             <?php endif; ?>
 
                                             <td class="selection-cell">
-                                                <?php if ($criteriaTypeId == 1) : ?>
-                                                    <!-- Type 1: OK, NG, NA -->
-                                                    <div class='process-radio'>
-                                                        <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='OK'> OK</label>
-                                                        <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='NG'> NG</label>
-                                                        <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='NA'> NA</label>
-                                                    </div>
-                                                <?php elseif ($criteriaTypeId == 2) : ?>
-                                                    <!-- Type 2: Free text -->
-                                                    <input type="text" class="form-control" name="Process<?php echo $i . "_" . $row['SequenceId']; ?>">
-                                                <?php elseif ($criteriaTypeId == 3) : ?>
-                                                    <!-- Type 3: NJ, CJ -->
-                                                    <div class='process-radio'>
-                                                        <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='CJ'> CJ</label>
-                                                        <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='NJ'> NJ</label>
-                                                    </div>
-                                                <?php elseif ($criteriaTypeId == 4) : ?>
-                                                    <!-- Type 3: NJ, CJ -->
-                                                    <div class='process-radio'>
-                                                        <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='M'> M</label>
-                                                        <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='NM'> NM</label>
-                                                    </div>
-                                                <?php endif; ?>
+                                                <?php
+                                                $inputName = "Process{$i}_{$row['CheckpointId']}";
+
+                                                // Debug response value — comment out this block when done
+                                                $debugResponse = '';
+                                                switch ((int)$row['CheckpointTypeId']) {
+                                                    case 1:
+                                                        $debugResponse = 'OK';
+                                                        break;
+                                                    case 2:
+                                                        $debugResponse = 'DEBUG';
+                                                        break;
+                                                    case 3:
+                                                        $debugResponse = 'CJ';
+                                                        break;
+                                                    case 4:
+                                                        $debugResponse = 'M';
+                                                        break;
+                                                }
+
+                                                $controlType = $row['CheckpointControl'];
+                                                $options = $row['Options'];
+
+                                                if ($controlType === 'radio' && !empty($options)) {
+                                                    echo "<div class='process-radio'>";
+                                                    foreach ($options as $opt) {
+                                                        $checked = ($opt === $debugResponse) ? "checked" : "";
+                                                        echo "<label><input type='radio' name='{$inputName}' value='{$opt}' {$checked}> {$opt}</label> ";
+                                                    }
+                                                    echo "</div>";
+                                                } elseif ($controlType === 'text') {
+                                                    echo "<input type='text' name='{$inputName}' class='form-control' value='{$debugResponse}'>";
+                                                } else {
+                                                    echo "<em>Unknown control type</em>";
+                                                }
+
+                                                // hidden fields
+                                                echo "<input type='hidden' name='meta[{$inputName}][tabIndex]' value='{$i}'>";
+                                                echo "<input type='hidden' name='meta[{$inputName}][checkpoint]' value='" . htmlspecialchars($row['CheckpointName']) . "'>";
+                                                echo "<input type='hidden' name='meta[{$inputName}][checkpointId]' value='{$row['CheckpointId']}'>";
+                                                ?>
                                             </td>
 
                                             <?php if ($index == count($rows) - 1) : ?>
@@ -192,7 +297,7 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
             <div class="modal-dialog">
                 <div class="modal-content border-danger">
                     <div class="modal-header bg-danger text-white">
-                        <h5 class="modal-title" id="errorModalLabel">Please complete the information</h5>
+                        <h5 class="modal-title" id="errorModalLabel">Please complete the checkpoint</h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body" id="modalErrorMessage">
@@ -210,7 +315,7 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title">Scan SA Code</h5>
+                        <h5 class="modal-title">Scan Employee ID</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body text-center">
@@ -370,6 +475,7 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
 
     <script>
         let isMinimized = false;
+        const workInstructFile = <?php echo json_encode($workInstructFile); ?>;
 
         document.addEventListener("DOMContentLoaded", function() {
             // Attach event listeners to buttons
@@ -378,15 +484,15 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
             });
 
             document.getElementById("btnWorkInstruction").addEventListener("click", function() {
-                openPiPViewer('../img/wi/<?php echo $_SESSION['dorModelName']; ?>.pdf', 'pdf');
-            });
-
-            document.getElementById("btnGuideline").addEventListener("click", function() {
-                openPiPViewer('../img/guideline/<?php echo $_SESSION['dorModelName']; ?>.pdf', 'pdf');
+                if (workInstructFile !== "") {
+                    openPiPViewer(workInstructFile, 'pdf');
+                }
             });
 
             document.getElementById("btnPrepCard").addEventListener("click", function() {
-                openPiPViewer('../img/prepcard/<?php echo $_SESSION['dorModelName']; ?>.pdf', 'pdf');
+                if ($preCardFile !== "") {
+                    openPiPViewer("<?php echo $preCardFile; ?>", 'pdf');
+                }
             });
 
             let storedTab = sessionStorage.getItem("activeTab");
@@ -404,16 +510,96 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
 
             form.addEventListener("submit", function(e) {
                 e.preventDefault();
-                let errors = [];
 
-                if (errors.length > 0) {
-                    modalErrorMessage.innerHTML = "<ul><li>" + errors.join("</li><li>") + "</li></ul>";
+                const errorsByOperator = {};
+                const meta = {};
+                const userCodes = {};
+                const userCodeValues = [];
+
+                let userCodeErrorHtml = "";
+
+                // Loop through up to 4 tabs
+                for (let i = 1; i <= 4; i++) {
+                    const input = form.querySelector(`#userCode${i}`);
+                    if (!input) continue;
+
+                    const code = input.value.trim();
+                    if (!code) {
+                        userCodeErrorHtml += `<li>Enter Employee ID of P${i}.</li>`;
+                    } else {
+                        if (userCodeValues.includes(code)) {
+                            userCodeErrorHtml += `<li>Employee ID "${code}" is duplicated.</li>`;
+                        }
+                        userCodes[i] = code;
+                        userCodeValues.push(code);
+                    }
+                }
+
+                if (userCodeErrorHtml) {
+                    modalErrorMessage.innerHTML = `${userCodeErrorHtml}`;
                     errorModal.show();
                     return;
                 }
 
-                let formData = new FormData(form);
+                // Collect meta info per ProcessX_Y
+                form.querySelectorAll("input[name^='meta[']").forEach(input => {
+                    const match = input.name.match(/meta\[(.*?)\]\[(.*?)\]/);
+                    if (match) {
+                        const field = match[1]; // e.g. Process1_105
+                        const key = match[2]; // checkpoint or tabIndex
+                        if (!meta[field]) meta[field] = {};
+                        meta[field][key] = input.value;
+                    }
+                });
 
+                const groups = {};
+
+                // Group radio and text inputs by field name
+                form.querySelectorAll("input[name^='Process'], input[type='text'][name^='Process']").forEach(input => {
+                    const name = input.name;
+                    if (!groups[name]) groups[name] = [];
+                    groups[name].push(input);
+                });
+
+                for (const name in groups) {
+                    const group = groups[name];
+                    const type = group[0].type;
+
+                    let valid = false;
+                    if (type === "radio") {
+                        valid = group.some(input => input.checked);
+                    } else if (type === "text") {
+                        valid = group[0].value.trim() !== "";
+                    }
+
+                    if (!valid) {
+                        const checkpoint = meta[name]?.checkpoint || name;
+                        const tabIndex = meta[name]?.tabIndex;
+                        const operator = tabIndex && userCodes[tabIndex] ? userCodes[tabIndex] : `Process ${tabIndex}`;
+
+                        if (!errorsByOperator[operator]) errorsByOperator[operator] = [];
+                        errorsByOperator[operator].push(checkpoint);
+                    }
+                }
+
+                // Show modal if errors exist
+                const operatorList = Object.keys(errorsByOperator);
+                if (operatorList.length > 0) {
+                    let html = ``;
+                    operatorList.forEach(op => {
+                        html += `<div><strong>${op}</strong><ul>`;
+                        errorsByOperator[op].forEach(cp => {
+                            html += `<li>${cp}</li>`;
+                        });
+                        html += `</ul></div>`;
+                    });
+                    modalErrorMessage.innerHTML = html;
+                    errorModal.show();
+                    return;
+                }
+
+                // Submit if valid
+                let formData = new FormData(form);
                 if (clickedButton) {
                     formData.append(clickedButton.name, clickedButton.value || "1");
                 }
@@ -436,6 +622,7 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
                     })
                     .catch(error => console.error("Error:", error));
             });
+
         });
 
         function openTab(event, tabName) {
@@ -474,8 +661,26 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
                 }
             }
 
-            // Navigate back to dor-form.php
-            window.location.href = "dor-form.php";
+            fetch("", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    body: new URLSearchParams({
+                        action: "delete_dor"
+                    })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success && data.redirectUrl) {
+                        window.location.href = data.redirectUrl;
+                    } else {
+                        alert(data.errors?.[0] || "Failed to delete DOR record.");
+                    }
+                })
+                .catch(err => {
+                    alert("Error occurred while deleting.");
+                });
         }
 
         // Form submission handling
@@ -709,6 +914,11 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
         };
     </script>
 
+    <form id="deleteDorForm" method="POST" action="dor-form.php">
+        <input type="hidden" name="action" value="delete_dor">
+    </form>
+
 </body>
+
 
 </html>

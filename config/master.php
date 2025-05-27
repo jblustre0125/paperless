@@ -12,8 +12,10 @@ if (isset($_GET['logOut'])) {
 
     if ($isProdMode === 1) {
         header('Location: ../module/adm-mode.php');
+        exit;
     } else {
         header('Location: ../logout.php');
+        exit;
     }
 }
 ?>
@@ -24,13 +26,16 @@ if (isset($_GET['logOut'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $title ?? 'Default Title'; ?></title>
+    <title><?php $title = $title ?? 'DOR System'; ?></title>
+    <link rel="icon" type="image/png" href="../img/dor-1024.png">
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link href="../css/master.css" rel="stylesheet">
+    <!-- <link rel="manifest" href="../config/manifest.json"> -->
+    <?php if ($_SERVER["REQUEST_METHOD"] === "POST") exit; ?>
 </head>
 
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+    <nav class="navbar navbar-expand-md navbar-dark bg-dark shadow-sm">
         <div class="container-lg">
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
                 aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
@@ -40,17 +45,8 @@ if (isset($_GET['logOut'])) {
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link active fs-5" href="dor-home.php">Daily Operation Record</a>
+                        <a class="nav-link active fs-5" href="dor-home.php">DOR System</a>
                     </li>
-                    <!-- <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle fs-5" href="#" id="reportDropdown" role="button"
-                            data-bs-toggle="dropdown" aria-expanded="false">
-                            Reports
-                        </a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="#">Downtime Report</a></li>
-                        </ul>
-                    </li> -->
                 </ul>
 
                 <!-- Device Name Styled & Aligned -->

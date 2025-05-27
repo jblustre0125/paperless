@@ -1,32 +1,25 @@
 <?php
 session_status() === PHP_SESSION_ACTIVE ?: session_start();
 require_once "../config/method.php";
-?>
 
-<!DOCTYPE html>
-<html lang="en">
+$db1 = new DbOp(1);
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
+// Resolve hostnameId and hostname if missing
+if (!isset($_SESSION['hostnameId'])) {
+    $clientIp = $_SERVER['REMOTE_ADDR'];
+    $res = $db1->execute("SELECT TOP 1 HostnameId FROM GenHostname WHERE IpAddress = ? AND IsActive = 1", [$clientIp], 1);
+    $_SESSION['hostnameId'] = $res[0]['HostnameId'] ?? 0;
+    $_SESSION['hostname'] = $res[0]['Hostname'] ?? '-';
+}
 
-<body>
-    <?php
+// Open-access pages
+$openPages = ['adm-mode.php', 'adm-dashboard.php', 'dor-login.php'];
+$currentFile = basename($_SERVER['SCRIPT_NAME']);
 
-    // Pages that don't require login
-    $openPages = ['adm-mode.php', 'adm-dashboard.php', 'dor-login.php'];
-
-    $currentFile = basename($_SERVER['PHP_SELF']);
-    if (!in_array($currentFile, $openPages)) {
-        // check if the user is logged in, otherwise redirect to login page
-        if (!isset($_SESSION['loggedIn']) || $_SESSION['loggedIn'] !== true) {
-            header("Location: ../index.php");
-            exit;
-        }
+// Restrict other pages
+if (!in_array($currentFile, $openPages)) {
+    if (!isset($_SESSION['loggedIn']) || $_SESSION['loggedIn'] !== true) {
+        header("Location: ../index.php");
+        exit;
     }
-
-    ?>
-</body>
-
-</html>
+}

@@ -189,14 +189,7 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
     }
 }
 
-
 ?>
-
-<style>
-    #qrScannerModal video {
-        background-color: black;
-    }
-</style>
 
 <form id="myForm" method="post" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" novalidate>
     <div class="container-fluid">
@@ -238,7 +231,7 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
 
         <div class="mb-3">
             <label for="txtModelName" class="form-label-lg fw-bold">Model</label>
-            <input type="text" class="form-control form-control-lg" id="txtModelName" name="txtModelName" placeholder="Tap to scan ID tag" required
+            <input type="text" class="form-control form-control-lg" id="txtModelName" name="txtModelName" placeholder="Tap to scan ID tag" required data-scan
                 value="<?php echo $_POST["txtModelName"] ?? '7L0113-7021C'; ?>">
         </div>
 
@@ -293,105 +286,76 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
     </div>
 </form>
 
+<script src="../js/bootstrap.min.js"></script>
 <script src="../js/jsQR.min.js"></script>
 
 <script>
-    function checkCameraAccessBeforeScanning() {
-        const constraints = {
-            video: {
-                facingMode: {
-                    ideal: "environment"
-                }
-            }
-        };
-
-        return navigator.mediaDevices.getUserMedia(constraints)
-            .then(stream => {
-                // Stop the stream immediately after checking
-                stream.getTracks().forEach(track => track.stop());
-                return true;
-            })
-            .catch(error => {
-                console.error("Camera access failed:", error);
-                showErrorModal("Unable to access camera. Please check your browser permissions or device settings.");
-                return false;
-            });
-    }
-
-    function showErrorModal(message) {
-        const modalErrorMessage = document.getElementById("modalErrorMessage");
-        modalErrorMessage.innerText = message;
-        const errorModal = new bootstrap.Modal(document.getElementById("errorModal"));
-        errorModal.show();
-    }
-</script>
-
-<script>
     document.addEventListener("DOMContentLoaded", function() {
-        // Elements for QR Scanner
-        const modelInput = document.getElementById("txtModelName");
-        const qtyInput = document.getElementById("txtQty");
         const scannerModal = new bootstrap.Modal(document.getElementById("qrScannerModal"));
-        let enterManually = false;
-        let video = document.getElementById("qr-video");
-        let canvas = document.createElement("canvas");
-        let ctx = canvas.getContext("2d", {
+        const errorModal = new bootstrap.Modal(document.getElementById("errorModal"));
+        const modalErrorMessage = document.getElementById("modalErrorMessage");
+
+        const video = document.getElementById("qr-video");
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d", {
             willReadFrequently: true
         });
+
+        const modelInput = document.getElementById("txtModelName");
+        const qtyInput = document.getElementById("txtQty");
+
+        let enterManually = false;
         let scanning = false;
+        let activeInput = null;
+        let clickedButton = null;
+
+        navigator.permissions.query({
+            name: "camera"
+        }).then((result) => {
+            console.log("Camera permission:", result.state);
+        });
 
         function getCameraConstraints() {
             return {
                 video: {
                     facingMode: {
                         ideal: "environment"
-                    } // Prefer rear camera, fallback to front
+                    }
                 }
             };
         }
 
         function startScanning() {
             scannerModal.show();
-
-            const constraints = getCameraConstraints();
-
-            navigator.mediaDevices.getUserMedia(constraints)
-                .then(function(stream) {
-                    setupVideoStream(stream);
-                })
-                .catch(function(err) {
-                    console.warn("Rear camera failed, trying front camera...", err);
-
-                    // Try front camera as fallback
+            navigator.mediaDevices.getUserMedia(getCameraConstraints())
+                .then(setupVideoStream)
+                .catch((err1) => {
+                    console.warn("Rear camera failed", err1);
                     return navigator.mediaDevices.getUserMedia({
                             video: {
                                 facingMode: "user"
                             }
                         })
-                        .then(function(stream) {
-                            setupVideoStream(stream);
-                        })
-                        .catch(function(error) {
-                            console.error("Camera access denied or unavailable.", error);
-                            alert("Unable to access camera. Please check permissions or try a different browser.");
+                        .then(setupVideoStream)
+                        .catch((err2) => {
+                            console.error("Camera access denied", err2);
+                            alert("Camera access is blocked or not available on this tablet.");
                         });
                 });
+        }
 
-            function setupVideoStream(stream) {
-                console.log("Stream received", stream);
-                video.srcObject = stream;
-                video.setAttribute("playsinline", true);
-                video.setAttribute("autoplay", true);
-                video.style.width = "100%";
-                video.style.height = "auto";
-                video.muted = true;
-                video.play()
-                    .then(() => console.log("Video playing"))
-                    .catch(err => console.error("Video failed to play", err));
-
-                scanning = true;
-                scanQRCode();
-            }
+        function setupVideoStream(stream) {
+            video.srcObject = stream;
+            video.setAttribute("playsinline", true);
+            video.setAttribute("autoplay", true);
+            video.muted = true;
+            video.style.width = "100%";
+            video.style.height = "auto";
+            video.onloadedmetadata = () => {
+                video.play().then(() => scanQRCode());
+            };
+            scanning = true;
+            scanQRCode();
         }
 
         function scanQRCode() {
@@ -400,24 +364,25 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                let qrCodeData = jsQR(imageData.data, imageData.width, imageData.height);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const qrCodeData = jsQR(imageData.data, imageData.width, imageData.height);
 
                 if (qrCodeData) {
-                    let scannedText = qrCodeData.data.trim();
-                    let parts = scannedText.split(" ");
+                    const scannedText = qrCodeData.data.trim();
+                    const parts = scannedText.split(" ");
 
                     if (parts.length === 1) {
                         modelInput.value = parts[0];
                         qtyInput.value = "";
                         stopScanning();
                     } else if (parts.length === 3) {
-                        let model = parts[0];
-                        let qty = parts[2];
+                        const model = parts[0];
+                        const qty = parts[1]; // fix here
 
                         if (!isNaN(qty)) {
                             modelInput.value = model;
                             qtyInput.value = qty;
+                            indicateScanSuccess();
                             stopScanning();
                         } else {
                             alert("Invalid QR Code format.");
@@ -430,41 +395,62 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
             requestAnimationFrame(scanQRCode);
         }
 
-        function stopScanning() {
-            scanning = false;
-            let tracks = video.srcObject?.getTracks();
-            if (tracks) tracks.forEach(track => track.stop());
-            scannerModal.hide();
+        function indicateScanSuccess() {
+            const overlay = document.createElement("div");
+            overlay.style.position = "absolute";
+            overlay.style.top = "0";
+            overlay.style.left = "0";
+            overlay.style.width = "100%";
+            overlay.style.height = "100%";
+            overlay.style.backgroundColor = "rgba(0,255,0,0.25)";
+            overlay.style.zIndex = "9999";
+            document.getElementById("qrScannerModal").appendChild(overlay);
+            setTimeout(() => overlay.remove(), 300);
         }
 
-        modelInput.addEventListener("click", async function() {
-            const accessGranted = await checkCameraAccessBeforeScanning();
-            if (accessGranted) {
-                scannerModal.show();
-                startScanning(); // Call your existing scanning logic here
+        function stopScanning() {
+            scanning = false;
+            const tracks = video.srcObject?.getTracks();
+            if (tracks) tracks.forEach(track => track.stop());
+            video.srcObject = null;
+
+            const modalEl = document.getElementById("qrScannerModal");
+            if (modalEl.classList.contains("show")) {
+                bootstrap.Modal.getInstance(modalEl)?.hide();
             }
+        }
+
+        document.querySelectorAll("input[data-scan]").forEach(input => {
+            input.addEventListener("click", async function() {
+                const accessGranted = await navigator.mediaDevices.getUserMedia({
+                        video: true
+                    })
+                    .then(stream => {
+                        stream.getTracks().forEach(track => track.stop());
+                        return true;
+                    })
+                    .catch(() => false);
+
+                if (accessGranted) {
+                    activeInput = this;
+                    startScanning();
+                } else {
+                    alert("Camera access denied.");
+                }
+            });
         });
-        modelInput.addEventListener("input", function() {
-            enterManually = true;
-        });
-        modelInput.addEventListener("blur", function() {
-            setTimeout(() => enterManually = false, 1000);
-        });
-        document.getElementById("qrScannerModal").addEventListener("hidden.bs.modal", stopScanning);
-        document.getElementById("enterManually").addEventListener("click", function() {
+
+        document.getElementById("enterManually").addEventListener("click", () => {
             enterManually = true;
             stopScanning();
-            setTimeout(() => modelInput.focus(), 300);
+            setTimeout(() => {
+                if (activeInput) activeInput.focus();
+            }, 300);
         });
 
-        // Form Validation & Submission
+        document.getElementById("qrScannerModal").addEventListener("hidden.bs.modal", stopScanning);
+
         const form = document.querySelector("#myForm");
-        const errorModal = new bootstrap.Modal(document.getElementById("errorModal"));
-        const modalErrorMessage = document.getElementById("modalErrorMessage");
-
-        let clickedButton = null;
-
-        // Track which submit button was clicked
         document.querySelectorAll("button[type='submit']").forEach(button => {
             button.addEventListener("click", function() {
                 clickedButton = this;
@@ -481,8 +467,7 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
                 return;
             }
 
-            let formData = new FormData(form);
-
+            const formData = new FormData(form);
             if (clickedButton) {
                 formData.append(clickedButton.name, clickedButton.value || "1");
             }
@@ -494,14 +479,7 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
                 .then(response => response.json())
                 .then((data) => {
                     if (data.success) {
-                        if (clickedButton.name === "btnCreateDor") {
-                            window.location.href = data.redirectUrl;
-                            return;
-                        }
-                        if (clickedButton.name === "btnSearchDor") {
-                            window.location.href = data.redirectUrl;
-                            return;
-                        }
+                        window.location.href = data.redirectUrl;
                     } else {
                         modalErrorMessage.innerHTML = "<ul><li>" + data.errors.join("</li><li>") + "</li></ul>";
                         errorModal.show();
@@ -511,6 +489,7 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
         });
     });
 </script>
+
 
 <?php
 $content = ob_get_clean();

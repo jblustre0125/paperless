@@ -7,18 +7,13 @@ $db1 = new DbOp(1);
 $clientIp = $_SERVER['REMOTE_ADDR'];
 $errorPrompt = '';
 
-// Developer override
-if ($isProdMode === 1) {
-	$deviceName = 'NBCP-TAB-001';
-} else {
-	$query = "SELECT TOP 1 HostnameId FROM GenHostname WHERE IpAddress = ? AND IsActive = 1";
-	$result = $db1->execute($query, [$clientIp], 1);
+$query = "SELECT TOP 1 Hostname FROM GenHostname WHERE IpAddress = ? AND IsActive = 1";
+$result = $db1->execute($query, [$clientIp], 1);
 
-	if (!empty($result)) {
-		$deviceName = $result[0]['Hostname'];
-	} else {
-		$deviceName = 'NBCP-TAB-001';
-	}
+if (!empty($result)) {
+	$deviceName = $result[0]['Hostname'];
+} else {
+	$deviceName = 'NBCP-TAB-001';
 }
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -58,7 +53,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 		}
 
 		// If both valid
-		if (empty($chkEmp) && empty($chkDev)) {
+		if (!empty($res1) && empty($chkEmp) && empty($chkDev)) {
+			// Valid employee & tablet, not logged in
 			foreach ($res1 as $row1) {
 				$_SESSION['loggedIn'] = true;
 				$_SESSION['processId'] = $row1['ProcessId'];

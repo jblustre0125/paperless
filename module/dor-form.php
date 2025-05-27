@@ -1,5 +1,5 @@
 <?php
-$title = "DOR Item/Jig Condition";
+$title = "Checkpoint Item/Jig Condition";
 session_start();
 ob_start();
 
@@ -27,7 +27,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $response['success'] = true;
             $response['redirectUrl'] = 'dor-home.php';
         } else {
-            $response['errors'][] = 'No RecordId in session';
+            $response['errors'][] = 'No record ID in session.';
         }
 
         echo json_encode($response);
@@ -37,6 +37,31 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     // Regular form submit handler (btnProceed)
     if (empty($response['errors'])) {
         if (isset($_POST['btnProceed'])) {
+            $recordId = $_SESSION['dorRecordId'] ?? 0;
+            if ($recordId > 0) {
+                foreach ($_POST as $key => $value) {
+                    if (preg_match('/^Process(\d+)_(\d+)$/', $key, $matches)) {
+                        $processIndex = (int)$matches[1];
+                        $sequenceId = (int)$matches[2];
+
+                        $meta = $_POST['meta'][$key] ?? [];
+                        $checkpointId = $meta['checkpointId'] ?? null;
+                        $employeeCode = $_POST["userCode{$processIndex}"] ?? '';
+
+                        if ($checkpointId && $employeeCode !== '') {
+                            $insSp = "EXEC InsAtoDorCheckpointDefinition @RecordId=?, @ProcessIndex=?, @EmployeeCode=?, @CheckpointId=?, @CheckpointResponse=?";
+                            $db1->execute($insSp, [
+                                $recordId,
+                                $processIndex,
+                                $employeeCode,
+                                $checkpointId,
+                                $value
+                            ]);
+                        }
+                    }
+                }
+            }
+
             $response['success'] = true;
             $response['redirectUrl'] = "dor-refresh.php";
         } else {
@@ -53,17 +78,49 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 $procA = "EXEC RdGenDorCheckpointDefinition @DorTypeId=?";
 $resA = $db1->execute($procA, [$_SESSION['dorTypeId']], 1);
 
-// Prepare data for the tabs
 $tabData = [];
+
 foreach ($resA as $row) {
+    $checkpointId = $row['CheckpointId'];
     $checkpointName = $row['CheckpointName'];
+    $sequenceId = $row['SequenceId'];
+
+    // Use $checkpointName as top-level grouping key (to preserve your row merge)
     if (!isset($tabData[$checkpointName])) {
         $tabData[$checkpointName] = [];
     }
-    $tabData[$checkpointName][] = $row;
+
+    // If this checkpointId already added, just push the option
+    $found = false;
+    foreach ($tabData[$checkpointName] as &$existing) {
+        if ($existing['CheckpointId'] === $checkpointId) {
+            if (!empty($row['CheckpointTypeDetailName'])) {
+                $existing['Options'][] = $row['CheckpointTypeDetailName'];
+            }
+            $found = true;
+            break;
+        }
+    }
+
+    // New checkpoint entry
+    if (!$found) {
+        $tabData[$checkpointName][] = [
+            'CheckpointId' => $checkpointId,
+            'SequenceId' => $sequenceId,
+            'CheckpointName' => $checkpointName,
+            'CriteriaGood' => $row['CriteriaGood'],
+            'CriteriaNotGood' => $row['CriteriaNotGood'],
+            'CheckpointTypeId' => $row['CheckpointTypeId'],
+            'CheckpointControl' => $row['CheckpointControl'],
+            'Options' => !empty($row['CheckpointTypeDetailName']) ? [$row['CheckpointTypeDetailName']] : [],
+        ];
+    }
 }
 
-$drawingFile = getDrawing($_SESSION["dorModelName"]);
+$drawingFile = getDrawing($_SESSION["dorTypeId"], $_SESSION['dorModelId']);
+$preCardFile = getPreparationCard($_SESSION['dorModelId']);
+$workInstructFile = getWorkInstruction($_SESSION["dorTypeId"], $_SESSION['dorModelId']);
+
 ?>
 
 
@@ -76,32 +133,49 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
     <title><?php echo htmlspecialchars($title ?? 'Work I Checkpoint'); ?></title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link href="../css/dor-form.css" rel="stylesheet">
+
+    <style>
+
+    </style>
 </head>
 
 <body>
     <form id="myForm" method="post" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" novalidate>
-        <nav class="navbar navbar-expand-lg navbar-light bg-light shadow-sm">
-            <div class="container-fluid">
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent" aria-controls="navbarContent" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
+        <nav class="navbar navbar-expand navbar-light bg-light shadow-sm fixed-top">
+            <div class="container-fluid pt-4">
+                <div class="d-flex flex-wrap align-items-center justify-content-between w-100 gap-2 text-center">
 
-                <div class="collapse navbar-collapse" id="navbarContent">
-                    <div class="d-flex flex-column flex-lg-row align-items-center justify-content-between w-100">
-                        <button type="button" class="btn btn-secondary btn-lg mb-2 mb-lg-0" onclick="goBack()" aria-label="Go Back">Back</button>
-
-                        <div class="d-flex flex-wrap gap-3 mt-2 mt-lg-0 justify-content-center">
-                            <button type="button" class="btn btn-secondary btn-lg" id="btnDrawing" aria-label="Open Drawing">Drawing</button>
-                            <button type="button" class="btn btn-secondary btn-lg" id="btnWorkInstruction" aria-label="Open Work Instruction">Work Instruction</button>
-                            <button type="button" class="btn btn-secondary btn-lg" id="btnGuideline" aria-label="Open Guideline">Guideline</button>
-                            <button type="button" class="btn btn-secondary btn-lg" id="btnPrepCard" aria-label="Open Preparation Card">Preparation Card</button>
-                        </div>
-
-                        <button class="btn btn-primary btn-lg mt-2 mt-lg-0" type="submit" id="btnProceed" name="btnProceed" aria-label="Proceed to Refresher Checkpoint">Proceed to Refresher</button>
+                    <!-- Back button -->
+                    <div class="d-flex align-items-center justify-content-center">
+                        <button type="button" class="btn btn-secondary nav-btn-lg" onclick="goBack()" aria-label="Go Back">
+                            Back
+                        </button>
                     </div>
+
+                    <!-- Center button group -->
+                    <div class="d-flex flex-wrap gap-3 justify-content-center">
+                        <button type="button" class="btn btn-secondary nav-btn-lg" id="btnDrawing" aria-label="Open Drawing">
+                            Drawing
+                        </button>
+                        <button type="button" class="btn btn-secondary nav-btn-lg" id="btnWorkInstruction" aria-label="Open Work Instruction">
+                            Work Instruction
+                        </button>
+                        <button type="button" class="btn btn-secondary nav-btn-lg" id="btnPrepCard" aria-label="Open Preparation Card">
+                            Preparation Card
+                        </button>
+                    </div>
+
+                    <!-- Proceed button -->
+                    <div class="d-flex align-items-center justify-content-center">
+                        <button class="btn btn-primary nav-btn-lg" type="submit" id="btnProceed" name="btnProceed" aria-label="Proceed to Refresher Checkpoint">
+                            Proceed to Refresher
+                        </button>
+                    </div>
+
                 </div>
             </div>
         </nav>
+
 
         <div class="container-fluid">
             <?php if (!empty($errorPrompt)) : ?>
@@ -125,7 +199,24 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
                                 <button type="button" class="tab-button btn btn-secondary btn-sm mb-1" onclick="openTab(event, 'Process<?php echo $i; ?>')">Process <?php echo $i; ?></button>
 
                                 <!-- Textbox for User Code -->
-                                <input type="text" class="form-control form-control-md" id="userCode<?php echo $i; ?>" name="userCode<?php echo $i; ?>" placeholder="Employee ID" style="width: 120px;">
+                                <?php
+                                // DEBUG PRESET EMPLOYEE IDs — comment this block to disable
+                                $debugUserCodes = [
+                                    1 => '2503-004',
+                                    2 => '2503-005',
+                                    3 => 'FMB-0826',
+                                    4 => 'FMB-0570'
+                                ];
+                                $debugUserCodeValue = $debugUserCodes[$i] ?? '';
+                                ?>
+
+                                <input type="text"
+                                    class="form-control form-control-md"
+                                    id="userCode<?php echo $i; ?>"
+                                    name="userCode<?php echo $i; ?>"
+                                    placeholder="Employee ID"
+                                    value="<?php echo $debugUserCodeValue; ?>"
+                                    style="width: 120px;">
                             </div>
                         <?php endfor; ?>
                     </div>
@@ -164,36 +255,47 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
                                             <?php endif; ?>
 
                                             <td class="selection-cell">
-                                                <?php if ($criteriaTypeId == 1) : ?>
-                                                    <!-- Type 1: OK, NG, NA -->
-                                                    <div class='process-radio'>
-                                                        <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='OK'> OK</label>
-                                                        <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='NG'> NG</label>
-                                                        <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='NA'> NA</label>
-                                                    </div>
-                                                <?php elseif ($criteriaTypeId == 2) : ?>
-                                                    <!-- Type 2: Free text -->
-                                                    <input type="text" class="form-control" name="Process<?php echo $i . "_" . $row['SequenceId']; ?>">
-                                                <?php elseif ($criteriaTypeId == 3) : ?>
-                                                    <!-- Type 3: NJ, CJ -->
-                                                    <div class='process-radio'>
-                                                        <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='CJ'> CJ</label>
-                                                        <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='NJ'> NJ</label>
-                                                    </div>
-                                                <?php elseif ($criteriaTypeId == 4) : ?>
-                                                    <!-- Type 3: NJ, CJ -->
-                                                    <div class='process-radio'>
-                                                        <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='M'> M</label>
-                                                        <label><input type='radio' name='Process<?php echo $i . "_" . $row['SequenceId']; ?>' value='NM'> NM</label>
-                                                    </div>
-                                                <?php endif; ?>
-
                                                 <?php
-                                                $inputName = "Process{$i}_{$row['SequenceId']}";
+                                                $inputName = "Process{$i}_{$row['CheckpointId']}";
+
+                                                // Debug response value — comment out this block when done
+                                                $debugResponse = '';
+                                                switch ((int)$row['CheckpointTypeId']) {
+                                                    case 1:
+                                                        $debugResponse = 'OK';
+                                                        break;
+                                                    case 2:
+                                                        $debugResponse = 'DEBUG';
+                                                        break;
+                                                    case 3:
+                                                        $debugResponse = 'CJ';
+                                                        break;
+                                                    case 4:
+                                                        $debugResponse = 'M';
+                                                        break;
+                                                }
+
+                                                $controlType = $row['CheckpointControl'];
+                                                $options = $row['Options'];
+
+                                                if ($controlType === 'radio' && !empty($options)) {
+                                                    echo "<div class='process-radio'>";
+                                                    foreach ($options as $opt) {
+                                                        $checked = ($opt === $debugResponse) ? "checked" : "";
+                                                        echo "<label><input type='radio' name='{$inputName}' value='{$opt}' {$checked}> {$opt}</label> ";
+                                                    }
+                                                    echo "</div>";
+                                                } elseif ($controlType === 'text') {
+                                                    echo "<input type='text' name='{$inputName}' class='form-control' value='{$debugResponse}'>";
+                                                } else {
+                                                    echo "<em>Unknown control type</em>";
+                                                }
+
+                                                // hidden fields
+                                                echo "<input type='hidden' name='meta[{$inputName}][tabIndex]' value='{$i}'>";
+                                                echo "<input type='hidden' name='meta[{$inputName}][checkpoint]' value='" . htmlspecialchars($row['CheckpointName']) . "'>";
+                                                echo "<input type='hidden' name='meta[{$inputName}][checkpointId]' value='{$row['CheckpointId']}'>";
                                                 ?>
-                                                <input type="hidden" name="meta[<?php echo $inputName ?>][tabIndex]" value="<?php echo $i ?>">
-                                                <input type="hidden" name="meta[<?php echo $inputName ?>][checkpoint]" value="<?php echo htmlspecialchars($row['CheckpointName']) ?>">
-                                                <input type="hidden" name="meta[<?php echo $inputName ?>][checkpointId]" value="<?php echo $row['CheckpointId'] ?>">
                                             </td>
 
                                             <?php if ($index == count($rows) - 1) : ?>
@@ -213,7 +315,7 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
             <div class="modal-dialog">
                 <div class="modal-content border-danger">
                     <div class="modal-header bg-danger text-white">
-                        <h5 class="modal-title" id="errorModalLabel">Please complete the information</h5>
+                        <h5 class="modal-title" id="errorModalLabel">Please complete the checkpoint</h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body" id="modalErrorMessage">
@@ -250,9 +352,10 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
     <!-- PiP Viewer HTML: supports maximize and minimize modes -->
     <div id="pipViewer" class="pip-viewer d-none maximize-mode">
         <div id="pipHeader">
-            <button id="pipMaximize" class="pip-btn d-none">&#x26F6;</button>
-            <button id="pipMinimize" class="pip-btn">&#x1F5D5;</button>
-            <button id="pipClose" class="pip-btn">&#x2715;</button>
+            <button id="pipMaximize" class="pip-btn d-none">Maximize</button>
+            <button id="pipMinimize" class="pip-btn" title="Minimize">Minimize</button>
+            <button id="pipReset" class="pip-btn" title="Reset View">Reset</button>
+            <button id="pipClose" class="pip-btn">Close</button>
         </div>
         <div id="pipContent"></div>
     </div>
@@ -261,8 +364,8 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
 
     <!-- To fix `Uncaught ReferenceError: Modal is not defined` -->
     <script src="../js/bootstrap.bundle.min.js"></script>
-    <script src="../js/jsQR.min.js"></script>
 
+    <script src="../js/jsQR.min.js"></script>
     <script>
         function checkCameraAccessBeforeScanning() {
             const constraints = {
@@ -297,7 +400,7 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
     <script>
         document.addEventListener("DOMContentLoaded", function() {
             const scannerModal = new bootstrap.Modal(document.getElementById("qrScannerModal"));
-            let video = document.getElementById("qr-video");
+            const video = document.getElementById("qr-video");
             let canvas = document.createElement("canvas");
             let ctx = canvas.getContext("2d", {
                 willReadFrequently: true
@@ -316,22 +419,32 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
 
             function startScanning() {
                 scannerModal.show();
+                const constraints = getCameraConstraints();
+
                 navigator.mediaDevices.getUserMedia(getCameraConstraints())
                     .then(setupVideoStream)
-                    .catch(() => navigator.mediaDevices.getUserMedia({
-                        video: {
-                            facingMode: "user"
-                        }
-                    }).then(setupVideoStream));
+                    .catch((err1) => {
+                        console.error("Back camera failed", err1);
+
+                        navigator.mediaDevices.getUserMedia({
+                                video: {
+                                    facingMode: "user"
+                                }
+                            })
+                            .then(setupVideoStream)
+                            .catch((err2) => {
+                                console.error("Front camera failed", err2);
+                                alert("Camera access is blocked or not available on this tablet.");
+                            });
+                    });
             }
 
             function setupVideoStream(stream) {
                 video.srcObject = stream;
                 video.setAttribute("playsinline", true);
-                video.setAttribute("autoplay", true);
-                video.style.width = "100%";
-                video.muted = true;
-                video.play().then(() => scanQRCode());
+                video.onloadedmetadata = () => {
+                    video.play().then(() => scanQRCode());
+                };
                 scanning = true;
             }
 
@@ -391,6 +504,7 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
 
     <script>
         let isMinimized = false;
+        const workInstructFile = <?php echo json_encode($workInstructFile); ?>;
 
         document.addEventListener("DOMContentLoaded", function() {
             // Attach event listeners to buttons
@@ -399,15 +513,15 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
             });
 
             document.getElementById("btnWorkInstruction").addEventListener("click", function() {
-                openPiPViewer('../img/wi/<?php echo $_SESSION['dorModelName']; ?>.pdf', 'pdf');
-            });
-
-            document.getElementById("btnGuideline").addEventListener("click", function() {
-                openPiPViewer('../img/guideline/<?php echo $_SESSION['dorModelName']; ?>.pdf', 'pdf');
+                if (workInstructFile !== "") {
+                    openPiPViewer(workInstructFile, 'pdf');
+                }
             });
 
             document.getElementById("btnPrepCard").addEventListener("click", function() {
-                openPiPViewer('../img/prepcard/<?php echo $_SESSION['dorModelName']; ?>.pdf', 'pdf');
+                if ($preCardFile !== "") {
+                    openPiPViewer("<?php echo $preCardFile; ?>", 'pdf');
+                }
             });
 
             let storedTab = sessionStorage.getItem("activeTab");
@@ -624,6 +738,21 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
         const btnMax = document.getElementById('pipMaximize');
         const btnClose = document.getElementById('pipClose');
 
+        document.getElementById('pipReset').onclick = () => {
+            const img = document.getElementById('pipImage');
+            if (img) {
+                currentScale = 1;
+                currentX = 0;
+                currentY = 0;
+                lastScale = 1;
+                lastX = 0;
+                lastY = 0;
+                img.style.transform = `translate(0px, 0px) scale(1)`;
+            } else if (currentType === 'pdf' && currentPdf) {
+                showPdfPage(currentPage); // re-render current PDF page
+            }
+        };
+
         let currentType = '',
             currentPath = '',
             currentScale = 1,
@@ -636,15 +765,18 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
             currentScale = 1;
             currentPage = 1;
 
-            // FIX: Ensure viewer is visible before applying mode
-            pipViewer.classList.remove('d-none');
-            pipViewer.classList.remove('minimize-mode');
-            pipViewer.classList.remove('maximize-mode'); // Reset both first
-            pipViewer.style.top = '';
-            pipViewer.style.left = '';
-            pipViewer.style.right = '';
-            pipViewer.style.bottom = '';
-            pipViewer.style.transform = '';
+            pipViewer.className = 'pip-viewer d-none'; // reset all modes
+
+            pipViewer.className = 'pip-viewer'; // reset all
+            pipViewer.classList.add('maximize-mode');
+
+            if (type === 'pdf') {
+                pipViewer.classList.add('pdf-mode');
+            } else {
+                pipViewer.classList.remove('pdf-mode');
+            }
+
+            pipViewer.style.top = pipViewer.style.left = pipViewer.style.right = pipViewer.style.bottom = pipViewer.style.transform = '';
             pipViewer.classList.add('maximize-mode');
 
             pipContent.innerHTML = '';
@@ -655,10 +787,26 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
             document.getElementById('pipBackdrop').style.display = 'block';
 
             if (type === 'image') {
+                const container = document.createElement('div');
+                container.style.overflow = 'hidden';
+                container.style.width = '100%';
+                container.style.height = '100%';
+                container.style.touchAction = 'none';
+                container.style.display = 'flex';
+                container.style.alignItems = 'center';
+                container.style.justifyContent = 'center';
+
                 const img = document.createElement('img');
                 img.src = path;
                 img.id = 'pipImage';
-                pipContent.appendChild(img);
+                img.style.maxWidth = '100%';
+                img.style.maxHeight = '100%';
+                img.style.transformOrigin = '0 0'; // required for zoom/pan
+                img.style.transition = 'transform 0s';
+
+                container.appendChild(img);
+                pipContent.appendChild(container);
+
                 initImageZoom(img);
             } else if (type === 'pdf') {
                 pdfjsLib.getDocument(path).promise.then(pdf => {
@@ -673,39 +821,90 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
                 const canvas = document.createElement('canvas');
                 const ctx = canvas.getContext('2d');
 
-                // Get container size (minimized or maximized)
                 const contentRect = pipContent.getBoundingClientRect();
-                const containerWidth = contentRect.width;
-                const containerHeight = contentRect.height;
+                const baseScale = Math.min(
+                    contentRect.width / page.view[2],
+                    contentRect.height / page.view[3]
+                );
 
-                // Get original size at scale 1
-                const viewportAt1 = page.getViewport({
-                    scale: 1
-                });
-                const pageWidth = viewportAt1.width;
-                const pageHeight = viewportAt1.height;
-
-                // Compute scale that fits the page into the container
-                const widthScale = containerWidth / pageWidth;
-                const heightScale = containerHeight / pageHeight;
-                const scale = Math.min(widthScale, heightScale);
-
+                const dpiScale = 2; // Render at 2× resolution
                 const viewport = page.getViewport({
-                    scale
+                    scale: baseScale * dpiScale
                 });
+
                 canvas.width = viewport.width;
                 canvas.height = viewport.height;
+
+                canvas.style.width = contentRect.width + 'px';
+                canvas.style.height = contentRect.height + 'px';
+
+                canvas.style.touchAction = 'none';
+                canvas.style.transformOrigin = '0 0';
+                canvas.style.transition = 'transform 0s';
+
+                pipContent.innerHTML = '';
+                pipContent.appendChild(canvas);
 
                 page.render({
                     canvasContext: ctx,
                     viewport
                 });
 
-                pipContent.innerHTML = '';
-                pipContent.appendChild(canvas);
-
+                initPdfPinchZoom(canvas);
                 initPdfSwipe(canvas);
-                initPdfPinchZoom(canvas); // include if you're preserving pinch-zoom
+            });
+        }
+
+        function initPdfPinchZoom(canvas) {
+            const hammer = new Hammer(canvas);
+            hammer.get('pinch').set({
+                enable: true
+            });
+            hammer.get('pan').set({
+                direction: Hammer.DIRECTION_ALL
+            });
+
+            hammer.add(new Hammer.Tap({
+                event: 'doubletap',
+                taps: 2
+            }));
+            hammer.get('doubletap').recognizeWith('tap');
+
+            let scale = 1,
+                lastScale = 1;
+            let x = 0,
+                y = 0,
+                lastX = 0,
+                lastY = 0;
+
+            function applyTransform() {
+                canvas.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+            }
+
+            hammer.on('pinch', ev => {
+                scale = Math.min(Math.max(1, lastScale * ev.scale), 4);
+                applyTransform();
+            });
+
+            hammer.on('pinchend', () => {
+                lastScale = scale;
+            });
+
+            hammer.on('pan', ev => {
+                x = lastX + ev.deltaX;
+                y = lastY + ev.deltaY;
+                applyTransform();
+            });
+
+            hammer.on('panend', () => {
+                lastX = x;
+                lastY = y;
+            });
+
+            hammer.on('doubletap', () => {
+                if (pipViewer.classList.contains('maximize-mode')) {
+                    minimizeViewer();
+                }
             });
         }
 
@@ -714,15 +913,62 @@ $drawingFile = getDrawing($_SESSION["dorModelName"]);
             hammer.get('pinch').set({
                 enable: true
             });
+            hammer.get('pan').set({
+                direction: Hammer.DIRECTION_ALL
+            });
+
+            hammer.get('tap').set({
+                taps: 1
+            });
+            hammer.add(new Hammer.Tap({
+                event: 'doubletap',
+                taps: 2
+            }));
+            hammer.get('doubletap').recognizeWith('tap');
+
+            let lastScale = 1;
+            let lastX = 0,
+                lastY = 0;
+            let currentX = 0,
+                currentY = 0;
+
             hammer.on('pinch', ev => {
-                currentScale = Math.min(Math.max(1, ev.scale), 5);
-                img.style.transform = `scale(${currentScale})`;
+                currentScale = Math.min(Math.max(1, lastScale * ev.scale), 5);
+                updateTransform();
             });
-            hammer.on('tap', ev => {
-                if (pipViewer.classList.contains('minimize-mode')) maximizeViewer();
-                else if (ev.tapCount === 2) minimizeViewer();
+
+            hammer.on('pinchend', () => {
+                lastScale = currentScale;
             });
+
+            hammer.on('pan', ev => {
+                currentX = lastX + ev.deltaX;
+                currentY = lastY + ev.deltaY;
+                updateTransform();
+            });
+
+            hammer.on('panend', () => {
+                lastX = currentX;
+                lastY = currentY;
+            });
+
+            hammer.on('tap', () => {
+                if (pipViewer.classList.contains('minimize-mode')) {
+                    maximizeViewer();
+                }
+            });
+
+            hammer.on('doubletap', () => {
+                if (pipViewer.classList.contains('maximize-mode')) {
+                    minimizeViewer();
+                }
+            });
+
+            function updateTransform() {
+                img.style.transform = `translate(${currentX}px, ${currentY}px) scale(${currentScale})`;
+            }
         }
+
 
         function initPdfSwipe(canvas) {
             const hammer = new Hammer(canvas);

@@ -1,6 +1,6 @@
 <?php
 
-$isProdMode = 1; // 1 = production, 0 = development
+$isProdMode = 0; // 1 = production, 0 = development
 
 if (!$isProdMode) {
     ini_set('display_errors', 1);

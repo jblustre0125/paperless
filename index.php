@@ -1,4 +1,9 @@
 <?php
+// Allow direct access to manifest without PHP processing
+if (isset($_SERVER['REQUEST_URI']) && str_contains($_SERVER['REQUEST_URI'], 'manifest.webmanifest')) {
+    exit;
+}
+
 require_once "config/dbop.php";
 
 $db1 = new DbOp(1);

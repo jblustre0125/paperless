@@ -1,0 +1,23 @@
+{
+  "name": "DOR System",
+  "short_name": "DOR",
+  "start_url": "/paperless/module/dor-login.php",
+  "display": "fullscreen",
+  "background_color": "#ffffff",
+  "theme_color": "#0d6efd",
+  "icons": [
+    {
+      "src": "/paperless/img/dor-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/paperless/img/dor-1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "form_factor": "wide"
+    }
+  ]
+}
