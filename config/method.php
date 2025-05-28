@@ -230,7 +230,7 @@ function getWorkInstruction($dorTypeId, $modelId)
             $filename = strtoupper($file->getFilename());
 
             // Match: contains model + dorType
-            if (strpos($filename, $modelName) !== false && strpos($filename, $dorType) !== false) {
+            if (strpos($filename, $modelName, $dorType) !== false && strpos($filename, $dorType) !== false) {
                 $mtime = $file->getMTime();
                 if ($mtime > $latestMTime) {
                     $latestMTime = $mtime;

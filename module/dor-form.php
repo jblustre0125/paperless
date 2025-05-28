@@ -63,7 +63,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             }
 
             $response['success'] = true;
-            $response['redirectUrl'] = "dor-refresh.php";
+            $response['redirectUrl'] = "dor-dor.php";
         } else {
             $response['success'] = false;
             $response['errors'][] = "Error.";
@@ -123,7 +123,6 @@ $workInstructFile = getWorkInstruction($_SESSION["dorTypeId"], $_SESSION['dorMod
 
 ?>
 
-
 <!DOCTYPE html>
 <html lang="en">
 
@@ -133,49 +132,30 @@ $workInstructFile = getWorkInstruction($_SESSION["dorTypeId"], $_SESSION['dorMod
     <title><?php echo htmlspecialchars($title ?? 'Work I Checkpoint'); ?></title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link href="../css/dor-form.css" rel="stylesheet">
-
-    <style>
-
-    </style>
 </head>
 
 <body>
     <form id="myForm" method="post" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" novalidate>
         <nav class="navbar navbar-expand navbar-light bg-light shadow-sm fixed-top">
-            <div class="container-fluid pt-4">
-                <div class="d-flex flex-wrap align-items-center justify-content-between w-100 gap-2 text-center">
-
-                    <!-- Back button -->
-                    <div class="d-flex align-items-center justify-content-center">
-                        <button type="button" class="btn btn-secondary nav-btn-lg" onclick="goBack()" aria-label="Go Back">
-                            Back
-                        </button>
+            <div class="container-fluid px-2 py-2">
+                <div class="d-flex justify-content-between align-items-center flex-wrap w-100">
+                    <!-- Left-aligned group -->
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button type="button" class="btn btn-secondary btn-lg nav-btn-lg" id="btnDrawing">Drawing</button>
+                        <button type="button" class="btn btn-secondary btn-lg nav-btn-lg" id="btnWorkInstruction">WI</button>
+                        <button type="button" class="btn btn-secondary btn-lg nav-btn-lg" id="btnPrepCard">Prep Card</button>
                     </div>
 
-                    <!-- Center button group -->
-                    <div class="d-flex flex-wrap gap-3 justify-content-center">
-                        <button type="button" class="btn btn-secondary nav-btn-lg" id="btnDrawing" aria-label="Open Drawing">
-                            Drawing
-                        </button>
-                        <button type="button" class="btn btn-secondary nav-btn-lg" id="btnWorkInstruction" aria-label="Open Work Instruction">
-                            Work Instruction
-                        </button>
-                        <button type="button" class="btn btn-secondary nav-btn-lg" id="btnPrepCard" aria-label="Open Preparation Card">
-                            Preparation Card
+                    <!-- Right-aligned group -->
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button type="button" class="btn btn-secondary btn-lg nav-btn-lg" onclick="goBack()">Back</button>
+                        <button type="submit" class="btn btn-primary btn-lg nav-btn-lg text-nowrap" id="btnProceed" name="btnProceed">
+                            Proceed to DOR
                         </button>
                     </div>
-
-                    <!-- Proceed button -->
-                    <div class="d-flex align-items-center justify-content-center">
-                        <button class="btn btn-primary nav-btn-lg" type="submit" id="btnProceed" name="btnProceed" aria-label="Proceed to Refresher Checkpoint">
-                            Proceed to Refresher
-                        </button>
-                    </div>
-
                 </div>
             </div>
         </nav>
-
 
         <div class="container-fluid">
             <?php if (!empty($errorPrompt)) : ?>
@@ -186,11 +166,6 @@ $workInstructFile = getWorkInstruction($_SESSION["dorTypeId"], $_SESSION['dorMod
 
             <div class="tab-container">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <!-- Title -->
-                    <h6 class="fw-bold mb-0" style="font-size: 1rem; max-width: 60%; word-wrap: break-word;">
-                        Required Item and Jig Condition VS Work Instruction
-                    </h6>
-
                     <!-- Process Buttons and Textboxes -->
                     <div class="d-flex gap-3">
                         <?php for ($i = 1; $i <= $_SESSION['tabQty']; $i++) : ?>
@@ -227,9 +202,12 @@ $workInstructFile = getWorkInstruction($_SESSION["dorTypeId"], $_SESSION['dorMod
                         <table class="table-checkpointA table table-bordered align-middle">
                             <thead class="table-light">
                                 <tr>
+                                    Required Item and Jig Condition VS Work Instruction
+                                </tr>
+                                <tr>
                                     <th>Checkpoint</th>
                                     <th colspan="2">Criteria</th>
-                                    <th class="col-auto text-nowrap">Plase complete all checkpoints</th>
+                                    <th class="col-auto text-nowrap">Please complete all checkpoints</th>
                                 </tr>
                             </thead>
                             <tbody>

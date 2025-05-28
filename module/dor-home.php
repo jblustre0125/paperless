@@ -171,6 +171,13 @@ function handleCreateDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
     } elseif ($res === false || $recordId === 0) {
         $errorMessages[] = "No rows affected. Insert failed.";
     } else {
+        $_SESSION["dorDate"] = $dorDate;
+        $_SESSION["dorShift"] = $shiftId;
+        $_SESSION["dorLineId"] = $lineId;
+        $_SESSION["dorQty"] = $qty;
+        $_SESSION["dorModelId"] = $modelId;
+        $_SESSION["dorModelName"] = testInput($_POST["txtModelName"]);
+        $_SESSION["dorTypeId"] = $dorTypeId;
         $_SESSION["dorRecordId"] = $recordId;
         $response['success'] = true;
         $response['redirectUrl'] = "dor-form.php";
@@ -248,12 +255,12 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
     </div>
 
     <!-- QR Code Scanner Modal -->
-    <div class="modal fade" id="qrScannerModal" tabindex="-1" aria-labelledby="qrScannerLabel" aria-hidden="true">
+    <div class="modal fade" id="qrScannerModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">Scan ID Tag</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body text-center">
                     <video id="qr-video" style="width: 100%; height: auto;" autoplay muted playsinline></video>
@@ -268,12 +275,12 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
     </div>
 
     <!-- Bootstrap Modal for Error Messages -->
-    <div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
+    <div class="modal fade" id="errorModal" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content border-danger">
                 <div class="modal-header bg-danger text-white">
                     <h5 class="modal-title" id="errorModalLabel">Please complete the information</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body" id="modalErrorMessage">
                     <!-- Error messages will be injected here by JS -->
@@ -293,6 +300,7 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
     document.addEventListener("DOMContentLoaded", function() {
         const scannerModal = new bootstrap.Modal(document.getElementById("qrScannerModal"));
         const errorModal = new bootstrap.Modal(document.getElementById("errorModal"));
+        const errorModalElement = document.getElementById("errorModal");
         const modalErrorMessage = document.getElementById("modalErrorMessage");
 
         const video = document.getElementById("qr-video");
@@ -308,6 +316,13 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
         let scanning = false;
         let activeInput = null;
         let clickedButton = null;
+
+        errorModalElement.addEventListener('hidden.bs.modal', () => {
+            const active = document.activeElement;
+            if (active && errorModalElement.contains(active)) {
+                active.blur();
+            }
+        });
 
         navigator.permissions.query({
             name: "camera"
@@ -396,6 +411,9 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
         }
 
         function indicateScanSuccess() {
+            const videoContainer = video.parentElement;
+            videoContainer.style.position = "relative";
+
             const overlay = document.createElement("div");
             overlay.style.position = "absolute";
             overlay.style.top = "0";
@@ -404,7 +422,8 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
             overlay.style.height = "100%";
             overlay.style.backgroundColor = "rgba(0,255,0,0.25)";
             overlay.style.zIndex = "9999";
-            document.getElementById("qrScannerModal").appendChild(overlay);
+            videoContainer.appendChild(overlay);
+
             setTimeout(() => overlay.remove(), 300);
         }
 

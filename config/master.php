@@ -30,8 +30,6 @@ if (isset($_GET['logOut'])) {
     <link rel="icon" type="image/png" href="../img/dor-1024.png">
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link href="../css/master.css" rel="stylesheet">
-    <!-- <link rel="manifest" href="../config/manifest.json"> -->
-    <?php if ($_SERVER["REQUEST_METHOD"] === "POST") exit; ?>
 </head>
 
 <body>
