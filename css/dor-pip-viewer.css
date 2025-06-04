@@ -1,0 +1,127 @@
+/* ===============================
+   PiP Viewer CSS (Reusable)
+   =============================== */
+
+.pip-viewer {
+  position: fixed;
+  z-index: 1050;
+  background: #fff;
+  border: 2px solid #999;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.pip-viewer.maximize-mode {
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90vw;
+  height: calc(100vh - 100px); /* reduce height to stay below navbar */
+  max-width: 1024px;
+  max-height: 768px;
+  resize: none;
+  cursor: default;
+}
+
+.pip-viewer.minimize-mode {
+  bottom: 1rem;
+  right: 1rem;
+  width: 300px;
+  height: 200px;
+  resize: both;
+  cursor: move;
+  position: fixed;
+}
+
+#pipHeader {
+  background: #333;
+  color: white;
+  padding: 0.75rem;
+  text-align: right;
+  display: flex;
+  justify-content: flex-end;
+  gap: 2.5rem;
+  min-height: 4rem;
+  align-items: center;
+  cursor: move;
+}
+
+.pip-btn {
+  background: none;
+  border: none;
+  color: white;
+  padding: 0.75rem;
+  cursor: pointer;
+  width: 3.5rem;
+  height: 3.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s;
+}
+
+#pipHeader .pip-btn i,
+#pipHeader .pip-btn i::before {
+  color: white !important;
+  font-size: 1.75rem;
+}
+
+.pip-btn:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.pip-btn:active {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+#pipContent {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+#pipContent iframe,
+#pipContent img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+#pipContent img,
+#pipContent canvas {
+  transform-origin: center center;
+}
+
+body.no-scroll {
+  overflow: hidden !important;
+}
+
+#pipBackdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 998;
+  display: none;
+}
+
+.pip-viewer.maximize-mode.pdf-mode {
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 95vw;
+  height: 85vh;
+  max-width: none;
+  max-height: none;
+  background: white;
+}

@@ -57,12 +57,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 			// Valid employee & tablet, not logged in
 			foreach ($res1 as $row1) {
 				$_SESSION['loggedIn'] = true;
-				$_SESSION['processId'] = $row1['ProcessId'];
 				$_SESSION['employeeCode'] = $row1['EmployeeCode'];
 				$_SESSION['employeeName'] = $row1['EmployeeName'];
 				$_SESSION['productionCode'] = $row1['ProductionCode'];
 				$_SESSION['positionId'] = $row1['PositionId'];
-				$_SESSION['isLoggedIn'] = $row1['IsLoggedIn'];
 				$_SESSION['isActive'] = $row1['IsActive'];
 
 				$positionId = (int)$row1['PositionId'];

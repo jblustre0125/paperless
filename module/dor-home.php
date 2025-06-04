@@ -1,5 +1,5 @@
 <?php
-$title = "DOR Home";
+$title = "Homepage";
 ob_start();
 
 require_once "../config/dbop.php";

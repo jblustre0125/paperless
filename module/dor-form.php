@@ -1,5 +1,5 @@
 <?php
-$title = "Checkpoint Item/Jig Condition";
+$title = "DOR Item/Jig Condition";
 session_start();
 ob_start();
 
@@ -63,7 +63,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             }
 
             $response['success'] = true;
-            $response['redirectUrl'] = "dor-dor.php";
+            $response['redirectUrl'] = "dor-refresh.php";
         } else {
             $response['success'] = false;
             $response['errors'][] = "Error.";
@@ -117,9 +117,27 @@ foreach ($resA as $row) {
     }
 }
 
-$drawingFile = getDrawing($_SESSION["dorTypeId"], $_SESSION['dorModelId']);
-$preCardFile = getPreparationCard($_SESSION['dorModelId']);
-$workInstructFile = getWorkInstruction($_SESSION["dorTypeId"], $_SESSION['dorModelId']);
+$drawingFile = '';
+$workInstructFile = '';
+$preCardFile = '';
+
+try {
+    $drawingFile = getDrawing($_SESSION["dorTypeId"], $_SESSION['dorModelId']) ?? '';
+} catch (Throwable $e) {
+    $drawingFile = '';
+}
+
+try {
+    $workInstructFile = getWorkInstruction($_SESSION["dorTypeId"], $_SESSION['dorModelId']) ?? '';
+} catch (Throwable $e) {
+    $workInstructFile = '';
+}
+
+try {
+    $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
+} catch (Throwable $e) {
+    $preCardFile = '';
+}
 
 ?>
 
@@ -131,160 +149,174 @@ $workInstructFile = getWorkInstruction($_SESSION["dorTypeId"], $_SESSION['dorMod
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo htmlspecialchars($title ?? 'Work I Checkpoint'); ?></title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
+    <link href="../css/bootstrap-icons.css" rel="stylesheet">
     <link href="../css/dor-form.css" rel="stylesheet">
+    <link href="../css/dor-navbar.css" rel="stylesheet">
+    <link href="../css/dor-pip-viewer.css" rel="stylesheet">
 </head>
 
 <body>
-    <form id="myForm" method="post" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" novalidate>
-        <nav class="navbar navbar-expand navbar-light bg-light shadow-sm fixed-top">
-            <div class="container-fluid px-2 py-2">
-                <div class="d-flex justify-content-between align-items-center flex-wrap w-100">
-                    <!-- Left-aligned group -->
-                    <div class="d-flex gap-2 flex-wrap">
-                        <button type="button" class="btn btn-secondary btn-lg nav-btn-lg" id="btnDrawing">Drawing</button>
-                        <button type="button" class="btn btn-secondary btn-lg nav-btn-lg" id="btnWorkInstruction">WI</button>
-                        <button type="button" class="btn btn-secondary btn-lg nav-btn-lg" id="btnPrepCard">Prep Card</button>
-                    </div>
+    <nav class="navbar navbar-expand navbar-light bg-light shadow-sm fixed-top">
+        <div class="container-fluid px-2 py-2">
+            <div class="d-flex justify-content-between align-items-center flex-wrap w-100">
+                <!-- Left-aligned group -->
+                <div class="d-flex gap-2 flex-wrap">
+                    <button class="btn btn-secondary btn-lg nav-btn-lg btn-nav-group" id="btnDrawing">Drawing</button>
+                    <button class="btn btn-secondary btn-lg nav-btn-lg btn-nav-group" id="btnWorkInstruction">
+                        <span class="short-label">WI</span>
+                        <span class="long-label">Work Instruction</span>
+                    </button>
+                    <button class="btn btn-secondary btn-lg nav-btn-lg btn-nav-group" id="btnPrepCard">
+                        <span class="short-label">Prep Card</span>
+                        <span class="long-label">Preparation Card</span>
+                    </button>
+                </div>
 
-                    <!-- Right-aligned group -->
-                    <div class="d-flex gap-2 flex-wrap">
-                        <button type="button" class="btn btn-secondary btn-lg nav-btn-lg" onclick="goBack()">Back</button>
-                        <button type="submit" class="btn btn-primary btn-lg nav-btn-lg text-nowrap" id="btnProceed" name="btnProceed">
-                            Proceed to DOR
-                        </button>
-                    </div>
+                <!-- Right-aligned group -->
+                <div class="d-flex gap-2 flex-wrap">
+                    <button type="button" class="btn btn-secondary btn-lg nav-btn-group" onclick="goBack()">Back</button>
+                    <button type="submit" class="btn btn-primary btn-lg nav-btn-group" id="btnProceed" name="btnProceed">
+                        <span class="short-label">Next</span>
+                        <span class="long-label">Proceed to Next Checkpoint</span>
+                    </button>
                 </div>
             </div>
-        </nav>
+        </div>
+    </nav>
+    <form id="myForm" method="post" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" novalidate>
+        <div class="sticky-dor-bar">
+            <div class="container-fluid px-2 py-2">
+                <?php if (!empty($errorPrompt)) : ?>
+                    <div class="alert alert-danger" role="alert">
+                        <?php echo $errorPrompt; ?>
+                    </div>
+                <?php endif; ?>
 
-        <div class="container-fluid">
-            <?php if (!empty($errorPrompt)) : ?>
-                <div class="alert alert-danger" role="alert">
-                    <?php echo $errorPrompt; ?>
-                </div>
-            <?php endif; ?>
-
-            <div class="tab-container">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <!-- Process Buttons and Textboxes -->
+                <div class="sticky-process-tab d-flex justify-content-between align-items-center mb-3">
                     <div class="d-flex gap-3">
-                        <?php for ($i = 1; $i <= $_SESSION['tabQty']; $i++) : ?>
+                        <?php
+                        if (!isset($_SESSION['tabQty']) || $_SESSION['tabQty'] <= 0) {
+                            die("Invalid tabQty in session.");
+                        }
+                        for ($i = 1; $i <= $_SESSION['tabQty']; $i++) :
+                            $debugUserCodes = [1 => '2503-004', 2 => '2503-005', 3 => 'FMB-0826', 4 => 'FMB-0570'];
+                            $debugUserCodeValue = $debugUserCodes[$i] ?? '';
+                        ?>
                             <div class="d-flex flex-column align-items-center">
-                                <!-- Process Button -->
-                                <button type="button" class="tab-button btn btn-secondary btn-sm mb-1" onclick="openTab(event, 'Process<?php echo $i; ?>')">Process <?php echo $i; ?></button>
-
-                                <!-- Textbox for User Code -->
-                                <?php
-                                // DEBUG PRESET EMPLOYEE IDs — comment this block to disable
-                                $debugUserCodes = [
-                                    1 => '2503-004',
-                                    2 => '2503-005',
-                                    3 => 'FMB-0826',
-                                    4 => 'FMB-0570'
-                                ];
-                                $debugUserCodeValue = $debugUserCodes[$i] ?? '';
-                                ?>
-
-                                <input type="text"
-                                    class="form-control form-control-md"
-                                    id="userCode<?php echo $i; ?>"
-                                    name="userCode<?php echo $i; ?>"
-                                    placeholder="Employee ID"
-                                    value="<?php echo $debugUserCodeValue; ?>"
-                                    style="width: 120px;">
+                                <button type="button" class="tab-button btn btn-secondary btn-sm mb-1"
+                                    onclick="openTab(event, 'Process<?php echo $i; ?>')">Process <?php echo $i; ?></button>
+                                <input type="text" class="form-control form-control-md" id="userCode<?php echo $i; ?>"
+                                    name="userCode<?php echo $i; ?>" placeholder="Employee ID"
+                                    value="<?php echo $debugUserCodeValue; ?>">
                             </div>
                         <?php endfor; ?>
                     </div>
                 </div>
 
-                <?php for ($i = 1; $i <= $_SESSION['tabQty']; $i++) : ?>
-                    <div id="Process<?php echo $i; ?>" class="tab-content" style="display: none;">
-                        <table class="table-checkpointA table table-bordered align-middle">
-                            <thead class="table-light">
-                                <tr>
-                                    Required Item and Jig Condition VS Work Instruction
-                                </tr>
-                                <tr>
-                                    <th>Checkpoint</th>
-                                    <th colspan="2">Criteria</th>
-                                    <th class="col-auto text-nowrap">Please complete all checkpoints</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($tabData as $checkpointName => $rows) : ?>
+                <div class="sticky-table-header">
+                    Required Item and Jig Condition VS Work Instruction
+                </div>
+            </div>
+        </div>
+        <?php for ($i = 1; $i <= $_SESSION['tabQty']; $i++) : ?>
+            <div id="Process<?php echo $i; ?>" class="tab-content" style="display: none;">
+                <div>
+                    <table class="table-checkpointA table table-bordered align-middle">
+                        <thead>
+                            <tr>
+                                <th>Checkpoint</th>
+                                <th colspan="2">Criteria</th>
+                                <th>Please complete all checkpoints</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($tabData as $checkpointName => $rows): ?>
+                                <?php foreach ($rows as $index => $row): ?>
                                     <tr>
-                                        <td rowspan="<?php echo count($rows); ?>" class="checkpoint-cell">
-                                            <?php echo $rows[0]['SequenceId'] . ". " . $checkpointName; ?>
-                                        </td>
-                                        <?php foreach ($rows as $index => $row) : ?>
-                                            <?php if ($index > 0) echo "<tr>"; ?>
-
-                                            <?php
-                                            $criteriaTypeId = $row['CheckpointTypeId'];
-                                            $criteriaGood = $row['CriteriaGood'] ?? '';
-                                            $criteriaNotGood = $row['CriteriaNotGood'] ?? '';
-                                            ?>
-
-                                            <?php if (empty($criteriaNotGood)) : ?>
-                                                <td class="criteria-cell" colspan="2"><?php echo $criteriaGood; ?></td>
-                                            <?php else : ?>
-                                                <td class="criteria-cell"><?php echo $criteriaGood; ?></td>
-                                                <td class="criteria-cell"><?php echo $criteriaNotGood; ?></td>
-                                            <?php endif; ?>
-
-                                            <td class="selection-cell">
-                                                <?php
-                                                $inputName = "Process{$i}_{$row['CheckpointId']}";
-
-                                                // Debug response value — comment out this block when done
-                                                $debugResponse = '';
-                                                switch ((int)$row['CheckpointTypeId']) {
-                                                    case 1:
-                                                        $debugResponse = 'OK';
-                                                        break;
-                                                    case 2:
-                                                        $debugResponse = 'DEBUG';
-                                                        break;
-                                                    case 3:
-                                                        $debugResponse = 'CJ';
-                                                        break;
-                                                    case 4:
-                                                        $debugResponse = 'M';
-                                                        break;
-                                                }
-
-                                                $controlType = $row['CheckpointControl'];
-                                                $options = $row['Options'];
-
-                                                if ($controlType === 'radio' && !empty($options)) {
-                                                    echo "<div class='process-radio'>";
-                                                    foreach ($options as $opt) {
-                                                        $checked = ($opt === $debugResponse) ? "checked" : "";
-                                                        echo "<label><input type='radio' name='{$inputName}' value='{$opt}' {$checked}> {$opt}</label> ";
-                                                    }
-                                                    echo "</div>";
-                                                } elseif ($controlType === 'text') {
-                                                    echo "<input type='text' name='{$inputName}' class='form-control' value='{$debugResponse}'>";
-                                                } else {
-                                                    echo "<em>Unknown control type</em>";
-                                                }
-
-                                                // hidden fields
-                                                echo "<input type='hidden' name='meta[{$inputName}][tabIndex]' value='{$i}'>";
-                                                echo "<input type='hidden' name='meta[{$inputName}][checkpoint]' value='" . htmlspecialchars($row['CheckpointName']) . "'>";
-                                                echo "<input type='hidden' name='meta[{$inputName}][checkpointId]' value='{$row['CheckpointId']}'>";
-                                                ?>
+                                        <?php if ($index === 0): ?>
+                                            <td rowspan="<?php echo count($rows); ?>" class="checkpoint-cell">
+                                                <?php echo $row['SequenceId'] . ". " . $checkpointName; ?>
                                             </td>
+                                        <?php endif; ?>
 
-                                            <?php if ($index == count($rows) - 1) : ?>
+                                        <?php
+                                        $criteriaGood = $row['CriteriaGood'] ?? '';
+                                        $criteriaNotGood = $row['CriteriaNotGood'] ?? '';
+                                        ?>
+
+                                        <?php if (empty($criteriaNotGood)) : ?>
+                                            <td class="criteria-cell" colspan="2"><?php echo $criteriaGood; ?></td>
+                                        <?php else : ?>
+                                            <td class="criteria-cell"><?php echo $criteriaGood; ?></td>
+                                            <td class="criteria-cell"><?php echo $criteriaNotGood; ?></td>
+                                        <?php endif; ?>
+
+                                        <td class="selection-cell">
+                                            <?php
+                                            $inputName = "Process{$i}_{$row['CheckpointId']}";
+                                            $debugResponse = '';
+                                            switch ((int)$row['CheckpointTypeId']) {
+                                                case 1:
+                                                    $debugResponse = 'OK';
+                                                    break;
+                                                case 2:
+                                                    $debugResponse = 'DEBUG';
+                                                    break;
+                                                case 3:
+                                                    $debugResponse = 'CJ';
+                                                    break;
+                                                case 4:
+                                                    $debugResponse = 'M';
+                                                    break;
+                                            }
+
+                                            $controlType = $row['CheckpointControl'];
+                                            $options = $row['Options'];
+
+                                            if ($controlType === 'radio' && !empty($options)) {
+                                                echo "<div class='process-radio'>";
+                                                foreach ($options as $opt) {
+                                                    $checked = ($opt === $debugResponse) ? "checked" : "";
+                                                    echo "<label><input type='radio' name='{$inputName}' value='{$opt}' {$checked}> {$opt}</label> ";
+                                                }
+                                                echo "</div>";
+                                            } elseif ($controlType === 'text') {
+                                                echo "<input type='text' name='{$inputName}' class='form-control' value='{$debugResponse}'>";
+                                            } else {
+                                                echo "<em>Unknown control type</em>";
+                                            }
+
+                                            echo "<input type='hidden' name='meta[{$inputName}][tabIndex]' value='{$i}'>";
+                                            echo "<input type='hidden' name='meta[{$inputName}][checkpoint]' value='" . htmlspecialchars($row['CheckpointName']) . "'>";
+                                            echo "<input type='hidden' name='meta[{$inputName}][checkpointId]' value='{$row['CheckpointId']}'>";
+                                            ?>
+                                        </td>
                                     </tr>
-                                <?php endif; ?>
+                                <?php endforeach; ?>
                             <?php endforeach; ?>
-                        <?php endforeach; ?>
-                            </tbody>
-                        </table>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        <?php endfor; ?>
+
+        <!-- QR Code Scanner Modal -->
+        <div class="modal fade" id="qrScannerModal" tabindex="-1" aria-labelledby="qrScannerLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Scan Employee ID</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
-                <?php endfor; ?>
+                    <div class="modal-body text-center">
+                        <video id="qr-video" autoplay muted playsinline></video>
+                        <p class="text-muted mt-2">Align the QR code within the frame.</p>
+                    </div>
+                    <div class="modal-footer d-flex justify-content-between">
+                        <button type="button" class="btn btn-secondary" id="enterManually">Enter Manually</button>
+                        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Cancel</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -305,35 +337,15 @@ $workInstructFile = getWorkInstruction($_SESSION["dorTypeId"], $_SESSION['dorMod
                 </div>
             </div>
         </div>
-
-        <!-- QR Code Scanner Modal -->
-        <div class="modal fade" id="qrScannerModal" tabindex="-1" aria-labelledby="qrScannerLabel" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Scan Employee ID</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body text-center">
-                        <video id="qr-video" style="width: 100%; height: auto;" autoplay muted playsinline></video>
-                        <p class="text-muted mt-2">Align the QR code within the frame.</p>
-                    </div>
-                    <div class="modal-footer d-flex justify-content-between">
-                        <button type="button" class="btn btn-secondary" id="enterManually">Enter Manually</button>
-                        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Cancel</button>
-                    </div>
-                </div>
-            </div>
-        </div>
     </form>
 
     <!-- PiP Viewer HTML: supports maximize and minimize modes -->
     <div id="pipViewer" class="pip-viewer d-none maximize-mode">
         <div id="pipHeader">
-            <button id="pipMaximize" class="pip-btn d-none">Maximize</button>
-            <button id="pipMinimize" class="pip-btn" title="Minimize">Minimize</button>
-            <button id="pipReset" class="pip-btn" title="Reset View">Reset</button>
-            <button id="pipClose" class="pip-btn">Close</button>
+            <button id="pipMaximize" class="pip-btn d-none" title="Maximize"><i class="bi bi-fullscreen"></i></button>
+            <button id="pipMinimize" class="pip-btn" title="Minimize"><i class="bi bi-fullscreen-exit"></i></button>
+            <button id="pipReset" class="pip-btn" title="Reset View"><i class="bi bi-arrow-counterclockwise"></i></button>
+            <button id="pipClose" class="pip-btn" title="Close"><i class="bi bi-x-lg"></i></button>
         </div>
         <div id="pipContent"></div>
     </div>
@@ -345,28 +357,6 @@ $workInstructFile = getWorkInstruction($_SESSION["dorTypeId"], $_SESSION['dorMod
 
     <script src="../js/jsQR.min.js"></script>
     <script>
-        function checkCameraAccessBeforeScanning() {
-            const constraints = {
-                video: {
-                    facingMode: {
-                        ideal: "environment"
-                    }
-                }
-            };
-
-            return navigator.mediaDevices.getUserMedia(constraints)
-                .then(stream => {
-                    // Stop the stream immediately after checking
-                    stream.getTracks().forEach(track => track.stop());
-                    return true;
-                })
-                .catch(error => {
-                    console.error("Camera access failed:", error);
-                    showErrorModal("Unable to access camera. Please check your browser permissions or device settings.");
-                    return false;
-                });
-        }
-
         function showErrorModal(message) {
             const modalErrorMessage = document.getElementById("modalErrorMessage");
             modalErrorMessage.innerText = message;
@@ -483,6 +473,7 @@ $workInstructFile = getWorkInstruction($_SESSION["dorTypeId"], $_SESSION['dorMod
     <script>
         let isMinimized = false;
         const workInstructFile = <?php echo json_encode($workInstructFile); ?>;
+        const preCardFile = <?php echo json_encode($preCardFile); ?>;
 
         document.addEventListener("DOMContentLoaded", function() {
             // Attach event listeners to buttons
@@ -497,8 +488,8 @@ $workInstructFile = getWorkInstruction($_SESSION["dorTypeId"], $_SESSION['dorMod
             });
 
             document.getElementById("btnPrepCard").addEventListener("click", function() {
-                if ($preCardFile !== "") {
-                    openPiPViewer("<?php echo $preCardFile; ?>", 'pdf');
+                if (preCardFile !== "") {
+                    openPiPViewer(preCardFile, 'pdf');
                 }
             });
 
@@ -517,6 +508,11 @@ $workInstructFile = getWorkInstruction($_SESSION["dorTypeId"], $_SESSION['dorMod
 
             form.addEventListener("submit", function(e) {
                 e.preventDefault();
+
+                // Only run validation if btnProceed triggered this
+                if (!clickedButton || clickedButton.id !== "btnProceed") {
+                    return; // Skip validation if other buttons are clicked (e.g., Drawing, WI)
+                }
 
                 const errorsByOperator = {};
                 const meta = {};
@@ -646,9 +642,8 @@ $workInstructFile = getWorkInstruction($_SESSION["dorTypeId"], $_SESSION['dorMod
         }
 
         function goBack() {
-            // Get all inputs inside the tab-container
-            const tabContainer = document.querySelector(".tab-container");
-            const inputs = tabContainer.querySelectorAll("input[type='text'], input[type='radio']:checked");
+            // Get all inputs inside the form
+            const inputs = document.querySelectorAll("input[type='text'], input[type='radio']:checked");
 
             // Check if at least one input is filled
             let isFilled = false;
@@ -662,13 +657,13 @@ $workInstructFile = getWorkInstruction($_SESSION["dorTypeId"], $_SESSION['dorMod
 
             // If at least one input is filled, show a confirmation dialog
             if (isFilled) {
-                const confirmLeave = confirm("Are you sure you want to go back?");
+                const confirmLeave = confirm("Are you sure you want to delete this record?");
                 if (!confirmLeave) {
                     return; // Stop navigation if the user cancels
                 }
             }
 
-            fetch("", {
+            fetch(window.location.href, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/x-www-form-urlencoded"
@@ -686,6 +681,7 @@ $workInstructFile = getWorkInstruction($_SESSION["dorTypeId"], $_SESSION['dorMod
                     }
                 })
                 .catch(err => {
+                    console.error("Error:", err);
                     alert("Error occurred while deleting.");
                 });
         }
@@ -705,359 +701,15 @@ $workInstructFile = getWorkInstruction($_SESSION["dorTypeId"], $_SESSION['dorMod
         });
     </script>
 
-    <script src="../js/hammer.min.js"></script>
-    <script src="../js/pdf.min.js"></script>
-    <script src="../js/pdf.worker.min.js"></script>
-
-    <script>
-        const pipViewer = document.getElementById('pipViewer');
-        const pipContent = document.getElementById('pipContent');
-        const btnMin = document.getElementById('pipMinimize');
-        const btnMax = document.getElementById('pipMaximize');
-        const btnClose = document.getElementById('pipClose');
-
-        document.getElementById('pipReset').onclick = () => {
-            const img = document.getElementById('pipImage');
-            if (img) {
-                currentScale = 1;
-                currentX = 0;
-                currentY = 0;
-                lastScale = 1;
-                lastX = 0;
-                lastY = 0;
-                img.style.transform = `translate(0px, 0px) scale(1)`;
-            } else if (currentType === 'pdf' && currentPdf) {
-                showPdfPage(currentPage); // re-render current PDF page
-            }
-        };
-
-        let currentType = '',
-            currentPath = '',
-            currentScale = 1,
-            currentPdf = null,
-            currentPage = 1;
-
-        function openPiPViewer(path, type) {
-            currentType = type;
-            currentPath = path;
-            currentScale = 1;
-            currentPage = 1;
-
-            pipViewer.className = 'pip-viewer d-none'; // reset all modes
-
-            pipViewer.className = 'pip-viewer'; // reset all
-            pipViewer.classList.add('maximize-mode');
-
-            if (type === 'pdf') {
-                pipViewer.classList.add('pdf-mode');
-            } else {
-                pipViewer.classList.remove('pdf-mode');
-            }
-
-            pipViewer.style.top = pipViewer.style.left = pipViewer.style.right = pipViewer.style.bottom = pipViewer.style.transform = '';
-            pipViewer.classList.add('maximize-mode');
-
-            pipContent.innerHTML = '';
-            btnMin.classList.remove('d-none');
-            btnMax.classList.add('d-none');
-
-            document.body.classList.add('no-scroll');
-            document.getElementById('pipBackdrop').style.display = 'block';
-
-            if (type === 'image') {
-                const container = document.createElement('div');
-                container.style.overflow = 'hidden';
-                container.style.width = '100%';
-                container.style.height = '100%';
-                container.style.touchAction = 'none';
-                container.style.display = 'flex';
-                container.style.alignItems = 'center';
-                container.style.justifyContent = 'center';
-
-                const img = document.createElement('img');
-                img.src = path;
-                img.id = 'pipImage';
-                img.style.maxWidth = '100%';
-                img.style.maxHeight = '100%';
-                img.style.transformOrigin = '0 0'; // required for zoom/pan
-                img.style.transition = 'transform 0s';
-
-                container.appendChild(img);
-                pipContent.appendChild(container);
-
-                initImageZoom(img);
-            } else if (type === 'pdf') {
-                pdfjsLib.getDocument(path).promise.then(pdf => {
-                    currentPdf = pdf;
-                    showPdfPage(currentPage);
-                });
-            }
-        }
-
-        function showPdfPage(pageNum) {
-            currentPdf.getPage(pageNum).then(page => {
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-
-                const contentRect = pipContent.getBoundingClientRect();
-                const baseScale = Math.min(
-                    contentRect.width / page.view[2],
-                    contentRect.height / page.view[3]
-                );
-
-                const dpiScale = 2; // Render at 2× resolution
-                const viewport = page.getViewport({
-                    scale: baseScale * dpiScale
-                });
-
-                canvas.width = viewport.width;
-                canvas.height = viewport.height;
-
-                canvas.style.width = contentRect.width + 'px';
-                canvas.style.height = contentRect.height + 'px';
-
-                canvas.style.touchAction = 'none';
-                canvas.style.transformOrigin = '0 0';
-                canvas.style.transition = 'transform 0s';
-
-                pipContent.innerHTML = '';
-                pipContent.appendChild(canvas);
-
-                page.render({
-                    canvasContext: ctx,
-                    viewport
-                });
-
-                initPdfPinchZoom(canvas);
-                initPdfSwipe(canvas);
-            });
-        }
-
-        function initPdfPinchZoom(canvas) {
-            const hammer = new Hammer(canvas);
-            hammer.get('pinch').set({
-                enable: true
-            });
-            hammer.get('pan').set({
-                direction: Hammer.DIRECTION_ALL
-            });
-
-            hammer.add(new Hammer.Tap({
-                event: 'doubletap',
-                taps: 2
-            }));
-            hammer.get('doubletap').recognizeWith('tap');
-
-            let scale = 1,
-                lastScale = 1;
-            let x = 0,
-                y = 0,
-                lastX = 0,
-                lastY = 0;
-
-            function applyTransform() {
-                canvas.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
-            }
-
-            hammer.on('pinch', ev => {
-                scale = Math.min(Math.max(1, lastScale * ev.scale), 4);
-                applyTransform();
-            });
-
-            hammer.on('pinchend', () => {
-                lastScale = scale;
-            });
-
-            hammer.on('pan', ev => {
-                x = lastX + ev.deltaX;
-                y = lastY + ev.deltaY;
-                applyTransform();
-            });
-
-            hammer.on('panend', () => {
-                lastX = x;
-                lastY = y;
-            });
-
-            hammer.on('doubletap', () => {
-                if (pipViewer.classList.contains('maximize-mode')) {
-                    minimizeViewer();
-                }
-            });
-        }
-
-        function initImageZoom(img) {
-            const hammer = new Hammer(img);
-            hammer.get('pinch').set({
-                enable: true
-            });
-            hammer.get('pan').set({
-                direction: Hammer.DIRECTION_ALL
-            });
-
-            hammer.get('tap').set({
-                taps: 1
-            });
-            hammer.add(new Hammer.Tap({
-                event: 'doubletap',
-                taps: 2
-            }));
-            hammer.get('doubletap').recognizeWith('tap');
-
-            let lastScale = 1;
-            let lastX = 0,
-                lastY = 0;
-            let currentX = 0,
-                currentY = 0;
-
-            hammer.on('pinch', ev => {
-                currentScale = Math.min(Math.max(1, lastScale * ev.scale), 5);
-                updateTransform();
-            });
-
-            hammer.on('pinchend', () => {
-                lastScale = currentScale;
-            });
-
-            hammer.on('pan', ev => {
-                currentX = lastX + ev.deltaX;
-                currentY = lastY + ev.deltaY;
-                updateTransform();
-            });
-
-            hammer.on('panend', () => {
-                lastX = currentX;
-                lastY = currentY;
-            });
-
-            hammer.on('tap', () => {
-                if (pipViewer.classList.contains('minimize-mode')) {
-                    maximizeViewer();
-                }
-            });
-
-            hammer.on('doubletap', () => {
-                if (pipViewer.classList.contains('maximize-mode')) {
-                    minimizeViewer();
-                }
-            });
-
-            function updateTransform() {
-                img.style.transform = `translate(${currentX}px, ${currentY}px) scale(${currentScale})`;
-            }
-        }
-
-
-        function initPdfSwipe(canvas) {
-            const hammer = new Hammer(canvas);
-            hammer.get('swipe').set({
-                direction: Hammer.DIRECTION_VERTICAL
-            });
-            hammer.on('swipeup', () => {
-                if (currentPage < currentPdf.numPages) showPdfPage(++currentPage);
-            });
-            hammer.on('swipedown', () => {
-                if (currentPage > 1) showPdfPage(--currentPage);
-            });
-            hammer.on('tap', ev => {
-                if (pipViewer.classList.contains('minimize-mode')) maximizeViewer();
-                else minimizeViewer();
-            });
-        }
-
-        function minimizeViewer() {
-            pipViewer.classList.remove('maximize-mode');
-            pipViewer.classList.add('minimize-mode');
-
-            pipViewer.style.top = '';
-            pipViewer.style.left = '';
-            pipViewer.style.right = '1rem';
-            pipViewer.style.bottom = '1rem';
-            pipViewer.style.transform = '';
-
-            document.body.classList.remove('no-scroll');
-            document.getElementById('pipBackdrop').style.display = 'none';
-
-            btnMin.classList.add('d-none');
-            btnMax.classList.remove('d-none');
-
-            if (currentType === 'pdf' && currentPdf) {
-                showPdfPage(currentPage); // ⬅ redraw PDF smaller
-            }
-        }
-
-        function maximizeViewer() {
-            // CLEAR inline styles BEFORE class switch
-            pipViewer.style.right = '';
-            pipViewer.style.bottom = '';
-            pipViewer.style.top = '';
-            pipViewer.style.left = '';
-            pipViewer.style.transform = '';
-
-            pipViewer.classList.remove('minimize-mode');
-            pipViewer.classList.add('maximize-mode');
-
-            document.body.classList.add('no-scroll');
-            document.getElementById('pipBackdrop').style.display = 'block';
-
-            btnMin.classList.remove('d-none');
-            btnMax.classList.add('d-none');
-
-            if (currentType === 'pdf' && currentPdf) {
-                showPdfPage(currentPage); // ⬅ redraw PDF at full scale
-            }
-        }
-
-        btnMin.onclick = minimizeViewer;
-        btnMax.onclick = maximizeViewer;
-        btnClose.onclick = () => {
-            pipViewer.classList.add('d-none');
-            pipContent.innerHTML = '';
-            currentPdf = null;
-
-            document.body.classList.remove('no-scroll');
-            document.getElementById('pipBackdrop').style.display = 'none';
-        };
-
-        // Drag logic only when minimized
-        let offsetX, offsetY;
-        document.getElementById('pipHeader').onmousedown = function(e) {
-            if (!pipViewer.classList.contains('minimize-mode')) return;
-
-            const viewer = pipViewer;
-            const rect = viewer.getBoundingClientRect();
-            const offsetX = e.clientX - rect.left;
-            const offsetY = e.clientY - rect.top;
-
-            document.onmousemove = function(e) {
-                let x = e.clientX - offsetX;
-                let y = e.clientY - offsetY;
-
-                // Clamp within screen
-                const maxX = window.innerWidth - viewer.offsetWidth;
-                const maxY = window.innerHeight - viewer.offsetHeight;
-
-                x = Math.max(0, Math.min(x, maxX));
-                y = Math.max(0, Math.min(y, maxY));
-
-                viewer.style.left = x + 'px';
-                viewer.style.top = y + 'px';
-                viewer.style.right = '';
-                viewer.style.bottom = '';
-            };
-
-            document.onmouseup = function() {
-                document.onmousemove = null;
-                document.onmouseup = null;
-            };
-        };
-    </script>
-
     <form id="deleteDorForm" method="POST" action="dor-form.php">
         <input type="hidden" name="action" value="delete_dor">
     </form>
 
-</body>
+    <script src="../js/pdf.min.js"></script>
+    <script src="../js/pdf.worker.min.js"></script>
+    <script src="../js/hammer.min.js"></script>
+    <script src="../js/dor-pip-viewer.js"></script>
 
+</body>
 
 </html>

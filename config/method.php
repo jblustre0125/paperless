@@ -207,6 +207,7 @@ function getWorkInstruction($dorTypeId, $modelId)
     if ($res2 && isset($res2[0]['ITEM_ID'])) {
         $modelName = strtoupper(trim($res2[0]['ITEM_ID']));
     } else {
+        error_log("Model not found for ModelId: " . $modelId);
         return "";
     }
 
@@ -214,11 +215,14 @@ function getWorkInstruction($dorTypeId, $modelId)
     $basePath = $_SERVER['DOCUMENT_ROOT'] . "/paperless-data/WORK INSTRUCTION";
 
     if (!is_dir($basePath)) {
+        error_log("Work instruction directory not found: " . $basePath);
         return "";
     }
 
     $latestFile = null;
     $latestMTime = 0;
+
+    error_log("Searching for Work Instruction - Model: " . $modelName . ", DorType: " . $dorType);
 
     // Search recursively
     $iterator = new RecursiveIteratorIterator(
@@ -230,11 +234,12 @@ function getWorkInstruction($dorTypeId, $modelId)
             $filename = strtoupper($file->getFilename());
 
             // Match: contains model + dorType
-            if (strpos($filename, $modelName, $dorType) !== false && strpos($filename, $dorType) !== false) {
+            if (strpos($filename, $modelName) !== false && strpos($filename, $dorType) !== false) {
                 $mtime = $file->getMTime();
                 if ($mtime > $latestMTime) {
                     $latestMTime = $mtime;
                     $latestFile = $file->getPathname();
+                    error_log("Found matching file: " . $filename);
                 }
             }
         }
@@ -244,8 +249,10 @@ function getWorkInstruction($dorTypeId, $modelId)
         // Convert to web path
         $webPath = str_replace($_SERVER['DOCUMENT_ROOT'], '', $latestFile);
         $webPath = str_replace('\\', '/', $webPath); // normalize for web use
+        error_log("Returning web path: " . $webPath);
         return $webPath;
     }
 
+    error_log("No matching work instruction found for Model: " . $modelName . ", DorType: " . $dorType);
     return "";
 }
