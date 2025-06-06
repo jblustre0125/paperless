@@ -275,16 +275,8 @@ input[id^="userCode"] {
   display: none;
 }
 
-.pip-viewer.maximize-mode {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 1050;
-  width: 90vw;
-  height: 90vh;
-  background: white;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+#pipContent {
+  touch-action: manipulation;
 }
 
 .table-checkpointA tbody tr:first-child {
@@ -293,8 +285,4 @@ input[id^="userCode"] {
 
 .table-checkpointA tbody tr:first-child td {
   padding-top: 45px;
-}
-
-#pipContent {
-  touch-action: manipulation;
 }

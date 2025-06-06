@@ -13,10 +13,12 @@ let currentType = "",
   currentPage = 1;
 
 function openPiPViewer(path, type) {
+  // Reset all state variables
   currentType = type;
   currentPath = path;
   currentScale = 1;
   currentPage = 1;
+  currentPdf = null;
 
   const pipViewer = document.getElementById("pipViewer");
   const pipContent = document.getElementById("pipContent");
@@ -24,18 +26,24 @@ function openPiPViewer(path, type) {
   const btnMax = document.getElementById("pipMaximize");
   const pipBackdrop = document.getElementById("pipBackdrop");
 
+  // Clear all content and styles first
+  pipContent.innerHTML = "";
+  pipViewer.removeAttribute("style");
+  pipContent.removeAttribute("style");
+  pipViewer.classList.remove("pdf-mode");
+
+  // Set new classes
   pipViewer.className = "pip-viewer";
   pipViewer.classList.add("maximize-mode");
-  pipViewer.style.transform = "translate(-50%, -50%)";
-  if (type === "pdf") pipViewer.classList.add("pdf-mode");
+  if (type === "pdf") {
+    pipViewer.classList.add("pdf-mode");
+  }
 
-  pipViewer.style = "";
-  pipContent.innerHTML = "";
+  // Show/hide appropriate buttons
   btnMin.classList.remove("d-none");
   btnMax.classList.add("d-none");
   document.body.classList.add("no-scroll");
   pipBackdrop.style.display = "block";
-  pipContent.style.position = "relative";
 
   if (type === "image") {
     const img = document.createElement("img");
@@ -69,49 +77,84 @@ function openPiPViewer(path, type) {
         }
       });
 
-      // Simple touch handling
-      let startY;
+      // Set up unified touch handling for page navigation
+      const pageSwipeHandler = new Hammer.Manager(pipContent);
 
-      pipContent.ontouchstart = function (e) {
-        startY = e.touches[0].pageY;
-      };
+      // Configure vertical pan detection
+      const pan = new Hammer.Pan({
+        direction: Hammer.DIRECTION_VERTICAL,
+        threshold: 50,
+      });
+      pageSwipeHandler.add(pan);
 
-      pipContent.ontouchend = function (e) {
-        let endY = e.changedTouches[0].pageY;
-        let diff = startY - endY;
+      // Track swipe state
+      let swipeStartY = 0;
+      let isProcessingSwipe = false;
 
-        if (Math.abs(diff) > 50) {
-          // Min 50px swipe
-          if (diff > 0 && currentPage < pdf.numPages) {
-            // Swipe up
-            currentPage++;
-            showPdfPage(currentPage);
-          } else if (diff < 0 && currentPage > 1) {
-            // Swipe down
-            currentPage--;
-            showPdfPage(currentPage);
+      pageSwipeHandler.on("panstart", function (e) {
+        swipeStartY = e.center.y;
+        isProcessingSwipe = false;
+      });
+
+      pageSwipeHandler.on("panmove", function (e) {
+        if (isProcessingSwipe) return;
+
+        const diff = swipeStartY - e.center.y;
+        const absDiff = Math.abs(diff);
+
+        if (absDiff > 50) {
+          isProcessingSwipe = true;
+
+          if (diff > 0) {
+            // Swipe up - go to next page
+            if (currentPage < pdf.numPages) {
+              currentPage++;
+              showPdfPage(currentPage);
+            }
+          } else {
+            // Swipe down - go to previous page
+            if (currentPage > 1) {
+              currentPage--;
+              showPdfPage(currentPage);
+            }
           }
         }
-      };
+      });
+
+      pageSwipeHandler.on("panend", function () {
+        isProcessingSwipe = false;
+      });
 
       // Mouse wheel
-      pipContent.onwheel = function (e) {
-        if (e.deltaY > 0 && currentPage < pdf.numPages) {
-          currentPage++;
-          showPdfPage(currentPage);
-        } else if (e.deltaY < 0 && currentPage > 1) {
-          currentPage--;
-          showPdfPage(currentPage);
-        }
-        e.preventDefault();
-      };
+      pipContent.addEventListener(
+        "wheel",
+        function (e) {
+          const currentTime = Date.now();
+          if (currentTime - lastPageChangeTime < PAGE_CHANGE_DELAY) return;
 
-      // Mouse click up/down detection (desktop only)
-      pipContent.onmouseup = function (e) {
+          if (e.deltaY > 0 && currentPage < pdf.numPages) {
+            currentPage++;
+            showPdfPage(currentPage);
+            lastPageChangeTime = currentTime;
+          } else if (e.deltaY < 0 && currentPage > 1) {
+            currentPage--;
+            showPdfPage(currentPage);
+            lastPageChangeTime = currentTime;
+          }
+          e.preventDefault();
+        },
+        { passive: false }
+      );
+
+      // Mouse click for page navigation
+      pipContent.addEventListener("click", function (e) {
         // Skip if event originated from touch
         if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) {
           return;
         }
+
+        const currentTime = Date.now();
+        if (currentTime - lastPageChangeTime < PAGE_CHANGE_DELAY) return;
 
         const rect = pipContent.getBoundingClientRect();
         const y = e.clientY - rect.top;
@@ -119,35 +162,11 @@ function openPiPViewer(path, type) {
         if (y < rect.height / 2 && currentPage > 1) {
           currentPage--;
           showPdfPage(currentPage);
+          lastPageChangeTime = currentTime;
         } else if (y >= rect.height / 2 && currentPage < pdf.numPages) {
           currentPage++;
           showPdfPage(currentPage);
-        }
-      };
-
-      // Hammer.js swipe up/down (tablet)
-      const swipeHammer = new Hammer(pipContent);
-      swipeHammer.get("swipe").set({
-        direction: Hammer.DIRECTION_VERTICAL,
-        threshold: 10,
-        velocity: 0.1,
-      });
-
-      // Add touch-action CSS
-      pipContent.style.touchAction = "pan-x";
-      pipContent.style.webkitTouchAction = "pan-x";
-
-      swipeHammer.on("swipeup", function () {
-        if (currentPage < pdf.numPages) {
-          currentPage++;
-          showPdfPage(currentPage);
-        }
-      });
-
-      swipeHammer.on("swipedown", function () {
-        if (currentPage > 1) {
-          currentPage--;
-          showPdfPage(currentPage);
+          lastPageChangeTime = currentTime;
         }
       });
     });
@@ -188,31 +207,94 @@ function showPdfPage(pageNum) {
     // Get the exact pip viewer dimensions
     const pipViewer = document.getElementById("pipViewer");
     const headerHeight = document.getElementById("pipHeader").offsetHeight;
-    const availableHeight = pipViewer.offsetHeight - headerHeight - 20; // 20px for padding
-    const availableWidth = pipViewer.offsetWidth - 20; // 20px for padding
+    const isMinimized = pipViewer.classList.contains("minimize-mode");
 
-    // Get device pixel ratio for high DPI displays
-    const pixelRatio = window.devicePixelRatio || 1;
+    // Get actual viewer dimensions based on mode and document type
+    const isWorkInstruction = currentPath
+      .toLowerCase()
+      .includes("work_instruction");
+    let viewerWidth, viewerHeight;
+
+    // Force a reflow to ensure we get accurate dimensions
+    pipViewer.style.display = "none";
+    pipViewer.offsetHeight; // trigger reflow
+    pipViewer.style.display = "";
+
+    if (isMinimized) {
+      // In minimized mode, use the actual PiP viewer size
+      viewerWidth = pipViewer.clientWidth;
+      viewerHeight = pipViewer.clientHeight;
+    } else {
+      // In maximized mode
+      if (isWorkInstruction) {
+        // For Work Instructions: Use window width directly
+        viewerWidth = window.innerWidth;
+        viewerHeight = window.innerHeight;
+      } else {
+        // For Prep Cards: Use actual viewer size
+        viewerWidth = pipViewer.clientWidth;
+        viewerHeight = pipViewer.clientHeight;
+      }
+    }
 
     // Get PDF page dimensions
     const pdfWidth = page.view[2];
     const pdfHeight = page.view[3];
 
-    // Calculate scale to fill pip viewer
-    const scaleX = availableWidth / pdfWidth;
-    const scaleY = availableHeight / pdfHeight;
-    const baseScale = Math.min(scaleX, scaleY);
+    // Get device pixel ratio for high DPI displays
+    const pixelRatio = window.devicePixelRatio || 1;
 
-    // Create viewport with pixel ratio for sharp rendering
-    const viewport = page.getViewport({ scale: baseScale * pixelRatio });
+    // Calculate scale based on document type and mode
+    let baseScale;
+    if (isMinimized) {
+      // Minimize mode
+      if (isWorkInstruction) {
+        // Work Instructions - keep original scale
+        const scaleX = (viewerWidth - 20) / pdfWidth;
+        const scaleY = (viewerHeight - headerHeight - 20) / pdfHeight;
+        baseScale = Math.min(scaleX, scaleY) * 0.8;
+      } else {
+        // Prep Cards - increase scale
+        const scaleX = (viewerWidth - 20) / pdfWidth;
+        const scaleY = (viewerHeight - headerHeight - 20) / pdfHeight;
+        baseScale = Math.min(scaleX, scaleY) * 1.5;
+      }
+    } else if (isWorkInstruction) {
+      // Work Instructions maximize mode - force to fill viewer width
+      baseScale = 10.0; // Testing with very large scale
+    } else {
+      // Prep Cards maximize mode - fit to window width exactly
+      baseScale = viewerWidth / pdfWidth;
+    }
 
-    // Set canvas size to match viewport with pixel ratio
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
+    let viewport;
+    if (isWorkInstruction && !isMinimized) {
+      // For Work Instructions in maximize mode, force it to fill the viewer
+      const containerWidth = pipViewer.clientWidth;
+      const containerHeight = pipViewer.clientHeight - headerHeight;
+      const scale =
+        Math.min(containerWidth / pdfWidth, containerHeight / pdfHeight) * 1.5;
+      viewport = page.getViewport({ scale: scale * pixelRatio });
 
-    // Scale canvas display size back down
-    canvas.style.width = `${viewport.width / pixelRatio}px`;
-    canvas.style.height = `${viewport.height / pixelRatio}px`;
+      // Set canvas size to match container
+      canvas.width = containerWidth * pixelRatio;
+      canvas.height = containerHeight * pixelRatio;
+
+      // Scale display size
+      canvas.style.width = `${containerWidth}px`;
+      canvas.style.height = `${containerHeight}px`;
+    } else {
+      // Normal viewport creation for other cases
+      viewport = page.getViewport({ scale: baseScale * pixelRatio });
+
+      // Set canvas size to match viewport
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+
+      // Scale display size
+      canvas.style.width = `${viewport.width / pixelRatio}px`;
+      canvas.style.height = `${viewport.height / pixelRatio}px`;
+    }
 
     // Setup canvas and container styles
     canvas.style.userSelect = "none";
@@ -227,13 +309,7 @@ function showPdfPage(pageNum) {
 
     // Clear and setup container
     pipContent.innerHTML = "";
-    pipContent.style.position = "relative";
-    pipContent.style.width = "100%";
-    pipContent.style.height = "100%";
-    pipContent.style.display = "flex";
-    pipContent.style.alignItems = "center";
-    pipContent.style.justifyContent = "center";
-    pipContent.style.overflow = "hidden";
+    pipContent.removeAttribute("style");
     pipContent.appendChild(canvas);
 
     let currentZoom = 1;
@@ -285,18 +361,8 @@ function showPdfPage(pageNum) {
         panX = lastPanX + e.deltaX;
         panY = lastPanY + e.deltaY;
         updateTransform();
-      } else {
-        // When not zoomed, handle vertical swipe for page navigation
-        if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-          if (e.deltaY < -50 && currentPage < currentPdf.numPages) {
-            currentPage++;
-            showPdfPage(currentPage);
-          } else if (e.deltaY > 50 && currentPage > 1) {
-            currentPage--;
-            showPdfPage(currentPage);
-          }
-        }
       }
+      // Remove page navigation from canvas pan handler
     });
 
     // Reset functionality
@@ -338,55 +404,71 @@ function showPdfPage(pageNum) {
 
 function minimizeViewer() {
   const pipViewer = document.getElementById("pipViewer");
+
+  // Remove all styles first
+  pipViewer.removeAttribute("style");
+
+  // Update classes
   pipViewer.classList.remove("maximize-mode");
   pipViewer.classList.add("minimize-mode");
 
-  // Reset styles that interfere with dragging
-  pipViewer.style.transform = "none";
-  pipViewer.style.top = "auto";
-  pipViewer.style.left = "auto";
+  // Set minimal required styles for minimize mode
   pipViewer.style.right = "1rem";
   pipViewer.style.bottom = "1rem";
-
-  // Set fixed dimensions for minimized mode
   pipViewer.style.width = "300px";
-  pipViewer.style.height = "400px";
+  pipViewer.style.height = "200px";
 
+  // Update UI state
   document.body.classList.remove("no-scroll");
   document.getElementById("pipBackdrop").style.display = "none";
   document.getElementById("pipMinimize").classList.add("d-none");
   document.getElementById("pipMaximize").classList.remove("d-none");
 
-  // Re-render PDF to fit new dimensions if PDF is loaded
-  if (currentPdf && currentPage) {
+  // Re-render content based on type
+  if (currentType === "pdf" && currentPdf && currentPage) {
     showPdfPage(currentPage);
+  } else if (currentType === "image") {
+    const img = document.getElementById("pipImage");
+    if (img) {
+      img.style.transform = "translate(-50%, -50%) scale(1)";
+    }
   }
 }
 
 function maximizeViewer() {
   const pipViewer = document.getElementById("pipViewer");
+  const isWorkInstruction = currentPath
+    .toLowerCase()
+    .includes("work_instruction");
+
+  // Remove all styles first
+  pipViewer.removeAttribute("style");
+
+  // Update classes
   pipViewer.classList.remove("minimize-mode");
   pipViewer.classList.add("maximize-mode");
 
-  // Reset position to avoid leftover styles from minimize mode
-  pipViewer.style.top = "80px";
-  pipViewer.style.left = "50%";
-  pipViewer.style.bottom = "auto";
-  pipViewer.style.right = "auto";
-  pipViewer.style.transform = "translateX(-50%)";
+  // Set size for Work Instructions
+  if (isWorkInstruction) {
+    pipViewer.style.width = "95vw";
+    pipViewer.style.height = "95vh";
+    pipViewer.style.margin = "auto";
+  }
 
-  // Reset fixed dimensions
-  pipViewer.style.width = "";
-  pipViewer.style.height = "";
-
+  // Update UI state
   document.body.classList.add("no-scroll");
   document.getElementById("pipBackdrop").style.display = "block";
   document.getElementById("pipMinimize").classList.remove("d-none");
   document.getElementById("pipMaximize").classList.add("d-none");
 
-  // Re-render PDF to fit new dimensions if PDF is loaded
-  if (currentPdf && currentPage) {
+  // Re-render content based on type
+  if (currentType === "pdf" && currentPdf && currentPage) {
     showPdfPage(currentPage);
+  } else if (currentType === "image") {
+    const img = document.getElementById("pipImage");
+    if (img) {
+      img.style.transform = "translate(-50%, -50%) scale(1)";
+    }
   }
 }
 
@@ -399,14 +481,56 @@ document.getElementById("pipClose").onclick = () => {
 };
 
 document.addEventListener("DOMContentLoaded", function () {
+  // Get all control buttons
   const btnMin = document.getElementById("pipMinimize");
   const btnMax = document.getElementById("pipMaximize");
+  const btnReset = document.getElementById("pipReset");
   const btnClose = document.getElementById("pipClose");
 
-  if (btnMin) btnMin.addEventListener("click", minimizeViewer);
-  if (btnMax) btnMax.addEventListener("click", maximizeViewer);
+  // Minimize button
+  if (btnMin) {
+    btnMin.addEventListener("click", (e) => {
+      e.stopPropagation(); // Prevent event from bubbling to header
+      minimizeViewer();
+    });
+  }
+
+  // Maximize button
+  if (btnMax) {
+    btnMax.addEventListener("click", (e) => {
+      e.stopPropagation(); // Prevent event from bubbling to header
+      maximizeViewer();
+      // Re-render content based on type after maximizing
+      if (currentType === "pdf" && currentPdf && currentPage) {
+        showPdfPage(currentPage);
+      } else if (currentType === "image") {
+        const img = document.getElementById("pipImage");
+        if (img) {
+          img.style.transform = "translate(-50%, -50%) scale(1)";
+        }
+      }
+    });
+  }
+
+  // Reset button
+  if (btnReset) {
+    btnReset.addEventListener("click", (e) => {
+      e.stopPropagation(); // Prevent event from bubbling to header
+      if (currentType === "pdf" && currentPdf && currentPage) {
+        showPdfPage(currentPage);
+      } else if (currentType === "image") {
+        const img = document.getElementById("pipImage");
+        if (img) {
+          img.style.transform = "translate(-50%, -50%) scale(1)";
+        }
+      }
+    });
+  }
+
+  // Close button
   if (btnClose) {
-    btnClose.addEventListener("click", () => {
+    btnClose.addEventListener("click", (e) => {
+      e.stopPropagation(); // Prevent event from bubbling to header
       document.getElementById("pipViewer").classList.add("d-none");
       document.getElementById("pipContent").innerHTML = "";
       document.body.classList.remove("no-scroll");
@@ -514,6 +638,7 @@ function setupPanZoom(img) {
 
 function enableDraggableMinimizedViewer() {
   const pipViewer = document.getElementById("pipViewer");
+  const pipHeader = document.getElementById("pipHeader");
 
   let isDragging = false;
   let offsetX = 0;
@@ -524,6 +649,7 @@ function enableDraggableMinimizedViewer() {
     offsetX = x - rect.left;
     offsetY = y - rect.top;
     isDragging = true;
+    pipHeader.style.cursor = "grabbing";
   }
 
   function doDrag(x, y) {
@@ -548,11 +674,18 @@ function enableDraggableMinimizedViewer() {
 
   function endDrag() {
     isDragging = false;
+    pipHeader.style.cursor = "grab";
   }
 
-  // Mouse events
-  pipViewer.addEventListener("mousedown", (e) => {
-    if (!pipViewer.classList.contains("minimize-mode")) return;
+  // Mouse events for header
+  pipHeader.addEventListener("mousedown", (e) => {
+    // Only allow dragging from header area, not from buttons
+    if (
+      !pipViewer.classList.contains("minimize-mode") ||
+      e.target.closest(".pip-btn")
+    )
+      return;
+    e.preventDefault(); // Prevent text selection
     startDrag(e.clientX, e.clientY);
     document.addEventListener("mousemove", onMouseMove);
     document.addEventListener("mouseup", onMouseUp);
@@ -568,24 +701,38 @@ function enableDraggableMinimizedViewer() {
     document.removeEventListener("mouseup", onMouseUp);
   }
 
-  // Touch events
-  pipViewer.addEventListener("touchstart", (e) => {
-    if (!pipViewer.classList.contains("minimize-mode")) return;
+  // Touch events for header
+  pipHeader.addEventListener("touchstart", (e) => {
+    // Only allow dragging from header area, not from buttons
+    if (
+      !pipViewer.classList.contains("minimize-mode") ||
+      e.target.closest(".pip-btn")
+    )
+      return;
     if (e.touches.length === 1) {
+      e.preventDefault(); // Prevent scrolling
       const touch = e.touches[0];
       startDrag(touch.clientX, touch.clientY);
     }
   });
 
-  pipViewer.addEventListener("touchmove", (e) => {
-    if (!isDragging || e.touches.length !== 1) return;
-    const touch = e.touches[0];
-    doDrag(touch.clientX, touch.clientY);
-  });
+  document.addEventListener(
+    "touchmove",
+    (e) => {
+      if (!isDragging || e.touches.length !== 1) return;
+      e.preventDefault(); // Prevent scrolling while dragging
+      const touch = e.touches[0];
+      doDrag(touch.clientX, touch.clientY);
+    },
+    { passive: false }
+  );
 
-  pipViewer.addEventListener("touchend", () => {
+  pipHeader.addEventListener("touchend", () => {
     endDrag();
   });
+
+  // Update header cursor style
+  pipHeader.style.cursor = "grab";
 }
 
 // Add CSS for swipe hint

@@ -175,11 +175,11 @@ body {
 }
 
 .pip-viewer.maximize-mode {
-  top: 50%;
+  top: 80px;
   left: 50%;
-  transform: translate(-50%, -50%);
+  transform: translateX(-50%);
   width: 90vw;
-  height: 90vh;
+  height: calc(100vh - 100px);
   max-width: 1024px;
   max-height: 768px;
   resize: none;
@@ -197,6 +197,7 @@ body.no-scroll {
   height: 200px;
   resize: both;
   cursor: move;
+  position: fixed;
 }
 
 #pipHeader {
@@ -276,12 +277,13 @@ body.no-scroll {
 }
 
 .pip-viewer.maximize-mode.pdf-mode {
-  top: 80px; /* navbar height */
+  top: 80px;
   left: 50%;
   transform: translateX(-50%);
-  width: 95vw;
-  height: 85vh;
-  max-width: none;
-  max-height: none;
-  background: white;
+  width: 90vw;
+  height: calc(100vh - 100px);
+  max-width: 1024px;
+  max-height: 768px;
+  resize: none;
+  cursor: default;
 }

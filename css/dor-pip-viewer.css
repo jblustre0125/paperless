@@ -18,7 +18,7 @@
   left: 50%;
   transform: translateX(-50%);
   width: 90vw;
-  height: calc(100vh - 100px); /* reduce height to stay below navbar */
+  height: calc(100vh - 100px);
   max-width: 1024px;
   max-height: 768px;
   resize: none;
@@ -33,6 +33,19 @@
   resize: both;
   cursor: move;
   position: fixed;
+}
+
+/* PDF mode should match drawing mode exactly */
+.pip-viewer.maximize-mode.pdf-mode {
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90vw;
+  height: calc(100vh - 100px);
+  max-width: 1024px;
+  max-height: 768px;
+  resize: none;
+  cursor: default;
 }
 
 #pipHeader {
@@ -113,15 +126,4 @@ body.no-scroll {
   background: rgba(0, 0, 0, 0.5);
   z-index: 998;
   display: none;
-}
-
-.pip-viewer.maximize-mode.pdf-mode {
-  top: 80px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 95vw;
-  height: 85vh;
-  max-width: none;
-  max-height: none;
-  background: white;
 }
