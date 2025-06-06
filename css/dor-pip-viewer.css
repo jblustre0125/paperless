@@ -28,8 +28,8 @@
 .pip-viewer.minimize-mode {
   bottom: 1rem;
   right: 1rem;
-  width: 300px;
-  height: 200px;
+  width: 400px;
+  height: 300px;
   resize: both;
   cursor: move;
   position: fixed;
@@ -59,6 +59,11 @@
   min-height: 4rem;
   align-items: center;
   cursor: move;
+}
+
+/* Reduce gap between buttons in minimize mode */
+.minimize-mode #pipHeader {
+  gap: 1.25rem;
 }
 
 .pip-btn {
@@ -126,4 +131,8 @@ body.no-scroll {
   background: rgba(0, 0, 0, 0.5);
   z-index: 998;
   display: none;
+}
+
+.minimize-mode .page-indicator {
+  display: none !important;
 }

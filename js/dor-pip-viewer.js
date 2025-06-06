@@ -273,7 +273,7 @@ function showPdfPage(pageNum) {
       const containerWidth = pipViewer.clientWidth;
       const containerHeight = pipViewer.clientHeight - headerHeight;
       const scale =
-        Math.min(containerWidth / pdfWidth, containerHeight / pdfHeight) * 1.5;
+        Math.min(containerWidth / pdfWidth, containerHeight / pdfHeight) * 1.8;
       viewport = page.getViewport({ scale: scale * pixelRatio });
 
       // Set canvas size to match container
@@ -384,20 +384,22 @@ function showPdfPage(pageNum) {
     };
 
     page.render(renderContext).promise.then(() => {
-      // Add page indicator after successful render
-      const pageIndicator = document.createElement("div");
-      pageIndicator.className = "page-indicator";
-      pageIndicator.style.position = "absolute";
-      pageIndicator.style.bottom = "10px";
-      pageIndicator.style.left = "50%";
-      pageIndicator.style.transform = "translateX(-50%)";
-      pageIndicator.style.background = "rgba(0, 0, 0, 0.5)";
-      pageIndicator.style.color = "white";
-      pageIndicator.style.padding = "5px 10px";
-      pageIndicator.style.borderRadius = "15px";
-      pageIndicator.style.zIndex = "1000";
-      pageIndicator.textContent = `Page ${pageNum} of ${currentPdf.numPages}`;
-      pipContent.appendChild(pageIndicator);
+      // Add page indicator after successful render only if not in minimize mode
+      if (!pipViewer.classList.contains("minimize-mode")) {
+        const pageIndicator = document.createElement("div");
+        pageIndicator.className = "page-indicator";
+        pageIndicator.style.position = "absolute";
+        pageIndicator.style.bottom = "10px";
+        pageIndicator.style.left = "50%";
+        pageIndicator.style.transform = "translateX(-50%)";
+        pageIndicator.style.background = "rgba(0, 0, 0, 0.5)";
+        pageIndicator.style.color = "white";
+        pageIndicator.style.padding = "5px 10px";
+        pageIndicator.style.borderRadius = "15px";
+        pageIndicator.style.zIndex = "1000";
+        pageIndicator.textContent = `Page ${pageNum} of ${currentPdf.numPages}`;
+        pipContent.appendChild(pageIndicator);
+      }
     });
   });
 }
@@ -412,11 +414,17 @@ function minimizeViewer() {
   pipViewer.classList.remove("maximize-mode");
   pipViewer.classList.add("minimize-mode");
 
-  // Set minimal required styles for minimize mode
+  // Set minimal required styles for minimize mode - increased size for tablet
   pipViewer.style.right = "1rem";
   pipViewer.style.bottom = "1rem";
-  pipViewer.style.width = "300px";
-  pipViewer.style.height = "200px";
+  pipViewer.style.width = "400px"; // Increased from 300px
+  pipViewer.style.height = "300px"; // Increased from 200px
+
+  // Hide page indicator in minimize mode
+  const pageIndicator = document.querySelector(".page-indicator");
+  if (pageIndicator) {
+    pageIndicator.style.display = "none";
+  }
 
   // Update UI state
   document.body.classList.remove("no-scroll");
@@ -437,9 +445,6 @@ function minimizeViewer() {
 
 function maximizeViewer() {
   const pipViewer = document.getElementById("pipViewer");
-  const isWorkInstruction = currentPath
-    .toLowerCase()
-    .includes("work_instruction");
 
   // Remove all styles first
   pipViewer.removeAttribute("style");
@@ -448,18 +453,17 @@ function maximizeViewer() {
   pipViewer.classList.remove("minimize-mode");
   pipViewer.classList.add("maximize-mode");
 
-  // Set size for Work Instructions
-  if (isWorkInstruction) {
-    pipViewer.style.width = "95vw";
-    pipViewer.style.height = "95vh";
-    pipViewer.style.margin = "auto";
+  // Show page indicator in maximize mode
+  const pageIndicator = document.querySelector(".page-indicator");
+  if (pageIndicator) {
+    pageIndicator.style.display = "block";
   }
 
   // Update UI state
   document.body.classList.add("no-scroll");
   document.getElementById("pipBackdrop").style.display = "block";
-  document.getElementById("pipMinimize").classList.remove("d-none");
   document.getElementById("pipMaximize").classList.add("d-none");
+  document.getElementById("pipMinimize").classList.remove("d-none");
 
   // Re-render content based on type
   if (currentType === "pdf" && currentPdf && currentPage) {
@@ -747,3 +751,11 @@ style.textContent = `
   }
 `;
 document.head.appendChild(style);
+
+// Add pageshow event handler to reinitialize when navigating back
+window.onpageshow = function (event) {
+  if (event.persisted) {
+    // Page is loaded from cache (back/forward navigation)
+    document.dispatchEvent(new Event("DOMContentLoaded"));
+  }
+};
