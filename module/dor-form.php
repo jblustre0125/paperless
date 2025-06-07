@@ -185,14 +185,14 @@ try {
     </nav>
     <form id="myForm" method="post" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" novalidate>
         <div class="sticky-dor-bar">
-            <div class="container-fluid px-2 py-2">
+            <div class="container-fluid px-2 py-0">
                 <?php if (!empty($errorPrompt)) : ?>
                     <div class="alert alert-danger" role="alert">
                         <?php echo $errorPrompt; ?>
                     </div>
                 <?php endif; ?>
 
-                <div class="sticky-process-tab d-flex justify-content-between align-items-center mb-3">
+                <div class="sticky-process-tab d-flex justify-content-between align-items-center mb-1">
                     <div class="d-flex gap-3">
                         <?php
                         if (!isset($_SESSION['tabQty']) || $_SESSION['tabQty'] <= 0) {
@@ -212,7 +212,6 @@ try {
                         <?php endfor; ?>
                     </div>
                 </div>
-
                 <div class="sticky-table-header">
                     Required Item and Jig Condition VS Work Instruction
                 </div>
@@ -224,9 +223,9 @@ try {
                     <table class="table-checkpointA table table-bordered align-middle">
                         <thead>
                             <tr>
-                                <th>Checkpoint</th>
-                                <th colspan="2">Criteria</th>
-                                <th>Please complete all checkpoints</th>
+                                <th class="checkpoint-cell">Checkpoint</th>
+                                <th colspan="2" class="criteria-cell">Criteria</th>
+                                <th class="selection-cell">Please complete all checkpoints</th>
                             </tr>
                         </thead>
                         <tbody>

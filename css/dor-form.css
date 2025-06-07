@@ -8,9 +8,10 @@ body {
 .sticky-dor-bar {
   position: sticky;
   top: 58px;
-  z-index: 1030;
+  z-index: 1035;
   background: white;
   width: 100%;
+  border-bottom: 1px solid #dee2e6;
 }
 
 .sticky-process-tab {
@@ -50,23 +51,24 @@ body {
 .sticky-table-header {
   position: sticky;
   top: 132px;
-  z-index: 1029;
+  z-index: 1035;
   background: white;
-  padding: 0 0;
+  padding: 8px 0;
   text-align: left;
   width: 100%;
+  border-bottom: 1px solid #dee2e6;
 }
 
 /* Table styles */
 .table-scroll-container {
   position: relative;
   width: 100%;
-  margin-top: 40px; /* Add margin to container */
+  margin-top: 40px;
 }
 
 .table-checkpointA {
   width: 100%;
-  margin: 0;
+  margin: 0 0 10px 0;
   background: white;
   table-layout: fixed;
   border-collapse: collapse;
@@ -81,11 +83,12 @@ body {
 .table-checkpointA thead {
   position: sticky;
   top: 195px;
-  z-index: 1031;
+  z-index: 1040;
   background: white;
 }
 
 .table-checkpointA thead th {
+  position: relative;
   background: white;
   padding: 8px 8px;
   text-align: center;
@@ -125,7 +128,7 @@ body {
   text-align: center;
 }
 
-/* Remove individual width definitions */
+/* Cell styles */
 .checkpoint-cell {
   white-space: normal;
   word-wrap: break-word;
@@ -153,6 +156,7 @@ body {
 .tab-content {
   padding-top: 10px;
   background: #fff;
+  display: none;
 }
 
 /* Add viewport-based media queries */
@@ -172,16 +176,18 @@ body {
   }
 }
 
-/* Add this for thead th borders */
+/* Table row styles */
 .table-checkpointA thead tr {
   background: white;
 }
 
-/* Remove any display properties that might interfere */
-.table-checkpointA tr,
+.table-checkpointA tr {
+  display: table-row;
+}
+
 .table-checkpointA td,
 .table-checkpointA th {
-  display: revert;
+  display: table-cell;
 }
 
 /* Radio button styles */
@@ -201,6 +207,7 @@ body {
   transform: scale(1.5);
 }
 
+/* Form and container resets */
 body,
 form,
 .sticky-dor-bar {
@@ -208,30 +215,6 @@ form,
   padding-top: 0;
   margin-bottom: 0;
   padding-bottom: 0;
-}
-
-/* Container adjustments */
-.container-fluid {
-  padding: 0 15px;
-}
-
-.tab-content {
-  display: none;
-  background: #fff;
-}
-
-/* Fix for table row alignment */
-.table-checkpointA tr {
-  display: table-row;
-}
-
-.table-checkpointA td,
-.table-checkpointA th {
-  display: table-cell;
-}
-
-#sticky-dor-bar {
-  top: 58px !important;
 }
 
 /* Employee ID input styles */
@@ -279,10 +262,8 @@ input[id^="userCode"] {
   touch-action: manipulation;
 }
 
-.table-checkpointA tbody tr:first-child {
-  margin-top: 45px;
-}
-
-.table-checkpointA tbody tr:first-child td {
-  padding-top: 45px;
+/* Ensure table body is below header */
+.table-checkpointA tbody {
+  position: relative;
+  z-index: 1030;
 }
