@@ -25,7 +25,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             unset($_SESSION['dorRecordId']);
 
             $response['success'] = true;
-            $response['redirectUrl'] = 'dor-home.php';
+            $response['redirectUrl'] = 'dor-dor.php';
         } else {
             $response['errors'][] = 'No record ID in session.';
         }
@@ -39,38 +39,28 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         if (isset($_POST['btnProceed'])) {
             $recordId = $_SESSION['dorRecordId'] ?? 0;
             if ($recordId > 0) {
-                $hasUpdates = false;
-                foreach ($_POST as $key => $value) {
-                    if (preg_match('/^Process(\d+)_(\d+)$/', $key, $matches)) {
-                        $processIndex = (int)$matches[1];
-                        $sequenceId = (int)$matches[2];
+                // Get radio button values
+                $leaderToOperator = $_POST['leaderToOperator'] ?? 'NA';
+                $operatorToLeader = $_POST['operatorToLeader'] ?? 'NA';
 
-                        $meta = $_POST['meta'][$key] ?? [];
-                        $checkpointId = $meta['checkpointId'] ?? null;
-                        $employeeCode = $_POST["userCode{$processIndex}"] ?? '';
+                // Execute stored procedure to save responses
+                $insSp = "EXEC InsAtoDorCheckpointRefresh 
+                    @RecordId=?, 
+                    @OpLeaderResponse=?,
+                    @OpOperatorResponse=?";
 
-                        if ($checkpointId && $employeeCode !== '') {
-                            $insSp = "EXEC InsAtoDorCheckpointDefinition @RecordId=?, @ProcessIndex=?, @EmployeeCode=?, @CheckpointId=?, @CheckpointResponse=?";
-                            $result = $db1->execute($insSp, [
-                                $recordId,
-                                $processIndex,
-                                $employeeCode,
-                                $checkpointId,
-                                $value
-                            ]);
-                            if ($result !== false) {
-                                $hasUpdates = true;
-                            }
-                        }
-                    }
-                }
+                $result = $db1->execute($insSp, [
+                    $recordId,
+                    $leaderToOperator,
+                    $operatorToLeader
+                ]);
 
-                if ($hasUpdates) {
+                if ($result !== false) {
                     $response['success'] = true;
-                    $response['redirectUrl'] = "dor-refresh.php";
+                    $response['redirectUrl'] = "dor-dor.php";
                 } else {
                     $response['success'] = false;
-                    $response['errors'][] = "No updates were made. Please check your inputs.";
+                    $response['errors'][] = "Failed to save refreshment responses.";
                 }
             } else {
                 $response['success'] = false;
@@ -81,49 +71,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     echo json_encode($response);
     exit;
-}
-
-// Fetch checkpoints based on DOR Type
-$procA = "EXEC RdGenDorCheckpointDefinition @DorTypeId=?";
-$resA = $db1->execute($procA, [$_SESSION['dorTypeId']], 1);
-
-$tabData = [];
-
-foreach ($resA as $row) {
-    $checkpointId = $row['CheckpointId'];
-    $checkpointName = $row['CheckpointName'];
-    $sequenceId = $row['SequenceId'];
-
-    // Use $checkpointName as top-level grouping key (to preserve your row merge)
-    if (!isset($tabData[$checkpointName])) {
-        $tabData[$checkpointName] = [];
-    }
-
-    // If this checkpointId already added, just push the option
-    $found = false;
-    foreach ($tabData[$checkpointName] as &$existing) {
-        if ($existing['CheckpointId'] === $checkpointId) {
-            if (!empty($row['CheckpointTypeDetailName'])) {
-                $existing['Options'][] = $row['CheckpointTypeDetailName'];
-            }
-            $found = true;
-            break;
-        }
-    }
-
-    // New checkpoint entry
-    if (!$found) {
-        $tabData[$checkpointName][] = [
-            'CheckpointId' => $checkpointId,
-            'SequenceId' => $sequenceId,
-            'CheckpointName' => $checkpointName,
-            'CriteriaGood' => $row['CriteriaGood'],
-            'CriteriaNotGood' => $row['CriteriaNotGood'],
-            'CheckpointTypeId' => $row['CheckpointTypeId'],
-            'CheckpointControl' => $row['CheckpointControl'],
-            'Options' => !empty($row['CheckpointTypeDetailName']) ? [$row['CheckpointTypeDetailName']] : [],
-        ];
-    }
 }
 
 $drawingFile = '';
@@ -212,9 +159,9 @@ try {
                     <td>Leader to Operator</td>
                     <td>
                         <div class="process-radio">
-                            <label><input type="radio" name="leaderToOperator" value="O" checked> O</label>
+                            <label><input type="radio" name="leaderToOperator" value="O"> O</label>
                             <label><input type="radio" name="leaderToOperator" value="X"> X</label>
-                            <label><input type="radio" name="leaderToOperator" value="NA"> NA</label>
+                            <label><input type="radio" name="leaderToOperator" value="NA" checked> NA</label>
                         </div>
                     </td>
                 </tr>
@@ -222,9 +169,9 @@ try {
                     <td>Operator to Leader</td>
                     <td>
                         <div class="process-radio">
-                            <label><input type="radio" name="operatorToLeader" value="O" checked> O</label>
+                            <label><input type="radio" name="operatorToLeader" value="O"> O</label>
                             <label><input type="radio" name="operatorToLeader" value="X"> X</label>
-                            <label><input type="radio" name="operatorToLeader" value="NA"> NA</label>
+                            <label><input type="radio" name="operatorToLeader" value="NA" checked> NA</label>
                         </div>
                     </td>
                 </tr>
@@ -243,7 +190,7 @@ try {
                         <div>
                             <strong>Note:</strong>
                             <div class="ms-3 mt-1">
-                                Record the details at page 2 on detected problem/abnormality during jigs and tools checking then encircle the X if already corrected.
+                                Record the details at next page on detected problem/abnormality during jigs and tools checking.
                             </div>
                         </div>
                     </td>
@@ -344,8 +291,31 @@ try {
                 }
             });
 
-            document.getElementById("btnProceed").addEventListener("click", function() {
-                window.location.href = "dor-form.php";
+            document.getElementById("btnProceed").addEventListener("click", function(e) {
+                e.preventDefault();
+
+                // Create form data
+                const formData = new FormData();
+                formData.append('btnProceed', '1');
+                formData.append('leaderToOperator', document.querySelector('input[name="leaderToOperator"]:checked').value);
+                formData.append('operatorToLeader', document.querySelector('input[name="operatorToLeader"]:checked').value);
+
+                // Send AJAX request
+                fetch(window.location.href, {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            window.location.href = data.redirectUrl;
+                        } else {
+                            showErrorModal(data.errors.join('\n'));
+                        }
+                    })
+                    .catch(error => {
+                        showErrorModal('An error occurred while saving the responses.');
+                    });
             });
         });
     </script>
