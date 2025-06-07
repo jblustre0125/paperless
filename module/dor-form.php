@@ -157,6 +157,7 @@ try {
         .table-container {
             padding: 0;
             padding-top: 1px !important;
+            padding-bottom: 10px !important;
         }
 
         /* Update table border styling to match dor-refresh.php */
