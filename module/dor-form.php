@@ -694,8 +694,14 @@ try {
 
         // Track which submit button was clicked
         document.querySelectorAll("button[type='submit']").forEach(button => {
-            button.addEventListener("click", function() {
+            button.addEventListener("click", function(e) {
+                e.preventDefault(); // Prevent default form submission
                 clickedButton = this;
+
+                // If it's the proceed button, trigger form validation and submission
+                if (this.id === "btnProceed") {
+                    form.dispatchEvent(new Event('submit'));
+                }
             });
         });
     </script>
