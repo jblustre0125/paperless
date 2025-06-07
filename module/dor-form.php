@@ -153,6 +153,11 @@ try {
     <link href="../css/dor-form.css" rel="stylesheet">
     <link href="../css/dor-navbar.css" rel="stylesheet">
     <link href="../css/dor-pip-viewer.css" rel="stylesheet">
+    <style>
+        .table-container {
+            padding-bottom: 5px;
+        }
+    </style>
 </head>
 
 <body>
@@ -219,7 +224,7 @@ try {
         </div>
         <?php for ($i = 1; $i <= $_SESSION['tabQty']; $i++) : ?>
             <div id="Process<?php echo $i; ?>" class="tab-content" style="display: none;">
-                <div>
+                <div class="table-container">
                     <table class="table-checkpointA table table-bordered align-middle">
                         <thead>
                             <tr>
