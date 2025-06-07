@@ -77,6 +77,7 @@ body {
 /* Add this new class */
 .tab-content > div {
   padding: 0 10px;
+  padding-top: 45px; /* Add padding to prevent first row from hiding behind sticky header */
 }
 
 /* Important: Fixed thead styles */
