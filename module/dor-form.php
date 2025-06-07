@@ -220,7 +220,7 @@ try {
             <div class="container-fluid px-2 py-0">
                 <div class="table-container">
                     <table class="table-checkpointA table table-bordered align-middle">
-                        <thead>
+                        <thead class="table-light">
                             <tr>
                                 <th class="checkpoint-cell">Checkpoint</th>
                                 <th colspan="2" class="criteria-cell">Criteria</th>

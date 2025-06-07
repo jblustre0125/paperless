@@ -286,3 +286,78 @@ input[id^="userCode"] {
 .table-checkpointA tbody tr:first-child td {
   padding-top: 45px;
 }
+
+/* Main container spacing */
+.container-fluid.mt-5.pt-4 {
+  margin-top: 3rem !important;
+  padding-top: 1.5rem !important;
+}
+
+/* Table styles */
+.table {
+  margin-bottom: 0;
+}
+
+.table thead.table-light th {
+  text-align: center;
+  vertical-align: middle;
+  padding: 1rem 0.5rem;
+}
+
+.table thead.table-light th.h5 {
+  font-size: 1.25rem;
+}
+
+/* Radio button group styles */
+.d-flex.gap-4.justify-content-center {
+  display: flex;
+  gap: 1.5rem !important;
+  justify-content: center !important;
+}
+
+.form-check {
+  margin: 0;
+  padding: 0 1rem;
+}
+
+.form-check-input {
+  margin-right: 0.5rem;
+}
+
+/* Legend and notes section */
+tfoot td {
+  padding: 1rem;
+}
+
+tfoot strong {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+tfoot .ms-3 {
+  margin-left: 1rem !important;
+}
+
+/* Error message styles */
+#modalErrorMessage {
+  color: #dc3545;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .short-label {
+    display: inline;
+  }
+  .long-label {
+    display: none;
+  }
+}
+
+@media (min-width: 769px) {
+  .short-label {
+    display: none;
+  }
+  .long-label {
+    display: inline;
+  }
+}
