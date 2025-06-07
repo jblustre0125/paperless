@@ -1,11 +1,12 @@
 @font-face {
+  font-display: swap;
   font-family: "bootstrap-icons";
-  src: url("bootstrap-icons/fonts/bootstrap-icons.woff2") format("woff2"),
-    url("bootstrap-icons/fonts/bootstrap-icons.woff") format("woff");
+  src: url("./bootstrap-icons/fonts/bootstrap-icons.woff2?ae8252b6")
+      format("woff2"),
+    url("./bootstrap-icons/fonts/bootstrap-icons.woff?ae8252b6") format("woff");
 }
 
-.bi::before {
-  display: inline-block;
+.bi {
   font-family: bootstrap-icons !important;
   font-style: normal;
   font-weight: normal !important;
@@ -17,6 +18,24 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+.bi-info-circle-fill::before {
+  content: "\f430";
+}
+.bi-info-circle::before {
+  content: "\f431";
+}
+.bi-info-square-fill::before {
+  content: "\f432";
+}
+.bi-info-square::before {
+  content: "\f433";
+}
+.bi-info::before {
+  content: "\f434";
+}
+.bi-info-lg::before {
+  content: "\f434";
+}
 .bi-fullscreen::before {
   content: "\f3df";
 }
@@ -28,4 +47,19 @@
 }
 .bi-x-lg::before {
   content: "\f659";
+}
+.bi-chevron-left::before {
+  content: "\f284";
+}
+.bi-chevron-right::before {
+  content: "\f285";
+}
+.bi-chevron-up::before {
+  content: "\f286";
+}
+.bi-chevron-down::before {
+  content: "\f282";
+}
+.bi-list-ul::before {
+  content: "\f47f";
 }

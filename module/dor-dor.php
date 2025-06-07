@@ -54,6 +54,7 @@ try {
   <link href="../css/dor-pip-viewer.css" rel="stylesheet">
   <script src="../js/bootstrap.bundle.min.js"></script>
   <script src="../js/jsQR.min.js"></script>
+  <script src="../js/hammer.min.js"></script>
 </head>
 
 
@@ -134,61 +135,143 @@ try {
 
   <div id="pipBackdrop"></div>
 
-  <div class="container-fluid mt-5 pt-4">
-    <table class="table table-bordered align-middle">
-      <thead>
-        <tr>
-          <th>No.</th>
-          <th>Box No.</th>
-          <th>TIME START</th>
-          <th>TIME END</th>
-          <th>Operator</th>
-          <th>Downtime/Abnormality/Defect Details</th>
-          <th>Action Taken</th>
-          <th>TIME START</th>
-          <th>TIME END</th>
-          <th>PIC</th>
-          <th>Remarks</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php for ($i = 1; $i <= 20; $i++) { ?>
+  <!-- Floating Legends Button -->
+  <button type="button" class="btn btn-primary floating-legends-btn drawer-style" data-bs-toggle="modal" data-bs-target="#legendsModal">
+    <i class="bi bi-info-circle-fill"></i>
+  </button>
+
+  <!-- Legends Modal -->
+  <div class="modal fade" id="legendsModal" tabindex="-1" aria-labelledby="legendsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header" id="legendsModalHeader">
+          <h5 class="modal-title" id="legendsModalLabel">LEGENDS</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" id="legendsModalBody">
+          <div class="legend-content">
+            <div class="legend-row">
+              <div class="legend-group">
+                <div><strong>A. Jig Alarm</strong></div>
+                <div><span class="legend-code">TS</span> - Tape Sensor</div>
+                <div><span class="legend-code">TC</span> - Toggle Clamp</div>
+                <div><span class="legend-code">W1</span> - Wire 1 LED not ON</div>
+                <div><span class="legend-code">W2</span> - Wire 2 LED not ON</div>
+                <div><span class="legend-code">ST</span> - Stop tape trigger</div>
+                <div><span class="legend-code">CT</span> - Connector trigger</div>
+              </div>
+              <div class="legend-group">
+                <div><strong>B. Abnormality</strong></div>
+                <div><span class="legend-code">WS</span> - Wrong Setting</div>
+                <div><span class="legend-code">CC</span> - Counter complete</div>
+                <div><span class="legend-code">DP</span> - Drop Parts</div>
+                <div><span class="legend-code">E</span> - Excess parts</div>
+                <div><span class="legend-code">L</span> - Lacking parts</div>
+                <div><span class="legend-code">IN</span> - Incoming NG parts</div>
+                <div><span class="legend-code">IP</span> - In process defects</div>
+                <div><span class="legend-code">FOC</span> - For confirmation harness</div>
+              </div>
+              <div class="legend-group">
+                <div><strong>C. Remarks</strong></div>
+                <div><span class="legend-code">FC</span> - For Continue</div>
+                <div><span class="legend-code">C</span> - Continuation</div>
+                <div><span class="legend-code">AM</span> - Affected of AM</div>
+              </div>
+              <div class="legend-group">
+                <div><strong>D. Action Taken</strong></div>
+                <div><span class="legend-code">RJ</span> - Reset jig counter</div>
+                <div><span class="legend-code">RH</span> - Reset jig then recheck Spcs.</div>
+                <div><span class="legend-code">RP</span> - Check affected drop parts</div>
+                <div><span class="legend-code">RL</span> - Return excess parts</div>
+                <div><span class="legend-code">RLS</span> - Return excess then sort</div>
+                <div><span class="legend-code">CP</span> - Change part</div>
+                <div><span class="legend-code">CPS</span> - Change part then sort</div>
+                <div><span class="legend-code">HP</span> - Hold affected part</div>
+                <div><span class="legend-code">HB</span> - Hold affected box</div>
+                <div><span class="legend-code">HL</span> - Hold affected lot</div>
+                <div><span class="legend-code">RC</span> - Rework then check</div>
+                <div><span class="legend-code">RM</span> - Request rework check</div>
+                <div><span class="legend-code">COG</span> - Confirm as GOOD</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sticky-dor-bar">
+    <div class="container-fluid">
+      <div class="sticky-table-header">
+        <!-- Remove the old legend section -->
+      </div>
+    </div>
+    <!-- Match EXACTLY the same container structure as the body table -->
+    <div class="container-fluid">
+      <div class="table-container">
+        <table class="table table-bordered align-middle"></table>
+        <thead>
           <tr>
-            <td><?= $i ?></td>
-            <td>
-              <input type="text" class="form-control scan-box-no" id="boxNo<?= $i ?>" placeholder="Scan QR" <?= $i === 1 ? '' : 'disabled' ?> readyonly>
-            </td>
-            <td>
-              <input type="text" class="form-control" id="timeStart<?= $i ?>" <?= $i === 1 ? '' : 'disabled' ?> readonly>
-            </td>
-            <td>
-              <input type="text" class="form-control scan-box-no time-end" id="timeEnd<?= $i ?>" placeholder="Scan QR" <?= $i === 1 ? '' : 'disabled' ?>>
-            </td>
-            <td>
-              <input type="text" class="form-control" disabled>
-            </td>
-            <td>
-              <input type="text" class="form-control" disabled>
-            </td>
-            <td>
-              <input type="text" class="form-control" disabled>
-            </td>
-            <td>
-              <input type="text" class="form-control" disabled>
-            </td>
-            <td>
-              <input type="text" class="form-control" disabled>
-            </td>
-            <td>
-              <input type="text" class="form-control" disabled>
-            </td>
-            <td>
-              <input type="text" class="form-control" disabled>
-            </td>
+            <th>No.</th>
+            <th>Box No.</th>
+            <th>TIME START</th>
+            <th>TIME END</th>
+            <th>Operator</th>
+            <th>Downtime/Abnormality/Defect Details</th>
+            <th>Action Taken</th>
+            <th>TIME START</th>
+            <th>TIME END</th>
+            <th>PIC</th>
+            <th>Remarks</th>
           </tr>
-        <?php } ?>
-      </tbody>
-    </table>
+        </thead>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="container-fluid">
+    <div class="table-container">
+      <table class="table table-bordered align-middle">
+        <tbody>
+          <?php for ($i = 1; $i <= 20; $i++) { ?>
+            <tr>
+              <td><?= $i ?></td>
+              <td>
+                <input type="text" class="form-control scan-box-no" id="boxNo<?= $i ?>" placeholder="Scan QR" <?= $i === 1 ? '' : 'disabled' ?> readyonly>
+              </td>
+              <td>
+                <input type="text" class="form-control" id="timeStart<?= $i ?>" <?= $i === 1 ? '' : 'disabled' ?> readonly>
+              </td>
+              <td>
+                <input type="text" class="form-control scan-box-no time-end" id="timeEnd<?= $i ?>" placeholder="Scan QR" <?= $i === 1 ? '' : 'disabled' ?>>
+              </td>
+              <td>
+                <input type="text" class="form-control" disabled>
+              </td>
+              <td>
+                <input type="text" class="form-control" disabled>
+              </td>
+              <td>
+                <input type="text" class="form-control" disabled>
+              </td>
+              <td>
+                <input type="text" class="form-control" disabled>
+              </td>
+              <td>
+                <input type="text" class="form-control" disabled>
+              </td>
+              <td>
+                <input type="text" class="form-control" disabled>
+              </td>
+              <td>
+                <input type="text" class="form-control" disabled>
+              </td>
+            </tr>
+          <?php } ?>
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <!-- Required Scripts -->
@@ -494,6 +577,8 @@ try {
             errorModal.show();
           });
       });
+
+      // QR Scanner Setup
     });
 
     function showErrorModal(message) {
