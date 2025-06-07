@@ -155,7 +155,92 @@ try {
     <link href="../css/dor-pip-viewer.css" rel="stylesheet">
     <style>
         .table-container {
-            padding-bottom: 5px;
+            padding: 0;
+            padding-top: 1px !important;
+        }
+
+        /* Update table border styling to match dor-refresh.php */
+        .table-checkpointA {
+            border: 1px solid #dee2e6;
+            margin: 0;
+            width: 100%;
+            table-layout: fixed;
+            border-collapse: collapse;
+        }
+
+        .table-checkpointA th,
+        .table-checkpointA td {
+            border: 1px solid #dee2e6 !important;
+            padding: 8px !important;
+        }
+
+        /* Make thead part of sticky-dor-bar */
+        .sticky-dor-bar {
+            position: sticky;
+            top: 58px;
+            z-index: 1035;
+            background: white;
+            border-bottom: none !important;
+        }
+
+        .sticky-dor-bar .container-fluid {
+            margin-bottom: -1px;
+        }
+
+        /* Remove margin from table container */
+        .tab-content>div {
+            margin-top: 0;
+        }
+
+        .table-checkpointA thead {
+            position: sticky;
+            top: 58px;
+            background: white;
+        }
+
+        .table-checkpointA thead th {
+            box-shadow: none !important;
+            border: 1px solid #dee2e6 !important;
+            background-color: white;
+            padding: 8px !important;
+            vertical-align: middle;
+        }
+
+        /* Define exact column widths */
+        .checkpoint-cell {
+            width: 25%;
+            text-align: left !important;
+            padding: 8px !important;
+        }
+
+        .criteria-cell {
+            width: 20%;
+            text-align: center !important;
+            padding: 8px !important;
+        }
+
+        .selection-cell {
+            width: 35%;
+            text-align: center !important;
+            padding: 8px !important;
+        }
+
+        /* Remove padding from sticky-process-tab */
+        .sticky-process-tab {
+            padding: 0;
+            background: white;
+        }
+
+        /* Ensure sticky header stays in place */
+        .sticky-table-header {
+            margin: 0;
+            padding: 0 0 5px 0;
+            border-bottom: none !important;
+        }
+
+        /* Container fluid consistency */
+        .container-fluid {
+            padding: 0 15px;
         }
     </style>
 </head>
@@ -197,7 +282,7 @@ try {
                     </div>
                 <?php endif; ?>
 
-                <div class="sticky-process-tab d-flex justify-content-between align-items-center mb-1">
+                <div class="sticky-process-tab d-flex justify-content-between align-items-center">
                     <div class="d-flex gap-3">
                         <?php
                         if (!isset($_SESSION['tabQty']) || $_SESSION['tabQty'] <= 0) {
@@ -221,9 +306,8 @@ try {
                     Required Item and Jig Condition VS Work Instruction
                 </div>
             </div>
-        </div>
-        <?php for ($i = 1; $i <= $_SESSION['tabQty']; $i++) : ?>
-            <div id="Process<?php echo $i; ?>" class="tab-content" style="display: none;">
+            <!-- Match EXACTLY the same container structure as the body table -->
+            <div class="container-fluid px-2 py-0">
                 <div class="table-container">
                     <table class="table-checkpointA table table-bordered align-middle">
                         <thead>
@@ -233,73 +317,84 @@ try {
                                 <th class="selection-cell">Please complete all checkpoints</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            <?php foreach ($tabData as $checkpointName => $rows): ?>
-                                <?php foreach ($rows as $index => $row): ?>
-                                    <tr>
-                                        <?php if ($index === 0): ?>
-                                            <td rowspan="<?php echo count($rows); ?>" class="checkpoint-cell">
-                                                <?php echo $row['SequenceId'] . ". " . $checkpointName; ?>
-                                            </td>
-                                        <?php endif; ?>
-
-                                        <?php
-                                        $criteriaGood = $row['CriteriaGood'] ?? '';
-                                        $criteriaNotGood = $row['CriteriaNotGood'] ?? '';
-                                        ?>
-
-                                        <?php if (empty($criteriaNotGood)) : ?>
-                                            <td class="criteria-cell" colspan="2"><?php echo $criteriaGood; ?></td>
-                                        <?php else : ?>
-                                            <td class="criteria-cell"><?php echo $criteriaGood; ?></td>
-                                            <td class="criteria-cell"><?php echo $criteriaNotGood; ?></td>
-                                        <?php endif; ?>
-
-                                        <td class="selection-cell">
-                                            <?php
-                                            $inputName = "Process{$i}_{$row['CheckpointId']}";
-                                            $debugResponse = '';
-                                            switch ((int)$row['CheckpointTypeId']) {
-                                                case 1:
-                                                    $debugResponse = 'OK';
-                                                    break;
-                                                case 2:
-                                                    $debugResponse = 'DEBUG';
-                                                    break;
-                                                case 3:
-                                                    $debugResponse = 'CJ';
-                                                    break;
-                                                case 4:
-                                                    $debugResponse = 'M';
-                                                    break;
-                                            }
-
-                                            $controlType = $row['CheckpointControl'];
-                                            $options = $row['Options'];
-
-                                            if ($controlType === 'radio' && !empty($options)) {
-                                                echo "<div class='process-radio'>";
-                                                foreach ($options as $opt) {
-                                                    $checked = ($opt === $debugResponse) ? "checked" : "";
-                                                    echo "<label><input type='radio' name='{$inputName}' value='{$opt}' {$checked}> {$opt}</label> ";
-                                                }
-                                                echo "</div>";
-                                            } elseif ($controlType === 'text') {
-                                                echo "<input type='text' name='{$inputName}' class='form-control' value='{$debugResponse}'>";
-                                            } else {
-                                                echo "<em>Unknown control type</em>";
-                                            }
-
-                                            echo "<input type='hidden' name='meta[{$inputName}][tabIndex]' value='{$i}'>";
-                                            echo "<input type='hidden' name='meta[{$inputName}][checkpoint]' value='" . htmlspecialchars($row['CheckpointName']) . "'>";
-                                            echo "<input type='hidden' name='meta[{$inputName}][checkpointId]' value='{$row['CheckpointId']}'>";
-                                            ?>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            <?php endforeach; ?>
-                        </tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+
+        <?php for ($i = 1; $i <= $_SESSION['tabQty']; $i++) : ?>
+            <div id="Process<?php echo $i; ?>" class="tab-content" style="display: none; margin-top: 45px;">
+                <div class="container-fluid px-2 py-0">
+                    <div class="table-container">
+                        <table class="table-checkpointA table table-bordered align-middle">
+                            <tbody>
+                                <?php foreach ($tabData as $checkpointName => $rows): ?>
+                                    <?php foreach ($rows as $index => $row): ?>
+                                        <tr>
+                                            <?php if ($index === 0): ?>
+                                                <td rowspan="<?php echo count($rows); ?>" class="checkpoint-cell">
+                                                    <?php echo $row['SequenceId'] . ". " . $checkpointName; ?>
+                                                </td>
+                                            <?php endif; ?>
+
+                                            <?php
+                                            $criteriaGood = $row['CriteriaGood'] ?? '';
+                                            $criteriaNotGood = $row['CriteriaNotGood'] ?? '';
+                                            ?>
+
+                                            <?php if (empty($criteriaNotGood)) : ?>
+                                                <td class="criteria-cell" colspan="2"><?php echo $criteriaGood; ?></td>
+                                            <?php else : ?>
+                                                <td class="criteria-cell"><?php echo $criteriaGood; ?></td>
+                                                <td class="criteria-cell"><?php echo $criteriaNotGood; ?></td>
+                                            <?php endif; ?>
+
+                                            <td class="selection-cell">
+                                                <?php
+                                                $inputName = "Process{$i}_{$row['CheckpointId']}";
+                                                $debugResponse = '';
+                                                switch ((int)$row['CheckpointTypeId']) {
+                                                    case 1:
+                                                        $debugResponse = 'OK';
+                                                        break;
+                                                    case 2:
+                                                        $debugResponse = 'DEBUG';
+                                                        break;
+                                                    case 3:
+                                                        $debugResponse = 'CJ';
+                                                        break;
+                                                    case 4:
+                                                        $debugResponse = 'M';
+                                                        break;
+                                                }
+
+                                                $controlType = $row['CheckpointControl'];
+                                                $options = $row['Options'];
+
+                                                if ($controlType === 'radio' && !empty($options)) {
+                                                    echo "<div class='process-radio'>";
+                                                    foreach ($options as $opt) {
+                                                        $checked = ($opt === $debugResponse) ? "checked" : "";
+                                                        echo "<label><input type='radio' name='{$inputName}' value='{$opt}' {$checked}> {$opt}</label> ";
+                                                    }
+                                                    echo "</div>";
+                                                } elseif ($controlType === 'text') {
+                                                    echo "<input type='text' name='{$inputName}' class='form-control' value='{$debugResponse}'>";
+                                                } else {
+                                                    echo "<em>Unknown control type</em>";
+                                                }
+
+                                                echo "<input type='hidden' name='meta[{$inputName}][tabIndex]' value='{$i}'>";
+                                                echo "<input type='hidden' name='meta[{$inputName}][checkpoint]' value='" . htmlspecialchars($row['CheckpointName']) . "'>";
+                                                echo "<input type='hidden' name='meta[{$inputName}][checkpointId]' value='{$row['CheckpointId']}'>";
+                                                ?>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         <?php endfor; ?>
