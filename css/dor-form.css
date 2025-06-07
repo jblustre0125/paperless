@@ -9,13 +9,15 @@ body {
   position: sticky;
   top: 58px;
   z-index: 1035;
-  background: white;
   width: 100%;
-  border-bottom: 1px solid #dee2e6;
+}
+
+.sticky-dor-bar .container-fluid {
+  margin-bottom: -1px;
 }
 
 .sticky-process-tab {
-  padding: 6px 0 0 0;
+  padding: 0;
   background: white;
 }
 
@@ -53,10 +55,11 @@ body {
   top: 132px;
   z-index: 1035;
   background: white;
-  padding: 8px 0;
+  margin: 0;
+  padding: 0 0 5px 0;
   text-align: left;
   width: 100%;
-  border-bottom: 1px solid #dee2e6;
+  border-bottom: none !important;
 }
 
 /* Table styles */
@@ -66,16 +69,21 @@ body {
   margin-top: 40px;
 }
 
+.table-container {
+  padding: 0;
+  padding-top: 1px !important;
+}
+
 .table-checkpointA {
   width: 100%;
   margin: 0 0 10px 0;
-  background: white;
   table-layout: fixed;
   border-collapse: collapse;
 }
 
 /* Add this new class */
 .tab-content > div {
+  margin-top: 0;
   padding: 0 10px;
   padding-top: 45px; /* Add padding to prevent first row from hiding behind sticky header */
 }
@@ -83,19 +91,19 @@ body {
 /* Important: Fixed thead styles */
 .table-checkpointA thead {
   position: sticky;
-  top: 195px;
+  top: 58px;
   z-index: 1040;
   background: white;
 }
 
 .table-checkpointA thead th {
   position: relative;
-  background: white;
-  padding: 8px 8px;
   text-align: center;
+  box-shadow: none !important;
+  border: 1px solid #dee2e6 !important;
+  background-color: white;
+  padding: 8px !important;
   vertical-align: middle;
-  box-shadow: inset 0px -1px 0 black, inset -1px 0 0 black,
-    inset 0px 1px 0 black;
 }
 
 .table-checkpointA thead th:first-child {
@@ -105,31 +113,40 @@ body {
 
 .table-checkpointA th,
 .table-checkpointA td {
-  padding: 8px;
+  border: 1px solid #dee2e6 !important;
+  padding: 8px !important;
   vertical-align: middle;
-  border: 1px solid black;
 }
 
 /* Column width definitions - apply to both thead and tbody */
 .table-checkpointA thead th:first-child,
 .checkpoint-cell {
   width: 25%;
-  text-align: left;
+  text-align: left !important;
+  padding: 8px !important;
+  white-space: normal;
+  word-wrap: break-word;
 }
 
-.table-checkpointA thead th:nth-child(2),
+/* Since criteria cell has colspan=2 in thead, we need to handle this differently */
 .criteria-cell {
-  width: 40%;
-  text-align: center;
+  width: 20%;
+  text-align: center !important;
+  padding: 8px !important;
+}
+
+.table-checkpointA thead th[colspan="2"].criteria-cell {
+  width: 40%; /* Combined width for the colspan=2 cell */
 }
 
 .table-checkpointA thead th:last-child,
 .selection-cell {
   width: 35%;
-  text-align: center;
+  text-align: center !important;
+  padding: 8px !important;
 }
 
-/* Cell styles */
+/* Remove duplicate cell styles since they're combined above */
 .checkpoint-cell {
   white-space: normal;
   word-wrap: break-word;
@@ -210,8 +227,7 @@ body {
 
 /* Form and container resets */
 body,
-form,
-.sticky-dor-bar {
+form {
   margin-top: 0;
   padding-top: 0;
   margin-bottom: 0;

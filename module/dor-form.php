@@ -153,97 +153,6 @@ try {
     <link href="../css/dor-form.css" rel="stylesheet">
     <link href="../css/dor-navbar.css" rel="stylesheet">
     <link href="../css/dor-pip-viewer.css" rel="stylesheet">
-    <style>
-        .table-container {
-            padding: 0;
-            padding-top: 1px !important;
-            padding-bottom: 10px !important;
-        }
-
-        /* Update table border styling to match dor-refresh.php */
-        .table-checkpointA {
-            border: 1px solid #dee2e6;
-            margin: 0;
-            width: 100%;
-            table-layout: fixed;
-            border-collapse: collapse;
-        }
-
-        .table-checkpointA th,
-        .table-checkpointA td {
-            border: 1px solid #dee2e6 !important;
-            padding: 8px !important;
-        }
-
-        /* Make thead part of sticky-dor-bar */
-        .sticky-dor-bar {
-            position: sticky;
-            top: 58px;
-            z-index: 1035;
-            background: white;
-            border-bottom: none !important;
-        }
-
-        .sticky-dor-bar .container-fluid {
-            margin-bottom: -1px;
-        }
-
-        /* Remove margin from table container */
-        .tab-content>div {
-            margin-top: 0;
-        }
-
-        .table-checkpointA thead {
-            position: sticky;
-            top: 58px;
-            background: white;
-        }
-
-        .table-checkpointA thead th {
-            box-shadow: none !important;
-            border: 1px solid #dee2e6 !important;
-            background-color: white;
-            padding: 8px !important;
-            vertical-align: middle;
-        }
-
-        /* Define exact column widths */
-        .checkpoint-cell {
-            width: 25%;
-            text-align: left !important;
-            padding: 8px !important;
-        }
-
-        .criteria-cell {
-            width: 20%;
-            text-align: center !important;
-            padding: 8px !important;
-        }
-
-        .selection-cell {
-            width: 35%;
-            text-align: center !important;
-            padding: 8px !important;
-        }
-
-        /* Remove padding from sticky-process-tab */
-        .sticky-process-tab {
-            padding: 0;
-            background: white;
-        }
-
-        /* Ensure sticky header stays in place */
-        .sticky-table-header {
-            margin: 0;
-            padding: 0 0 5px 0;
-            border-bottom: none !important;
-        }
-
-        /* Container fluid consistency */
-        .container-fluid {
-            padding: 0 15px;
-        }
-    </style>
 </head>
 
 <body>
@@ -324,7 +233,7 @@ try {
         </div>
 
         <?php for ($i = 1; $i <= $_SESSION['tabQty']; $i++) : ?>
-            <div id="Process<?php echo $i; ?>" class="tab-content" style="display: none; margin-top: 45px;">
+            <div id="Process<?php echo $i; ?>" class="tab-content" style="display: none; margin-top: 45px; margin-bottom: 10px;">
                 <div class="container-fluid px-2 py-0">
                     <div class="table-container">
                         <table class="table-checkpointA table table-bordered align-middle">
