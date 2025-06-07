@@ -43,24 +43,50 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $leaderToOperator = $_POST['leaderToOperator'] ?? 'NA';
                 $operatorToLeader = $_POST['operatorToLeader'] ?? 'NA';
 
-                // Execute stored procedure to save responses
-                $insSp = "EXEC InsAtoDorCheckpointRefresh 
-                    @RecordId=?, 
-                    @OpLeaderResponse=?,
-                    @OpOperatorResponse=?";
+                // First check if record exists
+                $checkSp = "EXEC RdAtoDorCheckpointRefreshRecordId @RecordId=?";
+                $existingRecord = $db1->execute($checkSp, [$recordId]);
 
-                $result = $db1->execute($insSp, [
-                    $recordId,
-                    $leaderToOperator,
-                    $operatorToLeader
-                ]);
+                if (!$existingRecord || empty($existingRecord)) {
+                    // Execute stored procedure to save new responses
+                    $insSp = "EXEC InsAtoDorCheckpointRefresh 
+                        @RecordId=?, 
+                        @OpLeaderResponse=?,
+                        @OpOperatorResponse=?";
 
-                if ($result !== false) {
-                    $response['success'] = true;
-                    $response['redirectUrl'] = "dor-dor.php";
+                    $result = $db1->execute($insSp, [
+                        $recordId,
+                        $leaderToOperator,
+                        $operatorToLeader
+                    ]);
+
+                    if ($result !== false) {
+                        $response['success'] = true;
+                        $response['redirectUrl'] = "dor-dor.php";
+                    } else {
+                        $response['success'] = false;
+                        $response['errors'][] = "Failed to save refreshment responses.";
+                    }
                 } else {
-                    $response['success'] = false;
-                    $response['errors'][] = "Failed to save refreshment responses.";
+                    // Record exists, update it
+                    $updSp = "EXEC UpdAtoDorCheckpointRefreshRecordId 
+                        @RecordId=?,
+                        @OpLeaderResponse=?,
+                        @OpOperatorResponse=?";
+
+                    $result = $db1->execute($updSp, [
+                        $recordId,
+                        $leaderToOperator,
+                        $operatorToLeader
+                    ]);
+
+                    if ($result !== false) {
+                        $response['success'] = true;
+                        $response['redirectUrl'] = "dor-dor.php";
+                    } else {
+                        $response['success'] = false;
+                        $response['errors'][] = "Failed to update refreshment responses.";
+                    }
                 }
             } else {
                 $response['success'] = false;

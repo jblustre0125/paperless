@@ -1,167 +1,89 @@
+<?php
+session_start();
+ob_start();
+
+require_once "../config/dbop.php";
+require_once "../config/method.php";
+
+// Check if required session variables exist
+if (!isset($_SESSION['dorTypeId']) || !isset($_SESSION['dorModelId'])) {
+  header("Location: dor-home.php");
+  exit;
+}
+
+$productionCode = isset($_SESSION['productionCode']) ? $_SESSION['productionCode'] : 'Unknown Operator';
+
+// Get the file paths
+$drawingFile = '';
+$workInstructFile = '';
+$preCardFile = '';
+
+try {
+  $drawingFile = getDrawing($_SESSION["dorTypeId"], $_SESSION['dorModelId']) ?? '';
+} catch (Throwable $e) {
+  $drawingFile = '';
+}
+
+try {
+  $workInstructFile = getWorkInstruction($_SESSION["dorTypeId"], $_SESSION['dorModelId']) ?? '';
+} catch (Throwable $e) {
+  $workInstructFile = '';
+}
+
+try {
+  $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
+} catch (Throwable $e) {
+  $preCardFile = '';
+}
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>DOR System</title>
   <link href="../css/bootstrap.min.css" rel="stylesheet">
+  <link href="../css/bootstrap-icons.css" rel="stylesheet">
   <link href="../css/dor-dor.css" rel="stylesheet">
+  <link href="../css/dor-navbar.css" rel="stylesheet">
+  <link href="../css/dor-pip-viewer.css" rel="stylesheet">
   <script src="../js/bootstrap.bundle.min.js"></script>
   <script src="../js/jsQR.min.js"></script>
-  <style>
-    #qr-video {
-      width: 100%;
-      border-radius: 10px;
-      box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
-    }
-
-    #imageViewer {
-      display: none;
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      width: 320px;
-      height: 500px;
-      background: #1e1e1e;
-      border-radius: 12px;
-      box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.3);
-      flex-direction: column;
-      overflow: hidden;
-      padding: 10px;
-    }
-
-    #pipControls {
-      display: flex;
-      justify-content: space-between;
-      padding: 5px 10px;
-    }
-
-    .pip-button {
-      background: #dc3545;
-      color: white;
-      border: none;
-      cursor: pointer;
-      font-size: 16px;
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      transition: 0.2s ease-in-out;
-    }
-
-    .pip-button:hover {
-      background: #a71d2a;
-    }
-
-    #fullImage {
-      max-width: 100%;
-      max-height: 180px;
-      border-bottom: 2px solid #444;
-      padding-bottom: 5px;
-      border-radius: 8px;
-      cursor: zoom-in;
-    }
-
-    #imageList {
-      flex-grow: 1;
-      overflow-y: auto;
-      padding: 10px;
-      max-height: 300px;
-    }
-
-    .thumbnail {
-      width: 100%;
-      margin-bottom: 10px;
-      cursor: pointer;
-      border-radius: 8px;
-      transition: transform 0.2s, opacity 0.2s;
-      box-shadow: 0px 3px 8px rgba(0, 0, 0, 0.2);
-    }
-
-    .thumbnail:hover {
-      transform: scale(1.05);
-      opacity: 0.9;
-    }
-
-    #zoomOverlay {
-      display: none;
-      /* Start hidden */
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background: rgba(0, 0, 0, 0.8);
-      justify-content: center;
-      align-items: center;
-      z-index: 9999;
-    }
-
-    #zoomOverlay img {
-      max-width: 90%;
-      max-height: 90%;
-    }
-
-    #zoomedImage {
-      max-width: 90vw;
-      max-height: 90vh;
-      border-radius: 10px;
-      box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.3);
-      cursor: zoom-out;
-    }
-  </style>
 </head>
 
 
 <body>
   <nav class="navbar navbar-expand navbar-light bg-light shadow-sm fixed-top">
-    <div class="container-fluid pt-4">
-      <div class="d-flex flex-wrap align-items-center justify-content-between w-100 gap-2 text-center">
-
-        <!-- Back button -->
-        <div class="d-flex align-items-center justify-content-center">
-          <button type="button" class="btn btn-secondary nav-btn-lg" onclick="goBack()" aria-label="Go Back">
-            Back
+    <div class="container-fluid px-2 py-2">
+      <div class="d-flex justify-content-between align-items-center flex-wrap w-100">
+        <!-- Left-aligned group -->
+        <div class="d-flex gap-2 flex-wrap">
+          <button class="btn btn-secondary btn-lg nav-btn-lg btn-nav-group" id="btnDrawing">Drawing</button>
+          <button class="btn btn-secondary btn-lg nav-btn-lg btn-nav-group" id="btnWorkInstruction">
+            <span class="short-label">WI</span>
+            <span class="long-label">Work Instruction</span>
+          </button>
+          <button class="btn btn-secondary btn-lg nav-btn-lg btn-nav-group" id="btnPrepCard">
+            <span class="short-label">Prep Card</span>
+            <span class="long-label">Preparation Card</span>
           </button>
         </div>
 
-        <!-- Center button group -->
-        <div class="d-flex flex-wrap gap-3 justify-content-center">
-          <button type="button" class="btn btn-secondary nav-btn-lg" id="btnDrawing" aria-label="Open Drawing">
-            Drawing
-          </button>
-          <button type="button" class="btn btn-secondary nav-btn-lg" id="btnWorkInstruction" aria-label="Open Work Instruction">
-            Work Instruction
-          </button>
-          <button type="button" class="btn btn-secondary nav-btn-lg" id="btnPrepCard" aria-label="Open Preparation Card">
-            Preparation Card
-          </button>
+        <!-- Right-aligned group -->
+        <div class="d-flex gap-2 flex-wrap">
+          <button type="button" class="btn btn-secondary btn-lg nav-btn-group" onclick="goBack()">Back</button>
+          <button type="submit" class="btn btn-primary btn-lg nav-btn-group" id="btnProceed" name="btnProceed">Save</button>
         </div>
-
-        <!-- Proceed button -->
-        <div class="d-flex align-items-center justify-content-center">
-          <button class="btn btn-primary nav-btn-lg" type="submit" id="btnProceed" name="btnProceed" aria-label="Save">
-            Save
-          </button>
-        </div>
-
       </div>
     </div>
   </nav>
 
-  <!-- Image Viewer -->
-  <div id="imageViewer">
-    <div id="pipControls">
-      <button class="pip-button" onclick="minimizePiP()">−</button>
-      <button class="pip-button" onclick="closePiP()">×</button>
-    </div>
-    <img id="fullImage" src="" alt="Drawing" onclick="toggleZoom()">
-    <div id="imageList"></div>
-  </div>
-  <!-- Zoom Overlay -->
-  <div id="zoomOverlay" onclick="closeZoom()">
-    <img id="zoomedImage" src="" alt="Zoomed Image">
-  </div>
+
   <div class="modal fade" id="qrScannerModal" tabindex="-1" aria-labelledby="qrScannerLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
@@ -170,10 +92,10 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body text-center">
-          <video id="qr-video" autoplay></video>
+          <video id="qr-video" autoplay muted playsinline></video>
           <p class="text-muted mt-2">Align the QR code within the frame.</p>
         </div>
-        <div class="modal-footer">
+        <div class="modal-footer d-flex justify-content-between">
           <button type="button" class="btn btn-secondary" id="enterManually">Enter Manually</button>
           <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Cancel</button>
         </div>
@@ -181,143 +103,126 @@
     </div>
   </div>
 
+  <!-- Bootstrap Modal for Error Messages -->
+  <div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content border-danger">
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title" id="errorModalLabel">Please complete the checkpoint</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" id="modalErrorMessage">
+          <!-- Error messages will be injected here by JS -->
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
-  <table class="table table-bordered">
-    <thead>
-      <tr>
-        <th>No.</th>
-        <th>Box No.</th>
-        <th>TIME START</th>
-        <th>TIME END</th>
-        <th>Operator</th>
-        <th>Downtime/Abnormality/Defect Details</th>
-        <th>Action Taken</th>
-        <th>TIME START</th>
-        <th>TIME END</th>
-        <th>PIC</th>
-        <th>Remarks</th>
-      </tr>
-    </thead>
-    <tbody> <?php for ($i = 1; $i <= 20; $i++) { ?> <tr>
-          <td> <?= $i ?> </td>
-          <td>
-            <input type="text" class="form-control scan-box-no" id="boxNo
-										
-												<?= $i ?>" placeholder="Scan QR" <?= $i === 1 ? '' : 'disabled' ?> readyonly>
-          </td>
-          <td>
-            <input type="text" class="form-control" id="timeStart 
-													<?= $i ?>" <?= $i === 1 ? '' : 'disabled' ?> readonly>
-          </td>
-          <td>
-            <input type="text" class="form-control scan-box-no time-end" id="timeEnd 
-														<?= $i ?>" placeholder="Scan QR" <?= $i === 1 ? '' : 'disabled' ?>>
-          </td>
-          <td>
-            <input type="text" class="form-control" disabled>
-          </td>
-          <td>
-            <input type="text" class="form-control" disabled>
-          </td>
-          <td>
-            <input type="text" class="form-control" disabled>
-          </td>
-          <td>
-            <input type="text" class="form-control" disabled>
-          </td>
-          <td>
-            <input type="text" class="form-control" disabled>
-          </td>
-          <td>
-            <input type="text" class="form-control" disabled>
-          </td>
-        </tr> <?php } ?> </tbody>
-  </table>
+  <!-- PiP Viewer HTML: supports maximize and minimize modes -->
+  <div id="pipViewer" class="pip-viewer d-none maximize-mode">
+    <div id="pipHeader">
+      <button id="pipMaximize" class="pip-btn d-none" title="Maximize"><i class="bi bi-fullscreen"></i></button>
+      <button id="pipMinimize" class="pip-btn" title="Minimize"><i class="bi bi-fullscreen-exit"></i></button>
+      <button id="pipReset" class="pip-btn" title="Reset View"><i class="bi bi-arrow-counterclockwise"></i></button>
+      <button id="pipClose" class="pip-btn" title="Close"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div id="pipContent"></div>
+  </div>
+
+  <div id="pipBackdrop"></div>
+
+  <div class="container-fluid mt-5 pt-4">
+    <table class="table table-bordered align-middle">
+      <thead>
+        <tr>
+          <th>No.</th>
+          <th>Box No.</th>
+          <th>TIME START</th>
+          <th>TIME END</th>
+          <th>Operator</th>
+          <th>Downtime/Abnormality/Defect Details</th>
+          <th>Action Taken</th>
+          <th>TIME START</th>
+          <th>TIME END</th>
+          <th>PIC</th>
+          <th>Remarks</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php for ($i = 1; $i <= 20; $i++) { ?>
+          <tr>
+            <td><?= $i ?></td>
+            <td>
+              <input type="text" class="form-control scan-box-no" id="boxNo<?= $i ?>" placeholder="Scan QR" <?= $i === 1 ? '' : 'disabled' ?> readyonly>
+            </td>
+            <td>
+              <input type="text" class="form-control" id="timeStart<?= $i ?>" <?= $i === 1 ? '' : 'disabled' ?> readonly>
+            </td>
+            <td>
+              <input type="text" class="form-control scan-box-no time-end" id="timeEnd<?= $i ?>" placeholder="Scan QR" <?= $i === 1 ? '' : 'disabled' ?>>
+            </td>
+            <td>
+              <input type="text" class="form-control" disabled>
+            </td>
+            <td>
+              <input type="text" class="form-control" disabled>
+            </td>
+            <td>
+              <input type="text" class="form-control" disabled>
+            </td>
+            <td>
+              <input type="text" class="form-control" disabled>
+            </td>
+            <td>
+              <input type="text" class="form-control" disabled>
+            </td>
+            <td>
+              <input type="text" class="form-control" disabled>
+            </td>
+            <td>
+              <input type="text" class="form-control" disabled>
+            </td>
+          </tr>
+        <?php } ?>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Required Scripts -->
+  <script src="../js/bootstrap.bundle.min.js"></script>
   <script src="../js/jsQR.min.js"></script>
+  <script src="../js/pdf.min.js"></script>
+  <script src="../js/pdf.worker.min.js"></script>
+  <script src="../js/hammer.min.js"></script>
+  <script src="../js/dor-pip-viewer.js"></script>
 
-  <?php
-
-  $productionCode = isset($_SESSION['productionCode']) ? $_SESSION['productionCode'] : 'Unknown Operator';
-  ?>
   <script>
     const productionCode = "<?php echo addslashes($productionCode); ?>";
-  </script>
+    const workInstructFile = <?php echo json_encode($workInstructFile); ?>;
+    const preCardFile = <?php echo json_encode($preCardFile); ?>;
+    const drawingFile = <?php echo json_encode($drawingFile); ?>;
 
-  <script>
     document.addEventListener("DOMContentLoaded", function() {
-      let imageFolder = "drawings/pre-assy/";
-      let imageFiles = ["7L0030-7024.png", "7L0031-7024.png", "7L0032-7024.png"];
-      let imageList = document.getElementById("imageList");
-      imageFiles.forEach(file => {
-        let img = document.createElement("img");
-        img.src = imageFolder + file;
-        img.alt = file;
-        img.classList.add("thumbnail");
-        img.onclick = function() {
-          showImage(imageFolder + file);
-        };
-        imageList.appendChild(img);
-      });
-    });
 
-    function showDrawing() {
-      document.getElementById("imageViewer").style.display = "flex";
-    }
-
-    function showImage(src) {
-      let fullImage = document.getElementById("fullImage");
-      fullImage.src = src;
-      fullImage.style.transform = "scale(1)";
-      document.getElementById("imageViewer").style.display = "flex";
-    }
-
-    function closePiP() {
-      document.getElementById("imageViewer").style.display = "none";
-    }
-
-    function toggleZoom() {
-      console.log("toggleZoom triggered");
-      console.log("Full image source:", document.getElementById("fullImage").src);
-      let fullImage = document.getElementById("fullImage");
-      let zoomOverlay = document.getElementById("zoomOverlay");
-      let zoomedImage = document.getElementById("zoomedImage");
-      if (!fullImage.src || fullImage.src.includes("placeholder") || fullImage.src.trim() === "") {
-        console.log("No image detected, zoom canceled.");
-        return;
-      }
-      zoomedImage.src = fullImage.src;
-      zoomOverlay.style.display = "flex";
-    }
-
-    function closeZoom() {
-      document.getElementById("zoomOverlay").style.display = "none"; // Hide overlay
-    }
-    // Close zoom with ESC key
-    document.addEventListener("keydown", function(event) {
-      if (event.key === "Escape") {
-        closeZoom();
-      }
-    });
-
-    function goBack() {
-      window.history.back();
-    }
-
-    function next() {
-      alert("Proceeding to DOR...");
-    }
-    document.addEventListener("DOMContentLoaded", function() {
-      let tableBody = document.querySelector("tbody");
-      let video = document.getElementById("qr-video");
+      // QR Scanner Setup
+      const scannerModal = new bootstrap.Modal(document.getElementById("qrScannerModal"));
+      const video = document.getElementById("qr-video");
       let canvas = document.createElement("canvas");
       let ctx = canvas.getContext("2d", {
         willReadFrequently: true
       });
-      let scannerModal = new bootstrap.Modal(document.getElementById("qrScannerModal"));
       let scanning = false;
       let activeInput = null;
       let lastScannedCode = "";
+      let tableBody = document.querySelector("tbody");
+
+      // Enable first row by default
       enableRow(0);
+
+      // Handle input events for timeEnd fields
       document.addEventListener("input", function(e) {
         if (e.target.classList.contains("scan-box-no") && e.target.id.startsWith("timeEnd")) {
           let currentRow = e.target.closest("tr");
@@ -331,6 +236,7 @@
         }
       });
 
+      // Row enabling function
       function enableRow(index) {
         let tableRows = tableBody.querySelectorAll("tr");
         if (tableRows[index]) {
@@ -342,28 +248,52 @@
           });
         }
       }
-      document.querySelectorAll(".scan-box-no").forEach(input => {
-        input.addEventListener("click", function() {
-          activeInput = this;
-          startScanning();
-        });
-      });
+
+      // QR Scanner Functions
+      function getCameraConstraints() {
+        return {
+          video: {
+            facingMode: {
+              ideal: "environment"
+            }
+          }
+        };
+      }
 
       function startScanning() {
         scannerModal.show();
-        navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: "environment"
-          }
-        }).then(function(stream) {
-          video.srcObject = stream;
-          video.setAttribute("playsinline", true);
-          video.play();
-          scanning = true;
-          scanQRCode();
-        }).catch(function(err) {
-          alert("Camera access denied: " + err.message);
-        });
+        navigator.mediaDevices.getUserMedia(getCameraConstraints())
+          .then(setupVideoStream)
+          .catch((err1) => {
+            console.error("Back camera failed", err1);
+            navigator.mediaDevices.getUserMedia({
+                video: {
+                  facingMode: "user"
+                }
+              })
+              .then(setupVideoStream)
+              .catch((err2) => {
+                console.error("Front camera failed", err2);
+                alert("Camera access is blocked or not available on this tablet.");
+              });
+          });
+      }
+
+      function setupVideoStream(stream) {
+        video.srcObject = stream;
+        video.setAttribute("playsinline", true);
+        video.onloadedmetadata = () => {
+          video.play().then(() => scanQRCode());
+        };
+        scanning = true;
+      }
+
+      function getCurrentTime() {
+        const now = new Date();
+        const hours = now.getHours() % 12 || 12;
+        const minutes = now.getMinutes().toString().padStart(2, '0');
+        const ampm = now.getHours() >= 12 ? 'PM' : 'AM';
+        return `${hours}:${minutes} ${ampm}`;
       }
 
       function scanQRCode() {
@@ -378,88 +308,49 @@
             let scannedText = qrCodeData.data.trim();
             if (scannedText === lastScannedCode) return;
             lastScannedCode = scannedText;
-            let parts = scannedText.split(/\s+/);
-            if (parts.length >= 3) {
-              let boxNo = parts[parts.length - 1];
-              let now = new Date();
-              let hours = now.getHours();
-              let minutes = now.getMinutes().toString().padStart(2, '0');
-              let amPm = hours >= 12 ? 'PM' : 'AM';
-              hours = hours % 12 || 12;
-              let currentTime = `${hours}:${minutes} ${amPm}`;
-              let tableRows = tableBody.querySelectorAll("tr");
-              let found = false;
-              let emptyRow = null;
-              let existingBoxWithNoEnd = null;
-
-              for (let row of tableRows) {
-                let boxNoInput = row.cells[1].querySelector("input");
-                let timeEndInput = row.cells[3].querySelector("input");
-                if (boxNoInput.value.trim() !== "" && timeEndInput.value.trim() === "") {
-                  existingBoxWithNoEnd = boxNoInput.value.trim();
-                  if (boxNo !== existingBoxWithNoEnd) {
-                    alert(`⚠️ Complete the Time End for Box No. ${existingBoxWithNoEnd} before scanning a new box.`);
-                    return;
-                  }
-                }
-              }
-
-              tableRows.forEach(row => {
-                let boxNoInput = row.cells[1].querySelector("input");
-                let timeStartInput = row.cells[2].querySelector("input");
-                let timeEndInput = row.cells[3].querySelector("input");
-                let operatorInput = row.cells[4].querySelector("input");
-
-                if (boxNoInput) {
-                  if (boxNoInput.value.trim() === boxNo) {
-                    if (timeEndInput.value.trim() === "") {
-                      timeEndInput.value = currentTime;
-                      timeStartInput.disabled = true;
-                      timeEndInput.disabled = true;
-                      boxNoInput.disabled = true;
-                      operatorInput.disabled = true;
-                      let nextRow = row.nextElementSibling;
-                      if (nextRow) enableRow([...tableRows].indexOf(nextRow));
-                    }
-                    found = true;
-                  } else if (boxNoInput.value.trim() === "" && !emptyRow) {
-                    emptyRow = row;
-                  }
-                }
-              });
-
-              if (!found) {
-                if (emptyRow) {
-                  emptyRow.cells[1].querySelector("input").value = boxNo;
-                  emptyRow.cells[2].querySelector("input").value = currentTime;
-                  emptyRow.cells[3].querySelector("input").disabled = false;
-                  emptyRow.cells[1].querySelector("input").disabled = true;
-                  emptyRow.cells[2].querySelector("input").disabled = true;
-                  emptyRow.cells[4].querySelector("input").value = productionCode; // Set Operator
-                  emptyRow.cells[4].querySelector("input").disabled = true;
-                  enableRow([...tableRows].indexOf(emptyRow));
-                } else {
-                  let newRow = document.createElement("tr");
-                  newRow.innerHTML = `
-              <td><input type="text" value="${tableRows.length + 1}" disabled></td>
-              <td><input type="text" value="${boxNo}" disabled></td>
-              <td><input type="text" value="${currentTime}" disabled></td>
-              <td><input type="text" value=""></td>
-              <td><input type="text" value="${productionCode}" disabled></td>
-            `;
-                  tableBody.appendChild(newRow);
-                  enableRow([...tableBody.querySelectorAll("tr")].length - 1);
-                }
-              }
-              stopScanning();
-            } else {
-              alert("⚠️ Invalid QR format. Please scan a valid code.");
-            }
+            handleScannedCode(scannedText);
           }
         }
         requestAnimationFrame(scanQRCode);
       }
 
+      function handleScannedCode(scannedText) {
+        let parts = scannedText.split(/\s+/);
+        if (parts.length >= 3) {
+          let boxNo = parts[parts.length - 1];
+          let currentTime = getCurrentTime();
+          let employeeCode = parts[0]; // Assuming first part is employee code
+
+          if (activeInput.id.startsWith('boxNo')) {
+            let row = activeInput.closest('tr');
+            let timeStartInput = row.querySelector('input[id^="timeStart"]');
+            let operatorInput = row.querySelector('input[disabled]'); // Operator field
+
+            activeInput.value = boxNo;
+            if (timeStartInput && !timeStartInput.value) {
+              timeStartInput.value = currentTime;
+            }
+            if (operatorInput) {
+              operatorInput.value = employeeCode;
+            }
+          } else if (activeInput.id.startsWith('timeEnd')) {
+            activeInput.value = currentTime;
+            let row = activeInput.closest('tr');
+            let nextRow = row.nextElementSibling;
+            if (nextRow) {
+              let inputs = nextRow.querySelectorAll('input');
+              inputs.forEach(input => {
+                if (!input.hasAttribute('readonly')) {
+                  input.disabled = false;
+                }
+              });
+            }
+          }
+          stopScanning();
+        } else {
+          alert("⚠️ Invalid QR format. Please scan a valid code.");
+        }
+      }
 
       function stopScanning() {
         scanning = false;
@@ -470,13 +361,151 @@
         }, 1000);
         scannerModal.hide();
       }
+
+      // Event Listeners
+      document.querySelectorAll('.scan-box-no').forEach(input => {
+        input.addEventListener("click", async function() {
+          if (this.disabled) return;
+
+          const accessGranted = await navigator.mediaDevices.getUserMedia({
+            video: true
+          }).then(stream => {
+            stream.getTracks().forEach(track => track.stop());
+            return true;
+          }).catch(() => false);
+
+          if (accessGranted) {
+            activeInput = this;
+            startScanning();
+          } else {
+            alert("Camera access denied");
+          }
+        });
+      });
+
       document.getElementById("qrScannerModal").addEventListener("hidden.bs.modal", stopScanning);
-      document.getElementById("enterManually").addEventListener("click", function() {
+      document.getElementById("enterManually").addEventListener("click", () => {
         stopScanning();
-        scannerModal.hide();
-        if (activeInput) activeInput.focus();
+        setTimeout(() => {
+          if (activeInput) activeInput.focus();
+        }, 300);
+      });
+
+      // PiP Viewer Button Event Listeners
+      document.getElementById("btnDrawing").addEventListener("click", function() {
+        if (drawingFile) {
+          openPiPViewer(drawingFile, 'image');
+        } else {
+          showErrorModal("Drawing file is not available.");
+        }
+      });
+
+      document.getElementById("btnWorkInstruction").addEventListener("click", function() {
+        if (workInstructFile) {
+          openPiPViewer(workInstructFile, 'pdf');
+        } else {
+          showErrorModal("Work instruction file is not available.");
+        }
+      });
+
+      document.getElementById("btnPrepCard").addEventListener("click", function() {
+        if (preCardFile) {
+          openPiPViewer(preCardFile, 'pdf');
+        } else {
+          showErrorModal("Preparation card file is not available.");
+        }
+      });
+
+      // Form submission handling
+      const form = document.querySelector("#myForm");
+      const errorModal = new bootstrap.Modal(document.getElementById("errorModal"));
+      const modalErrorMessage = document.getElementById("modalErrorMessage");
+      let clickedButton = null;
+
+      // Track which submit button was clicked
+      document.querySelectorAll("button[type='submit']").forEach(button => {
+        button.addEventListener("click", function(e) {
+          e.preventDefault();
+          clickedButton = this;
+
+          if (this.id === "btnProceed") {
+            form.dispatchEvent(new Event('submit'));
+          }
+        });
+      });
+
+      form.addEventListener("submit", function(e) {
+        e.preventDefault();
+
+        // Only run validation if btnProceed triggered this
+        if (!clickedButton || clickedButton.id !== "btnProceed") {
+          return;
+        }
+
+        // Validate all rows have required fields filled
+        const tableRows = document.querySelectorAll("tbody tr");
+        let errors = [];
+        let lastFilledRow = null;
+
+        tableRows.forEach((row, index) => {
+          const boxNo = row.querySelector('input[id^="boxNo"]')?.value.trim();
+          const timeStart = row.querySelector('input[id^="timeStart"]')?.value.trim();
+          const timeEnd = row.querySelector('input[id^="timeEnd"]')?.value.trim();
+
+          if (boxNo || timeStart || timeEnd) {
+            lastFilledRow = index;
+
+            if (!boxNo) errors.push(`Row ${index + 1}: Box No. is required`);
+            if (!timeStart) errors.push(`Row ${index + 1}: Time Start is required`);
+            if (!timeEnd) errors.push(`Row ${index + 1}: Time End is required`);
+          }
+        });
+
+        if (errors.length > 0) {
+          modalErrorMessage.innerHTML = "<ul><li>" + errors.join("</li><li>") + "</li></ul>";
+          errorModal.show();
+          return;
+        }
+
+        // Submit if valid
+        let formData = new FormData(form);
+        if (clickedButton) {
+          formData.append(clickedButton.name, clickedButton.value || "1");
+        }
+
+        fetch(form.action, {
+            method: "POST",
+            body: formData
+          })
+          .then(response => response.json())
+          .then(data => {
+            if (data.success) {
+              if (data.redirectUrl) {
+                window.location.href = data.redirectUrl;
+              }
+            } else {
+              modalErrorMessage.innerHTML = "<ul><li>" + (data.errors || ["An error occurred"]).join("</li><li>") + "</li></ul>";
+              errorModal.show();
+            }
+          })
+          .catch(error => {
+            console.error("Error:", error);
+            modalErrorMessage.innerHTML = "<ul><li>An error occurred while saving</li></ul>";
+            errorModal.show();
+          });
       });
     });
+
+    function showErrorModal(message) {
+      const modalErrorMessage = document.getElementById("modalErrorMessage");
+      modalErrorMessage.innerText = message;
+      const errorModal = new bootstrap.Modal(document.getElementById("errorModal"));
+      errorModal.show();
+    }
+
+    function goBack() {
+      window.location.href = "dor-refresh.php";
+    }
   </script>
 </body>
 
