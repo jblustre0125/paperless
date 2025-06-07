@@ -184,7 +184,7 @@ body {
   display: revert;
 }
 
-/* Radio button styles */
+/* Radio button styles from dor-form.css */
 .process-radio {
   display: flex;
   justify-content: space-evenly;
@@ -194,7 +194,7 @@ body {
 .process-radio label {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 8px;
 }
 
 .process-radio input {

@@ -200,7 +200,7 @@ try {
         <table class="table table-bordered align-middle">
             <thead class="table-light">
                 <tr>
-                    <th colspan="2" class="text-center h5 py-3">REFRESHMENT CHECKPOINT</th>
+                    <th colspan="2" class="text-center h5 py-3">Refreshment Checkpoint</th>
                 </tr>
                 <tr>
                     <th>Reading of Work Instruction</th>
@@ -211,38 +211,20 @@ try {
                 <tr>
                     <td>Leader to Operator</td>
                     <td>
-                        <div class="d-flex gap-4 justify-content-center">
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="leaderToOperator" id="leaderToOperator_O" value="O">
-                                <label class="form-check-label" for="leaderToOperator_O">O</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="leaderToOperator" id="leaderToOperator_NA" value="NA">
-                                <label class="form-check-label" for="leaderToOperator_NA">NA</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="leaderToOperator" id="leaderToOperator_X" value="X">
-                                <label class="form-check-label" for="leaderToOperator_X">X</label>
-                            </div>
+                        <div class="process-radio">
+                            <label><input type="radio" name="leaderToOperator" value="O" checked> O</label>
+                            <label><input type="radio" name="leaderToOperator" value="X"> X</label>
+                            <label><input type="radio" name="leaderToOperator" value="NA"> NA</label>
                         </div>
                     </td>
                 </tr>
                 <tr>
                     <td>Operator to Leader</td>
                     <td>
-                        <div class="d-flex gap-4 justify-content-center">
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="operatorToLeader" id="operatorToLeader_O" value="O">
-                                <label class="form-check-label" for="operatorToLeader_O">O</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="operatorToLeader" id="operatorToLeader_NA" value="NA">
-                                <label class="form-check-label" for="operatorToLeader_NA">NA</label>
-                            </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="radio" name="operatorToLeader" id="operatorToLeader_X" value="X">
-                                <label class="form-check-label" for="operatorToLeader_X">X</label>
-                            </div>
+                        <div class="process-radio">
+                            <label><input type="radio" name="operatorToLeader" value="O" checked> O</label>
+                            <label><input type="radio" name="operatorToLeader" value="X"> X</label>
+                            <label><input type="radio" name="operatorToLeader" value="NA"> NA</label>
                         </div>
                     </td>
                 </tr>
@@ -250,17 +232,17 @@ try {
             <tfoot>
                 <tr>
                     <td colspan="2">
-                        <div class="mt-2">
-                            <strong>Legend:</strong><br>
-                            <div class="ms-3">
+                        <div class="mb-2">
+                            <strong>Legend:</strong>
+                            <div class="ms-3 mt-1">
                                 O - Good<br>
-                                NA - Not Applicable<br>
-                                X - NG
+                                X - NG<br>
+                                NA - Not Applicable
                             </div>
                         </div>
-                        <div class="mt-2">
-                            <strong>Note:</strong><br>
-                            <div class="ms-3">
+                        <div>
+                            <strong>Note:</strong>
+                            <div class="ms-3 mt-1">
                                 Record the details at page 2 on detected problem/abnormality during jigs and tools checking then encircle the X if already corrected.
                             </div>
                         </div>
@@ -308,6 +290,19 @@ try {
         </div>
     </div>
 
+    <!-- PiP Viewer HTML: supports maximize and minimize modes -->
+    <div id="pipViewer" class="pip-viewer d-none maximize-mode">
+        <div id="pipHeader">
+            <button id="pipMaximize" class="pip-btn d-none" title="Maximize"><i class="bi bi-fullscreen"></i></button>
+            <button id="pipMinimize" class="pip-btn" title="Minimize"><i class="bi bi-fullscreen-exit"></i></button>
+            <button id="pipReset" class="pip-btn" title="Reset View"><i class="bi bi-arrow-counterclockwise"></i></button>
+            <button id="pipClose" class="pip-btn" title="Close"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div id="pipContent"></div>
+    </div>
+
+    <div id="pipBackdrop"></div>
+
     <!-- Required Scripts -->
     <script src="../js/bootstrap.bundle.min.js"></script>
     <script src="../js/jsQR.min.js"></script>
@@ -325,11 +320,40 @@ try {
 
         // Add event handler for btnProceed
         document.addEventListener("DOMContentLoaded", function() {
+            // Variables for file paths
+            const workInstructFile = <?php echo json_encode($workInstructFile); ?>;
+            const preCardFile = <?php echo json_encode($preCardFile); ?>;
+            const drawingFile = <?php echo json_encode($drawingFile); ?>;
+
+            // Attach event listeners to buttons
+            document.getElementById("btnDrawing").addEventListener("click", function() {
+                if (drawingFile !== "") {
+                    openPiPViewer(drawingFile, 'image');
+                }
+            });
+
+            document.getElementById("btnWorkInstruction").addEventListener("click", function() {
+                if (workInstructFile !== "") {
+                    openPiPViewer(workInstructFile, 'pdf');
+                }
+            });
+
+            document.getElementById("btnPrepCard").addEventListener("click", function() {
+                if (preCardFile !== "") {
+                    openPiPViewer(preCardFile, 'pdf');
+                }
+            });
+
             document.getElementById("btnProceed").addEventListener("click", function() {
                 window.location.href = "dor-form.php";
             });
         });
     </script>
+
+    <script src="../js/pdf.min.js"></script>
+    <script src="../js/pdf.worker.min.js"></script>
+    <script src="../js/hammer.min.js"></script>
+    <script src="../js/dor-pip-viewer.js"></script>
 
 </body>
 

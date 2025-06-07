@@ -93,7 +93,10 @@ body {
   position: sticky;
   top: 58px;
   z-index: 1040;
-  background: white;
+}
+
+.table-checkpointA thead.table-light {
+  background-color: #f8f9fa;
 }
 
 .table-checkpointA thead th {
@@ -101,7 +104,6 @@ body {
   text-align: center;
   box-shadow: none !important;
   border: 1px solid #dee2e6 !important;
-  background-color: white;
   padding: 8px !important;
   vertical-align: middle;
 }
@@ -133,10 +135,16 @@ body {
   width: 20%;
   text-align: center !important;
   padding: 8px !important;
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
 }
 
 .table-checkpointA thead th[colspan="2"].criteria-cell {
   width: 40%; /* Combined width for the colspan=2 cell */
+  white-space: normal;
+  word-wrap: break-word;
 }
 
 .table-checkpointA thead th:last-child,
@@ -218,7 +226,7 @@ body {
 .process-radio label {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 8px;
 }
 
 .process-radio input {
