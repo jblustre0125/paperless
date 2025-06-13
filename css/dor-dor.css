@@ -1,119 +1,18 @@
+/* Base styles */
 body {
-  font-size: 1.2rem;
-  padding-top: 58px;
   overflow-x: auto;
   margin: 0;
-}
-
-/* Sticky header structure */
-.sticky-dor-bar {
-  position: sticky;
-  top: 58px;
-  z-index: 1035;
-  width: 100%;
-  background: white;
-  border-bottom: 1px solid #dee2e6;
-}
-
-.sticky-table-header {
-  padding: 6px 2px;
-  background: white;
-  font-size: 0.72rem;
-  line-height: 1.2;
-}
-
-.sticky-table-header small {
-  display: inline-block;
-  margin: 2px 0;
-}
-
-/* Legend styles */
-.legend-section {
-  text-align: left;
-  max-width: 100%;
-  overflow: hidden;
-}
-
-.legend-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 2px;
-}
-
-.legend-toggle {
-  padding: 0 4px;
-  color: #666;
-  transition: transform 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 24px;
-  min-height: 24px;
-  z-index: 1036;
-  background: white;
-  border: 1px solid #dee2e6;
-  border-radius: 4px;
-}
-
-.legend-toggle.collapsed i {
-  transform: rotate(180deg);
-}
-
-.legend-content {
-  max-height: 1000px;
-  transition: max-height 0.3s ease-in-out, opacity 0.2s ease-in-out;
-  opacity: 1;
-  overflow: hidden;
-}
-
-.legend-content.collapsed {
-  max-height: 0;
-  opacity: 0;
-}
-
-.legend-section strong {
-  font-size: 0.78rem;
-  display: inline-block;
-  margin-bottom: 3px;
-}
-
-.legend-row {
-  display: flex;
-  gap: 2px;
-  margin-top: 3px;
-}
-
-.legend-group {
-  flex: 1;
-  padding: 0 1px;
-}
-
-.legend-group div {
-  white-space: nowrap;
-  margin-bottom: 2px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 0.72rem;
-}
-
-.legend-group > div:first-child {
-  margin-bottom: 4px;
-}
-
-/* Make legend codes more distinct */
-.legend-code {
-  font-weight: 600;
-  font-size: 0.75rem;
-  letter-spacing: 0.02em;
+  padding: 0;
+  padding-top: 58px;
 }
 
 /* Container settings */
 .container-fluid {
-  padding: 0 5px;
+  padding: 0 15px;
   margin: 0;
 }
 
+/* Table styles */
 .table-container {
   overflow-x: auto;
   padding: 0;
@@ -131,7 +30,6 @@ body {
   text-align: center;
 }
 
-/* Column width adjustments */
 .table th:first-child,
 .table td:first-child {
   width: 25px;
@@ -146,22 +44,11 @@ body {
   width: 100%;
 }
 
-/* Table header styles */
 .table thead {
   position: sticky;
   top: 58px;
   z-index: 1040;
   background: white;
-}
-
-/* Responsive table */
-@media (max-width: 992px) {
-  .table-responsive {
-    display: block;
-    width: 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
 }
 
 /* Form control styles */
@@ -194,7 +81,55 @@ body {
   max-height: 60vh;
 }
 
-/* Tablet Responsive Design */
+/* Process tabs section */
+.sticky-dor-bar {
+  position: sticky;
+  top: 58px;
+  z-index: 1035;
+  width: 100%;
+  background: white;
+}
+
+.sticky-dor-bar .container-fluid {
+  margin-bottom: -1px;
+}
+
+/* Sticky header text */
+.sticky-table-header {
+  position: sticky;
+  top: 132px;
+  z-index: 1035;
+  background: white;
+  margin: 0;
+  padding: 0 0 5px 0;
+  text-align: left;
+  width: 100%;
+  border-bottom: none !important;
+}
+
+/* Modal styles */
+.modal-content.border-danger {
+  border-color: #dc3545;
+}
+
+.modal-header.bg-danger {
+  background-color: #dc3545;
+}
+
+.btn-close-white {
+  filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+/* PiP viewer styles */
+.pip-viewer.d-none {
+  display: none;
+}
+
+#pipContent {
+  touch-action: manipulation;
+}
+
+/* Media Queries */
 @media (orientation: portrait) {
   body {
     font-size: 1rem;
@@ -227,178 +162,18 @@ body {
   }
 }
 
-/* Add viewport-based media queries */
 @media screen and (min-width: 768px) {
   :root {
     --navbar-height: 58px;
+    --header-offset: 116px;
+    --tbody-padding: 40px;
   }
 }
 
 @media screen and (max-width: 767px) {
   :root {
     --navbar-height: 50px;
-  }
-}
-
-.legend-toggle i {
-  font-size: 1.2rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Make the legend header more touch-friendly */
-@media (max-width: 992px) {
-  .legend-header {
-    padding: 4px;
-    gap: 8px;
-  }
-
-  .legend-toggle {
-    min-width: 32px;
-    min-height: 32px;
-  }
-
-  .legend-toggle i {
-    font-size: 1.4rem;
-  }
-}
-
-/* Floating Legends Button */
-.floating-legends-btn.drawer-style {
-  position: fixed;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%) rotate(-90deg) translateX(50%);
-  transform-origin: center;
-  z-index: 1040;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  background-color: #0d6efd;
-  border-color: #0d6efd;
-  color: white;
-  border-radius: 6px 6px 0 0;
-  box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.floating-legends-btn.drawer-style i {
-  transform: rotate(90deg);
-  font-size: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.floating-legends-btn.drawer-style:hover {
-  background-color: #0b5ed7;
-}
-
-/* Legends Modal Styles */
-#legendsModal .modal-dialog {
-  margin: 10px;
-  max-width: 95%;
-}
-
-#legendsModal .modal-content {
-  border-radius: 12px;
-}
-
-#legendsModal .modal-header {
-  padding: 12px 16px;
-  background-color: #f8f9fa;
-  border-top-left-radius: 12px;
-  border-top-right-radius: 12px;
-}
-
-#legendsModal .modal-body {
-  padding: 16px;
-}
-
-#legendsModal .modal-dialog {
-  max-width: 800px;
-}
-
-#legendsModal .modal-body {
-  padding: 20px;
-}
-
-#legendsModal .legend-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 24px;
-}
-
-#legendsModal .legend-group {
-  display: flex;
-  flex-direction: column;
-}
-
-#legendsModal .legend-group strong {
-  font-size: 1.1rem;
-  margin-bottom: 12px;
-  display: block;
-  color: #0d6efd;
-  padding-bottom: 4px;
-  border-bottom: 2px solid #e9ecef;
-}
-
-#legendsModal .legend-group div {
-  font-size: 1rem;
-  margin-bottom: 10px;
-  line-height: 1.5;
-  display: grid;
-  grid-template-columns: 60px 1fr;
-  gap: 12px;
-  align-items: center;
-}
-
-#legendsModal .legend-code {
-  font-weight: 600;
-  color: white;
-  background-color: #198754;
-  padding: 2px 8px;
-  border-radius: 4px;
-  text-align: center;
-  width: 100%;
-}
-
-@media (max-width: 768px) {
-  #legendsModal .legend-row {
-    grid-template-columns: 1fr;
-  }
-  
-  #legendsModal .legend-group div {
-    grid-template-columns: 50px 1fr;
-    gap: 8px;
-  }
-}
-
-/* Tablet Responsive Design */
-@media (max-width: 768px) {
-  .floating-legends-btn.drawer-style {
-    right: -32px;
-    height: 32px;
-    padding: 4px 12px;
-  }
-
-  .floating-legends-btn.drawer-style:hover {
-    right: -30px;
-  }
-
-  .floating-legends-btn.drawer-style span {
-    font-size: 0.8rem;
-  }
-}
-
-  #legendsModal .legend-row {
-    gap: 16px;
-  }
-
-  #legendsModal .legend-group {
-    min-width: 160px;
+    --header-offset: 100px;
+    --tbody-padding: 30px;
   }
 }

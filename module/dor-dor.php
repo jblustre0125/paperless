@@ -1,9 +1,60 @@
 <?php
+$title = "DOR";
 session_start();
 ob_start();
 
 require_once "../config/dbop.php";
 require_once "../config/method.php";
+
+$db1 = new DbOp(1);
+
+$errorPrompt = '';
+
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+  ob_end_clean();
+  header('Content-Type: application/json; charset=utf-8');
+
+  $response = ['success' => false, 'errors' => []];
+
+  // Regular form submit handler (btnProceed)
+  if (empty($response['errors'])) {
+    if (isset($_POST['btnProceed'])) {
+      $recordId = $_SESSION['dorRecordId'] ?? 0;
+      if ($recordId > 0) {
+        foreach ($_POST as $key => $value) {
+          // if (preg_match('/^Process(\d+)_(\d+)$/', $key, $matches)) {
+          //   $processIndex = (int)$matches[1];
+          //   $sequenceId = (int)$matches[2];
+
+          //   $meta = $_POST['meta'][$key] ?? [];
+          //   $checkpointId = $meta['checkpointId'] ?? null;
+          //   $employeeCode = $_POST["userCode{$processIndex}"] ?? '';
+
+          //   if ($checkpointId && $employeeCode !== '') {
+          //     $insSp = "EXEC InsAtoDorCheckpointDefinition @RecordId=?, @ProcessIndex=?, @EmployeeCode=?, @CheckpointId=?, @CheckpointResponse=?";
+          //     $db1->execute($insSp, [
+          //       $recordId,
+          //       $processIndex,
+          //       $employeeCode,
+          //       $checkpointId,
+          //       $value
+          //     ]);
+          //   }
+          // }
+        }
+      }
+
+      $response['success'] = true;
+      $response['redirectUrl'] = "dor-home.php";
+    } else {
+      $response['success'] = false;
+      $response['errors'][] = "Error.";
+    }
+  }
+
+  echo json_encode($response);
+  exit;
+}
 
 // Check if required session variables exist
 if (!isset($_SESSION['dorTypeId']) || !isset($_SESSION['dorModelId'])) {
@@ -11,9 +62,8 @@ if (!isset($_SESSION['dorTypeId']) || !isset($_SESSION['dorModelId'])) {
   exit;
 }
 
-$productionCode = isset($_SESSION['productionCode']) ? $_SESSION['productionCode'] : 'Unknown Operator';
+$employeeCode = isset($_SESSION['employeeCode']) ? $_SESSION['employeeCode'] : 'Unknown Operator';
 
-// Get the file paths
 $drawingFile = '';
 $workInstructFile = '';
 $preCardFile = '';
@@ -43,20 +93,13 @@ try {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
-  <title>DOR System</title>
+  <title><?php echo htmlspecialchars($title ?? ''); ?></title>
   <link href="../css/bootstrap.min.css" rel="stylesheet">
   <link href="../css/bootstrap-icons.css" rel="stylesheet">
   <link href="../css/dor-dor.css" rel="stylesheet">
   <link href="../css/dor-navbar.css" rel="stylesheet">
   <link href="../css/dor-pip-viewer.css" rel="stylesheet">
-  <script src="../js/bootstrap.bundle.min.js"></script>
-  <script src="../js/jsQR.min.js"></script>
-  <script src="../js/hammer.min.js"></script>
 </head>
-
 
 <body>
   <nav class="navbar navbar-expand navbar-light bg-light shadow-sm fixed-top">
@@ -78,69 +121,107 @@ try {
         <!-- Right-aligned group -->
         <div class="d-flex gap-2 flex-wrap">
           <button type="button" class="btn btn-secondary btn-lg nav-btn-group" onclick="goBack()">Back</button>
-          <button type="submit" class="btn btn-primary btn-lg nav-btn-group" id="btnProceed" name="btnProceed">Save</button>
+          <button type="submit" class="btn btn-primary btn-lg nav-btn-group" id="btnProceed" name="btnProceed">
+            <span class="short-label">Save DOR</span>
+            <span class="long-label">Save DOR</span>
+          </button>
         </div>
       </div>
     </div>
   </nav>
 
-
-  <div class="modal fade" id="qrScannerModal" tabindex="-1" aria-labelledby="qrScannerLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title">Scan ID Tag</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+  <form id="myForm" method="post" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" novalidate>
+    <div class="sticky-dor-bar">
+      <div class="container-fluid">
+        <div class="sticky-table-header">
+          <!-- Remove the old legend section -->
         </div>
-        <div class="modal-body text-center">
-          <video id="qr-video" autoplay muted playsinline></video>
-          <p class="text-muted mt-2">Align the QR code within the frame.</p>
-        </div>
-        <div class="modal-footer d-flex justify-content-between">
-          <button type="button" class="btn btn-secondary" id="enterManually">Enter Manually</button>
-          <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Cancel</button>
+      </div>
+      <!-- Match EXACTLY the same container structure as the body table -->
+      <div class="container-fluid">
+        <div class="table-container">
+          <table class="table table-bordered align-middle"></table>
+          <thead>
+            <tr>
+              <th>No.</th>
+              <th>Box No.</th>
+              <th>Time Start</th>
+              <th>Time End</th>
+              <th>Operator</th>
+              <th>Downtime</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          </table>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Bootstrap Modal for Error Messages -->
-  <div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-      <div class="modal-content border-danger">
-        <div class="modal-header bg-danger text-white">
-          <h5 class="modal-title" id="errorModalLabel">Please complete the checkpoint</h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body" id="modalErrorMessage">
-          <!-- Error messages will be injected here by JS -->
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
-        </div>
+    <div class="container-fluid">
+      <div class="table-container">
+        <table class="table table-bordered align-middle">
+          <tbody>
+            <?php for ($i = 1; $i <= 20; $i++) { ?>
+              <tr data-row-id="<?= $i ?>">
+                <td class="clickable-row" style="cursor: pointer;">
+                  <div class="d-flex align-items-center justify-content-center">
+                    <i class="bi bi-qr-code-scan me-2"></i>
+                    <?= $i ?>
+                  </div>
+                </td>
+                <td class="box-no-column">
+                  <input type="text" class="form-control scan-box-no box-no-input text-center" id="boxNo<?= $i ?>" name="boxNo<?= $i ?>" disabled readonly>
+                  <input type="hidden" id="modelName<?= $i ?>" name="modelName<?= $i ?>">
+                  <input type="hidden" id="lotNumber<?= $i ?>" name="lotNumber<?= $i ?>">
+                </td>
+                <td class="time-column">
+                  <input type="text" class="form-control text-center time-input" id="timeStart<?= $i ?>" readonly>
+                </td>
+                <td class="time-column">
+                  <input type="text" class="form-control scan-box-no text-center time-input" id="timeEnd<?= $i ?>" disabled readonly>
+                </td>
+                <td class="align-middle text-center">
+                  <div class="action-container">
+                    <button type="button" class="btn btn-outline-primary btn-sm btn-operator" id="operator<?= $i ?>">
+                      <i class="bi bi-person-plus"></i> Manage Operators
+                    </button>
+                    <div class="operator-codes" id="operatorList<?= $i ?>">
+                      <?php if ($i % 2 === 0): // Even rows show 4 codes 
+                      ?>
+                        <small class="badge bg-light text-dark border"><?= $employeeCode ?></small>
+                      <?php else: // Odd rows show 3 codes 
+                      ?>
+                        <small class="badge bg-light text-dark border"><?= $employeeCode ?></small>
+                      <?php endif; ?>
+                    </div>
+                  </div>
+                  <input type="hidden" id="operators<?= $i ?>" name="operators<?= $i ?>" value="<?= $employeeCode ?>">
+                </td>
+                <td class="align-middle text-center">
+                  <div class="action-container">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="downtime<?= $i ?>">
+                      <i class="bi bi-clock-history"></i> Manage Downtime
+                    </button>
+                    <div class="downtime-info small text-muted" id="downtimeInfo<?= $i ?>"></div>
+                  </div>
+                </td>
+                <td class="align-middle text-center">
+                  <button type="button" class="btn btn-outline-danger btn-sm delete-row" data-row-id="<?= $i ?>" title="Delete Row">
+                    <span style="font-size: 1.2rem; font-weight: bold;">×</span>
+                  </button>
+                </td>
+              </tr>
+            <?php } ?>
+          </tbody>
+        </table>
       </div>
     </div>
-  </div>
+  </form>
 
-  <!-- PiP Viewer HTML: supports maximize and minimize modes -->
-  <div id="pipViewer" class="pip-viewer d-none maximize-mode">
-    <div id="pipHeader">
-      <button id="pipMaximize" class="pip-btn d-none" title="Maximize"><i class="bi bi-fullscreen"></i></button>
-      <button id="pipMinimize" class="pip-btn" title="Minimize"><i class="bi bi-fullscreen-exit"></i></button>
-      <button id="pipReset" class="pip-btn" title="Reset View"><i class="bi bi-arrow-counterclockwise"></i></button>
-      <button id="pipClose" class="pip-btn" title="Close"><i class="bi bi-x-lg"></i></button>
-    </div>
-    <div id="pipContent"></div>
-  </div>
-
-  <div id="pipBackdrop"></div>
-
-  <!-- Floating Legends Button -->
-  <button type="button" class="btn btn-primary floating-legends-btn drawer-style" data-bs-toggle="modal" data-bs-target="#legendsModal">
-    <i class="bi bi-info-circle-fill"></i>
+  <!-- <button type="button" class="btn btn-primary floating-legends-btn drawer-style" data-bs-toggle="modal" data-bs-target="#legendsModal">
+    <i class="bi bi-info-circle"></i>
   </button>
 
-  <!-- Legends Modal -->
   <div class="modal fade" id="legendsModal" tabindex="-1" aria-labelledby="legendsModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
       <div class="modal-content">
@@ -198,99 +279,75 @@ try {
         </div>
       </div>
     </div>
-  </div>
+  </div> -->
 
-  <div class="sticky-dor-bar">
-    <div class="container-fluid">
-      <div class="sticky-table-header">
-        <!-- Remove the old legend section -->
-      </div>
-    </div>
-    <!-- Match EXACTLY the same container structure as the body table -->
-    <div class="container-fluid">
-      <div class="table-container">
-        <table class="table table-bordered align-middle"></table>
-        <thead>
-          <tr>
-            <th>No.</th>
-            <th>Box No.</th>
-            <th>TIME START</th>
-            <th>TIME END</th>
-            <th>Operator</th>
-            <th>Downtime/Abnormality/Defect Details</th>
-            <th>Action Taken</th>
-            <th>TIME START</th>
-            <th>TIME END</th>
-            <th>PIC</th>
-            <th>Remarks</th>
-          </tr>
-        </thead>
-        </table>
+  <!-- QR Code Scanner Modal -->
+  <div class="modal fade" id="qrScannerModal" tabindex="-1" aria-labelledby="qrScannerLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Scan Employee ID</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body text-center">
+          <video id="qr-video" autoplay muted playsinline></video>
+          <p class="text-muted mt-2">Align the QR code within the frame.</p>
+        </div>
+        <div class="modal-footer d-flex justify-content-between">
+          <button type="button" class="btn btn-secondary" id="enterManually">Enter Manually</button>
+          <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Cancel</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <div class="container-fluid">
-    <div class="table-container">
-      <table class="table table-bordered align-middle">
-        <tbody>
-          <?php for ($i = 1; $i <= 20; $i++) { ?>
-            <tr>
-              <td><?= $i ?></td>
-              <td>
-                <input type="text" class="form-control scan-box-no" id="boxNo<?= $i ?>" placeholder="Scan QR" <?= $i === 1 ? '' : 'disabled' ?> readyonly>
-              </td>
-              <td>
-                <input type="text" class="form-control" id="timeStart<?= $i ?>" <?= $i === 1 ? '' : 'disabled' ?> readonly>
-              </td>
-              <td>
-                <input type="text" class="form-control scan-box-no time-end" id="timeEnd<?= $i ?>" placeholder="Scan QR" <?= $i === 1 ? '' : 'disabled' ?>>
-              </td>
-              <td>
-                <input type="text" class="form-control" disabled>
-              </td>
-              <td>
-                <input type="text" class="form-control" disabled>
-              </td>
-              <td>
-                <input type="text" class="form-control" disabled>
-              </td>
-              <td>
-                <input type="text" class="form-control" disabled>
-              </td>
-              <td>
-                <input type="text" class="form-control" disabled>
-              </td>
-              <td>
-                <input type="text" class="form-control" disabled>
-              </td>
-              <td>
-                <input type="text" class="form-control" disabled>
-              </td>
-            </tr>
-          <?php } ?>
-        </tbody>
-      </table>
+  <!-- Bootstrap Modal for Error Messages -->
+  <div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content border-danger">
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title" id="errorModalLabel">Please complete the checkpoint</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body" id="modalErrorMessage">
+          <!-- Error messages will be injected here by JS -->
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
     </div>
   </div>
+  </form>
 
-  <!-- Required Scripts -->
+  <!-- PiP Viewer HTML: supports maximize and minimize modes -->
+  <div id="pipViewer" class="pip-viewer d-none maximize-mode">
+    <div id="pipHeader">
+      <button id="pipMaximize" class="pip-btn d-none" title="Maximize"><i class="bi bi-fullscreen"></i></button>
+      <button id="pipMinimize" class="pip-btn" title="Minimize"><i class="bi bi-fullscreen-exit"></i></button>
+      <button id="pipReset" class="pip-btn" title="Reset View"><i class="bi bi-arrow-counterclockwise"></i></button>
+      <button id="pipClose" class="pip-btn" title="Close"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div id="pipContent"></div>
+  </div>
+
+  <div id="pipBackdrop"></div>
+
+  <!-- To fix `Uncaught ReferenceError: Modal is not defined` -->
   <script src="../js/bootstrap.bundle.min.js"></script>
+
   <script src="../js/jsQR.min.js"></script>
-  <script src="../js/pdf.min.js"></script>
-  <script src="../js/pdf.worker.min.js"></script>
-  <script src="../js/hammer.min.js"></script>
-  <script src="../js/dor-pip-viewer.js"></script>
+  <script>
+    function showErrorModal(message) {
+      const modalErrorMessage = document.getElementById("modalErrorMessage");
+      modalErrorMessage.innerText = message;
+      const errorModal = new bootstrap.Modal(document.getElementById("errorModal"));
+      errorModal.show();
+    }
+  </script>
 
   <script>
-    const productionCode = "<?php echo addslashes($productionCode); ?>";
-    const workInstructFile = <?php echo json_encode($workInstructFile); ?>;
-    const preCardFile = <?php echo json_encode($preCardFile); ?>;
-    const drawingFile = <?php echo json_encode($drawingFile); ?>;
-
     document.addEventListener("DOMContentLoaded", function() {
-
-      // QR Scanner Setup
       const scannerModal = new bootstrap.Modal(document.getElementById("qrScannerModal"));
       const video = document.getElementById("qr-video");
       let canvas = document.createElement("canvas");
@@ -298,41 +355,7 @@ try {
         willReadFrequently: true
       });
       let scanning = false;
-      let activeInput = null;
-      let lastScannedCode = "";
-      let tableBody = document.querySelector("tbody");
 
-      // Enable first row by default
-      enableRow(0);
-
-      // Handle input events for timeEnd fields
-      document.addEventListener("input", function(e) {
-        if (e.target.classList.contains("scan-box-no") && e.target.id.startsWith("timeEnd")) {
-          let currentRow = e.target.closest("tr");
-          let timeEndValue = e.target.value.trim();
-          if (timeEndValue !== "") {
-            let nextRow = currentRow.nextElementSibling;
-            if (nextRow) {
-              enableRow([...tableBody.querySelectorAll("tr")].indexOf(nextRow));
-            }
-          }
-        }
-      });
-
-      // Row enabling function
-      function enableRow(index) {
-        let tableRows = tableBody.querySelectorAll("tr");
-        if (tableRows[index]) {
-          let inputs = tableRows[index].querySelectorAll("input");
-          inputs.forEach(input => {
-            if (!input.hasAttribute("readonly")) {
-              input.disabled = false;
-            }
-          });
-        }
-      }
-
-      // QR Scanner Functions
       function getCameraConstraints() {
         return {
           video: {
@@ -345,10 +368,13 @@ try {
 
       function startScanning() {
         scannerModal.show();
+        const constraints = getCameraConstraints();
+
         navigator.mediaDevices.getUserMedia(getCameraConstraints())
           .then(setupVideoStream)
           .catch((err1) => {
             console.error("Back camera failed", err1);
+
             navigator.mediaDevices.getUserMedia({
                 video: {
                   facingMode: "user"
@@ -371,14 +397,6 @@ try {
         scanning = true;
       }
 
-      function getCurrentTime() {
-        const now = new Date();
-        const hours = now.getHours() % 12 || 12;
-        const minutes = now.getMinutes().toString().padStart(2, '0');
-        const ampm = now.getHours() >= 12 ? 'PM' : 'AM';
-        return `${hours}:${minutes} ${ampm}`;
-      }
-
       function scanQRCode() {
         if (!scanning) return;
         if (video.readyState === video.HAVE_ENOUGH_DATA) {
@@ -389,67 +407,23 @@ try {
           let qrCodeData = jsQR(imageData.data, imageData.width, imageData.height);
           if (qrCodeData) {
             let scannedText = qrCodeData.data.trim();
-            if (scannedText === lastScannedCode) return;
-            lastScannedCode = scannedText;
-            handleScannedCode(scannedText);
+            if (activeInput) activeInput.value = scannedText;
+            stopScanning();
           }
         }
         requestAnimationFrame(scanQRCode);
-      }
-
-      function handleScannedCode(scannedText) {
-        let parts = scannedText.split(/\s+/);
-        if (parts.length >= 3) {
-          let boxNo = parts[parts.length - 1];
-          let currentTime = getCurrentTime();
-          let employeeCode = parts[0]; // Assuming first part is employee code
-
-          if (activeInput.id.startsWith('boxNo')) {
-            let row = activeInput.closest('tr');
-            let timeStartInput = row.querySelector('input[id^="timeStart"]');
-            let operatorInput = row.querySelector('input[disabled]'); // Operator field
-
-            activeInput.value = boxNo;
-            if (timeStartInput && !timeStartInput.value) {
-              timeStartInput.value = currentTime;
-            }
-            if (operatorInput) {
-              operatorInput.value = employeeCode;
-            }
-          } else if (activeInput.id.startsWith('timeEnd')) {
-            activeInput.value = currentTime;
-            let row = activeInput.closest('tr');
-            let nextRow = row.nextElementSibling;
-            if (nextRow) {
-              let inputs = nextRow.querySelectorAll('input');
-              inputs.forEach(input => {
-                if (!input.hasAttribute('readonly')) {
-                  input.disabled = false;
-                }
-              });
-            }
-          }
-          stopScanning();
-        } else {
-          alert("⚠️ Invalid QR format. Please scan a valid code.");
-        }
       }
 
       function stopScanning() {
         scanning = false;
         let tracks = video.srcObject?.getTracks();
         if (tracks) tracks.forEach(track => track.stop());
-        setTimeout(() => {
-          lastScannedCode = "";
-        }, 1000);
         scannerModal.hide();
       }
 
-      // Event Listeners
-      document.querySelectorAll('.scan-box-no').forEach(input => {
+      let activeInput = null;
+      document.querySelectorAll("input[id^='userCode']").forEach(input => {
         input.addEventListener("click", async function() {
-          if (this.disabled) return;
-
           const accessGranted = await navigator.mediaDevices.getUserMedia({
             video: true
           }).then(stream => {
@@ -471,81 +445,139 @@ try {
         stopScanning();
         setTimeout(() => {
           if (activeInput) activeInput.focus();
-        }, 300);
+        }, 300); // Delay to wait for modal fade-out animation
       });
 
-      // PiP Viewer Button Event Listeners
+    });
+  </script>
+
+  <script>
+    let isMinimized = false;
+    const workInstructFile = <?php echo json_encode($workInstructFile); ?>;
+    const preCardFile = <?php echo json_encode($preCardFile); ?>;
+
+    document.addEventListener("DOMContentLoaded", function() {
+      // Attach event listeners to buttons
       document.getElementById("btnDrawing").addEventListener("click", function() {
-        if (drawingFile) {
-          openPiPViewer(drawingFile, 'image');
-        } else {
-          showErrorModal("Drawing file is not available.");
-        }
+        openPiPViewer("<?php echo $drawingFile; ?>", 'image');
       });
 
       document.getElementById("btnWorkInstruction").addEventListener("click", function() {
-        if (workInstructFile) {
+        if (workInstructFile !== "") {
           openPiPViewer(workInstructFile, 'pdf');
-        } else {
-          showErrorModal("Work instruction file is not available.");
         }
       });
 
       document.getElementById("btnPrepCard").addEventListener("click", function() {
-        if (preCardFile) {
+        if (preCardFile !== "") {
           openPiPViewer(preCardFile, 'pdf');
-        } else {
-          showErrorModal("Preparation card file is not available.");
         }
       });
 
-      // Form submission handling
-      const form = document.querySelector("#myForm");
-      const errorModal = new bootstrap.Modal(document.getElementById("errorModal"));
-      const modalErrorMessage = document.getElementById("modalErrorMessage");
-      let clickedButton = null;
+      let storedTab = sessionStorage.getItem("activeTab");
 
-      // Track which submit button was clicked
-      document.querySelectorAll("button[type='submit']").forEach(button => {
-        button.addEventListener("click", function(e) {
-          e.preventDefault();
-          clickedButton = this;
-
-          if (this.id === "btnProceed") {
-            form.dispatchEvent(new Event('submit'));
-          }
-        });
-      });
+      if (storedTab) {
+        // If a tab is stored, display it
+        document.getElementById(storedTab).style.display = "block";
+        document.querySelector(`[onclick="openTab(event, '${storedTab}')"]`).classList.add("active");
+      } else {
+        // Default to "Process 1" if no tab is stored
+        const defaultTab = "Process1";
+        document.getElementById(defaultTab).style.display = "block";
+        document.querySelector(`[onclick="openTab(event, '${defaultTab}')"]`).classList.add("active");
+      }
 
       form.addEventListener("submit", function(e) {
         e.preventDefault();
 
         // Only run validation if btnProceed triggered this
         if (!clickedButton || clickedButton.id !== "btnProceed") {
+          return; // Skip validation if other buttons are clicked (e.g., Drawing, WI)
+        }
+
+        const errorsByOperator = {};
+        const meta = {};
+        const userCodes = {};
+        const userCodeValues = [];
+
+        let userCodeErrorHtml = "";
+
+        // Loop through up to 4 tabs
+        for (let i = 1; i <= 4; i++) {
+          const input = form.querySelector(`#userCode${i}`);
+          if (!input) continue;
+
+          const code = input.value.trim();
+          if (!code) {
+            userCodeErrorHtml += `<li>Enter Employee ID of P${i}.</li>`;
+          } else {
+            if (userCodeValues.includes(code)) {
+              userCodeErrorHtml += `<li>Employee ID "${code}" is duplicated.</li>`;
+            }
+            userCodes[i] = code;
+            userCodeValues.push(code);
+          }
+        }
+
+        if (userCodeErrorHtml) {
+          modalErrorMessage.innerHTML = `${userCodeErrorHtml}`;
+          errorModal.show();
           return;
         }
 
-        // Validate all rows have required fields filled
-        const tableRows = document.querySelectorAll("tbody tr");
-        let errors = [];
-        let lastFilledRow = null;
-
-        tableRows.forEach((row, index) => {
-          const boxNo = row.querySelector('input[id^="boxNo"]')?.value.trim();
-          const timeStart = row.querySelector('input[id^="timeStart"]')?.value.trim();
-          const timeEnd = row.querySelector('input[id^="timeEnd"]')?.value.trim();
-
-          if (boxNo || timeStart || timeEnd) {
-            lastFilledRow = index;
-
-            if (!boxNo) errors.push(`Row ${index + 1}: Box No. is required`);
-            if (!timeStart) errors.push(`Row ${index + 1}: Time Start is required`);
-            if (!timeEnd) errors.push(`Row ${index + 1}: Time End is required`);
+        // Collect meta info per ProcessX_Y
+        form.querySelectorAll("input[name^='meta[']").forEach(input => {
+          const match = input.name.match(/meta\[(.*?)\]\[(.*?)\]/);
+          if (match) {
+            const field = match[1]; // e.g. Process1_105
+            const key = match[2]; // checkpoint or tabIndex
+            if (!meta[field]) meta[field] = {};
+            meta[field][key] = input.value;
           }
         });
 
-        if (errors.length > 0) {
-          modalErrorMessage.innerHTML = "<ul><li>" + errors.join("</li><li>") + "</li></ul>";
+        const groups = {};
+
+        // Group radio and text inputs by field name
+        form.querySelectorAll("input[name^='Process'], input[type='text'][name^='Process']").forEach(input => {
+          const name = input.name;
+          if (!groups[name]) groups[name] = [];
+          groups[name].push(input);
+        });
+
+        for (const name in groups) {
+          const group = groups[name];
+          const type = group[0].type;
+
+          let valid = false;
+          if (type === "radio") {
+            valid = group.some(input => input.checked);
+          } else if (type === "text") {
+            valid = group[0].value.trim() !== "";
+          }
+
+          if (!valid) {
+            const checkpoint = meta[name]?.checkpoint || name;
+            const tabIndex = meta[name]?.tabIndex;
+            const operator = tabIndex && userCodes[tabIndex] ? userCodes[tabIndex] : `Process ${tabIndex}`;
+
+            if (!errorsByOperator[operator]) errorsByOperator[operator] = [];
+            errorsByOperator[operator].push(checkpoint);
+          }
+        }
+
+        // Show modal if errors exist
+        const operatorList = Object.keys(errorsByOperator);
+        if (operatorList.length > 0) {
+          let html = ``;
+          operatorList.forEach(op => {
+            html += `<div><strong>${op}</strong><ul>`;
+            errorsByOperator[op].forEach(cp => {
+              html += `<li>${cp}</li>`;
+            });
+            html += `</ul></div>`;
+          });
+          modalErrorMessage.innerHTML = html;
           errorModal.show();
           return;
         }
@@ -561,37 +593,116 @@ try {
             body: formData
           })
           .then(response => response.json())
-          .then(data => {
+          .then((data) => {
             if (data.success) {
-              if (data.redirectUrl) {
+              if (clickedButton.name === "btnProceed") {
                 window.location.href = data.redirectUrl;
+                return;
               }
             } else {
-              modalErrorMessage.innerHTML = "<ul><li>" + (data.errors || ["An error occurred"]).join("</li><li>") + "</li></ul>";
+              modalErrorMessage.innerHTML = "<ul><li>" + data.errors.join("</li><li>") + "</li></ul>";
               errorModal.show();
             }
           })
-          .catch(error => {
-            console.error("Error:", error);
-            modalErrorMessage.innerHTML = "<ul><li>An error occurred while saving</li></ul>";
-            errorModal.show();
-          });
+          .catch(error => console.error("Error:", error));
       });
 
-      // QR Scanner Setup
     });
 
-    function showErrorModal(message) {
-      const modalErrorMessage = document.getElementById("modalErrorMessage");
-      modalErrorMessage.innerText = message;
-      const errorModal = new bootstrap.Modal(document.getElementById("errorModal"));
-      errorModal.show();
+    function openTab(event, tabName) {
+      let tabContents = document.querySelectorAll(".tab-content");
+      tabContents.forEach(tab => tab.style.display = "none");
+
+      let tabButtons = document.querySelectorAll(".tab-button");
+      tabButtons.forEach(button => button.classList.remove("active"));
+
+      document.getElementById(tabName).style.display = "block";
+      event.currentTarget.classList.add("active");
+
+      sessionStorage.setItem("activeTab", tabName);
     }
 
     function goBack() {
       window.location.href = "dor-refresh.php";
     }
+
+    // Form submission handling
+    const form = document.querySelector("#myForm");
+    const errorModal = new bootstrap.Modal(document.getElementById("errorModal"));
+    const modalErrorMessage = document.getElementById("modalErrorMessage");
+
+    let clickedButton = null;
+
+    // Track which submit button was clicked
+    document.querySelectorAll("button[type='submit']").forEach(button => {
+      button.addEventListener("click", function(e) {
+        e.preventDefault(); // Prevent default form submission
+        clickedButton = this;
+
+        // If it's the proceed button, trigger form validation and submission
+        if (this.id === "btnProceed") {
+          form.dispatchEvent(new Event('submit'));
+        }
+      });
+    });
+
+    // Add delete row functionality
+    document.querySelectorAll('.delete-row').forEach(button => {
+      button.addEventListener('click', function() {
+        const rowId = this.getAttribute('data-row-id');
+        const row = document.querySelector(`tr[data-row-id="${rowId}"]`);
+
+        // Clear all inputs in the row
+        row.querySelectorAll('input').forEach(input => {
+          input.value = '';
+        });
+
+        // Clear operator codes
+        const operatorList = document.getElementById(`operatorList${rowId}`);
+        if (operatorList) {
+          operatorList.innerHTML = '';
+        }
+
+        // Clear downtime info
+        const downtimeInfo = document.getElementById(`downtimeInfo${rowId}`);
+        if (downtimeInfo) {
+          downtimeInfo.innerHTML = '';
+        }
+
+        // Show success message
+        const toast = document.createElement('div');
+        toast.className = 'position-fixed bottom-0 end-0 p-3';
+        toast.style.zIndex = '5';
+        toast.innerHTML = `
+          <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+              <strong class="me-auto">Success</strong>
+              <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body">
+              Row ${rowId} has been cleared.
+            </div>
+          </div>
+        `;
+        document.body.appendChild(toast);
+
+        // Remove toast after 3 seconds
+        setTimeout(() => {
+          toast.remove();
+        }, 3000);
+      });
+    });
   </script>
+
+  <form id="deleteDorForm" method="POST" action="dor-form.php">
+    <input type="hidden" name="action" value="delete_dor">
+  </form>
+
+  <script src="../js/pdf.min.js"></script>
+  <script src="../js/pdf.worker.min.js"></script>
+  <script src="../js/hammer.min.js"></script>
+  <script src="../js/dor-pip-viewer.js"></script>
+
 </body>
 
 </html>

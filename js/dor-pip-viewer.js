@@ -3,16 +3,31 @@
 
 // Initialize PDF.js
 if (typeof pdfjsLib !== "undefined") {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = "js/pdf.worker.min.js";
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "../js/pdf.worker.min.js";
+} else {
+  console.error("PDF.js library not loaded");
 }
 
 let currentType = "",
   currentPath = "",
   currentScale = 1,
   currentPdf = null,
-  currentPage = 1;
+  currentPage = 1,
+  lastPageChangeTime = 0,
+  PAGE_CHANGE_DELAY = 500;
 
 function openPiPViewer(path, type) {
+  // Check if required libraries are loaded
+  if (type === "pdf" && typeof pdfjsLib === "undefined") {
+    console.error("PDF.js library not loaded");
+    return;
+  }
+
+  if (typeof Hammer === "undefined") {
+    console.error("Hammer.js library not loaded");
+    return;
+  }
+
   // Reset all state variables
   currentType = type;
   currentPath = path;
@@ -25,6 +40,11 @@ function openPiPViewer(path, type) {
   const btnMin = document.getElementById("pipMinimize");
   const btnMax = document.getElementById("pipMaximize");
   const pipBackdrop = document.getElementById("pipBackdrop");
+
+  if (!pipViewer || !pipContent || !btnMin || !btnMax || !pipBackdrop) {
+    console.error("Required PiP viewer elements not found");
+    return;
+  }
 
   // Clear all content and styles first
   pipContent.innerHTML = "";
@@ -45,6 +65,9 @@ function openPiPViewer(path, type) {
   document.body.classList.add("no-scroll");
   pipBackdrop.style.display = "block";
 
+  // Show the viewer
+  pipViewer.classList.remove("d-none");
+
   if (type === "image") {
     const img = document.createElement("img");
     img.id = "pipImage";
@@ -61,115 +84,120 @@ function openPiPViewer(path, type) {
     pipContent.appendChild(img);
     setupPanZoom(img);
   } else if (type === "pdf") {
-    pdfjsLib.getDocument(path).promise.then(function (pdf) {
-      currentPdf = pdf;
-      currentPage = 1;
-      showPdfPage(currentPage);
+    pdfjsLib
+      .getDocument(path)
+      .promise.then(function (pdf) {
+        currentPdf = pdf;
+        currentPage = 1;
+        showPdfPage(currentPage);
 
-      // Keyboard navigation
-      document.addEventListener("keydown", function (e) {
-        if (e.key === "ArrowUp" && currentPage > 1) {
-          currentPage--;
-          showPdfPage(currentPage);
-        } else if (e.key === "ArrowDown" && currentPage < pdf.numPages) {
-          currentPage++;
-          showPdfPage(currentPage);
-        }
-      });
+        // Keyboard navigation
+        document.addEventListener("keydown", function (e) {
+          if (e.key === "ArrowUp" && currentPage > 1) {
+            currentPage--;
+            showPdfPage(currentPage);
+          } else if (e.key === "ArrowDown" && currentPage < pdf.numPages) {
+            currentPage++;
+            showPdfPage(currentPage);
+          }
+        });
 
-      // Set up unified touch handling for page navigation
-      const pageSwipeHandler = new Hammer.Manager(pipContent);
+        // Set up unified touch handling for page navigation
+        const pageSwipeHandler = new Hammer.Manager(pipContent);
 
-      // Configure vertical pan detection
-      const pan = new Hammer.Pan({
-        direction: Hammer.DIRECTION_VERTICAL,
-        threshold: 50,
-      });
-      pageSwipeHandler.add(pan);
+        // Configure vertical pan detection
+        const pan = new Hammer.Pan({
+          direction: Hammer.DIRECTION_VERTICAL,
+          threshold: 50,
+        });
+        pageSwipeHandler.add(pan);
 
-      // Track swipe state
-      let swipeStartY = 0;
-      let isProcessingSwipe = false;
+        // Track swipe state
+        let swipeStartY = 0;
+        let isProcessingSwipe = false;
 
-      pageSwipeHandler.on("panstart", function (e) {
-        swipeStartY = e.center.y;
-        isProcessingSwipe = false;
-      });
+        pageSwipeHandler.on("panstart", function (e) {
+          swipeStartY = e.center.y;
+          isProcessingSwipe = false;
+        });
 
-      pageSwipeHandler.on("panmove", function (e) {
-        if (isProcessingSwipe) return;
+        pageSwipeHandler.on("panmove", function (e) {
+          if (isProcessingSwipe) return;
 
-        const diff = swipeStartY - e.center.y;
-        const absDiff = Math.abs(diff);
+          const diff = swipeStartY - e.center.y;
+          const absDiff = Math.abs(diff);
 
-        if (absDiff > 50) {
-          isProcessingSwipe = true;
+          if (absDiff > 50) {
+            isProcessingSwipe = true;
 
-          if (diff > 0) {
-            // Swipe up - go to next page
-            if (currentPage < pdf.numPages) {
-              currentPage++;
-              showPdfPage(currentPage);
-            }
-          } else {
-            // Swipe down - go to previous page
-            if (currentPage > 1) {
-              currentPage--;
-              showPdfPage(currentPage);
+            if (diff > 0) {
+              // Swipe up - go to next page
+              if (currentPage < pdf.numPages) {
+                currentPage++;
+                showPdfPage(currentPage);
+              }
+            } else {
+              // Swipe down - go to previous page
+              if (currentPage > 1) {
+                currentPage--;
+                showPdfPage(currentPage);
+              }
             }
           }
-        }
-      });
+        });
 
-      pageSwipeHandler.on("panend", function () {
-        isProcessingSwipe = false;
-      });
+        pageSwipeHandler.on("panend", function () {
+          isProcessingSwipe = false;
+        });
 
-      // Mouse wheel
-      pipContent.addEventListener(
-        "wheel",
-        function (e) {
+        // Mouse wheel
+        pipContent.addEventListener(
+          "wheel",
+          function (e) {
+            const currentTime = Date.now();
+            if (currentTime - lastPageChangeTime < PAGE_CHANGE_DELAY) return;
+
+            if (e.deltaY > 0 && currentPage < pdf.numPages) {
+              currentPage++;
+              showPdfPage(currentPage);
+              lastPageChangeTime = currentTime;
+            } else if (e.deltaY < 0 && currentPage > 1) {
+              currentPage--;
+              showPdfPage(currentPage);
+              lastPageChangeTime = currentTime;
+            }
+            e.preventDefault();
+          },
+          { passive: false }
+        );
+
+        // Mouse click for page navigation
+        pipContent.addEventListener("click", function (e) {
+          // Skip if event originated from touch
+          if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) {
+            return;
+          }
+
           const currentTime = Date.now();
           if (currentTime - lastPageChangeTime < PAGE_CHANGE_DELAY) return;
 
-          if (e.deltaY > 0 && currentPage < pdf.numPages) {
-            currentPage++;
-            showPdfPage(currentPage);
-            lastPageChangeTime = currentTime;
-          } else if (e.deltaY < 0 && currentPage > 1) {
+          const rect = pipContent.getBoundingClientRect();
+          const y = e.clientY - rect.top;
+
+          if (y < rect.height / 2 && currentPage > 1) {
             currentPage--;
             showPdfPage(currentPage);
             lastPageChangeTime = currentTime;
+          } else if (y >= rect.height / 2 && currentPage < pdf.numPages) {
+            currentPage++;
+            showPdfPage(currentPage);
+            lastPageChangeTime = currentTime;
           }
-          e.preventDefault();
-        },
-        { passive: false }
-      );
-
-      // Mouse click for page navigation
-      pipContent.addEventListener("click", function (e) {
-        // Skip if event originated from touch
-        if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) {
-          return;
-        }
-
-        const currentTime = Date.now();
-        if (currentTime - lastPageChangeTime < PAGE_CHANGE_DELAY) return;
-
-        const rect = pipContent.getBoundingClientRect();
-        const y = e.clientY - rect.top;
-
-        if (y < rect.height / 2 && currentPage > 1) {
-          currentPage--;
-          showPdfPage(currentPage);
-          lastPageChangeTime = currentTime;
-        } else if (y >= rect.height / 2 && currentPage < pdf.numPages) {
-          currentPage++;
-          showPdfPage(currentPage);
-          lastPageChangeTime = currentTime;
-        }
+        });
+      })
+      .catch(function (error) {
+        console.error("Error loading PDF:", error);
       });
-    });
   }
 
   if (!pipViewer.dataset.doubleTapEnabled) {
@@ -476,20 +504,24 @@ function maximizeViewer() {
   }
 }
 
-document.getElementById("pipClose").onclick = () => {
-  document.getElementById("pipViewer").classList.add("d-none");
-  document.getElementById("pipContent").innerHTML = "";
-  document.body.classList.remove("no-scroll");
-  document.getElementById("pipBackdrop").style.display = "none";
-  currentPdf = null;
-};
-
 document.addEventListener("DOMContentLoaded", function () {
   // Get all control buttons
   const btnMin = document.getElementById("pipMinimize");
   const btnMax = document.getElementById("pipMaximize");
   const btnReset = document.getElementById("pipReset");
   const btnClose = document.getElementById("pipClose");
+
+  // Close button
+  if (btnClose) {
+    btnClose.addEventListener("click", (e) => {
+      e.stopPropagation(); // Prevent event from bubbling to header
+      document.getElementById("pipViewer").classList.add("d-none");
+      document.getElementById("pipContent").innerHTML = "";
+      document.body.classList.remove("no-scroll");
+      document.getElementById("pipBackdrop").style.display = "none";
+      currentPdf = null;
+    });
+  }
 
   // Minimize button
   if (btnMin) {
@@ -528,18 +560,6 @@ document.addEventListener("DOMContentLoaded", function () {
           img.style.transform = "translate(-50%, -50%) scale(1)";
         }
       }
-    });
-  }
-
-  // Close button
-  if (btnClose) {
-    btnClose.addEventListener("click", (e) => {
-      e.stopPropagation(); // Prevent event from bubbling to header
-      document.getElementById("pipViewer").classList.add("d-none");
-      document.getElementById("pipContent").innerHTML = "";
-      document.body.classList.remove("no-scroll");
-      document.getElementById("pipBackdrop").style.display = "none";
-      currentPdf = null;
     });
   }
 

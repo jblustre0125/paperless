@@ -63,3 +63,15 @@
 .bi-list-ul::before {
   content: "\f47f";
 }
+
+.bi-trash-fill::before {
+  content: "\f5dd";
+}
+
+.bi-trash::before {
+  content: "\f5de";
+}
+
+.bi-x-circle-fill::before {
+  content: "\f622";
+}

@@ -8,8 +8,7 @@ body {
 .sticky-dor-bar {
   position: sticky;
   top: 58px;
-  z-index: 1030;
-  background: white;
+  z-index: 1035;
   width: 100%;
 }
 
@@ -80,7 +79,7 @@ body {
 /* Important: Fixed thead styles */
 .table-checkpointA thead {
   position: sticky;
-  top: 195px;
+  top: 132px;
   z-index: 1031;
   background: white;
 }
