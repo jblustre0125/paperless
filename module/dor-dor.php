@@ -163,22 +163,20 @@ try {
           <tbody>
             <?php for ($i = 1; $i <= 20; $i++) { ?>
               <tr data-row-id="<?= $i ?>">
-                <td class="clickable-row" style="cursor: pointer;">
-                  <div class="d-flex align-items-center justify-content-center">
-                    <i class="bi bi-qr-code-scan me-2"></i>
-                    <?= $i ?>
-                  </div>
+                <td class="clickable-row text-center align-middle" style="cursor: pointer; width: 60px;">
+                  <?= $i ?>
+                  <i class="bi bi-qr-code-scan ms-1"></i>
                 </td>
                 <td class="box-no-column">
-                  <input type="text" class="form-control scan-box-no box-no-input text-center" id="boxNo<?= $i ?>" name="boxNo<?= $i ?>" disabled readonly>
+                  <input type="text" class="form-control scan-box-no box-no-input text-center" id="boxNo<?= $i ?>" name="boxNo<?= $i ?>" disabled>
                   <input type="hidden" id="modelName<?= $i ?>" name="modelName<?= $i ?>">
                   <input type="hidden" id="lotNumber<?= $i ?>" name="lotNumber<?= $i ?>">
                 </td>
                 <td class="time-column">
-                  <input type="text" class="form-control text-center time-input" id="timeStart<?= $i ?>" readonly>
+                  <input type="text" class="form-control text-center time-input" id="timeStart<?= $i ?>">
                 </td>
                 <td class="time-column">
-                  <input type="text" class="form-control scan-box-no text-center time-input" id="timeEnd<?= $i ?>" disabled readonly>
+                  <input type="text" class="form-control scan-box-no text-center time-input" id="timeEnd<?= $i ?>" disabled>
                 </td>
                 <td class="align-middle text-center">
                   <div class="action-container">
@@ -286,7 +284,7 @@ try {
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
         <div class="modal-header">
-          <h5 class="modal-title">Scan Employee ID</h5>
+          <h5 class="modal-title">Scan ID Tag</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body text-center">
@@ -294,7 +292,6 @@ try {
           <p class="text-muted mt-2">Align the QR code within the frame.</p>
         </div>
         <div class="modal-footer d-flex justify-content-between">
-          <button type="button" class="btn btn-secondary" id="enterManually">Enter Manually</button>
           <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Cancel</button>
         </div>
       </div>
@@ -355,6 +352,7 @@ try {
         willReadFrequently: true
       });
       let scanning = false;
+      let activeRowId = null;
 
       function getCameraConstraints() {
         return {
@@ -366,7 +364,8 @@ try {
         };
       }
 
-      function startScanning() {
+      function startScanning(rowId) {
+        activeRowId = rowId;
         scannerModal.show();
         const constraints = getCameraConstraints();
 
@@ -397,18 +396,131 @@ try {
         scanning = true;
       }
 
+      function indicateScanSuccess() {
+        const videoContainer = video.parentElement;
+        videoContainer.style.position = "relative";
+
+        const overlay = document.createElement("div");
+        overlay.style.position = "absolute";
+        overlay.style.top = "0";
+        overlay.style.left = "0";
+        overlay.style.width = "100%";
+        overlay.style.height = "100%";
+        overlay.style.backgroundColor = "rgba(0,255,0,0.25)";
+        overlay.style.zIndex = "9999";
+        videoContainer.appendChild(overlay);
+
+        setTimeout(() => overlay.remove(), 300);
+      }
+
       function scanQRCode() {
         if (!scanning) return;
         if (video.readyState === video.HAVE_ENOUGH_DATA) {
           canvas.width = video.videoWidth;
           canvas.height = video.videoHeight;
           ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          let qrCodeData = jsQR(imageData.data, imageData.width, imageData.height);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const qrCodeData = jsQR(imageData.data, imageData.width, imageData.height);
+
           if (qrCodeData) {
-            let scannedText = qrCodeData.data.trim();
-            if (activeInput) activeInput.value = scannedText;
-            stopScanning();
+            const scannedText = qrCodeData.data.trim();
+            const parts = scannedText.split(" ");
+            const modelName = <?php echo json_encode($_SESSION['modelName'] ?? ''); ?>;
+
+            if (parts.length === 1) {
+              // Single part - Check if it matches model name
+              if (parts[0] === modelName) {
+                // If model name matches and time start exists, set time end
+                if (activeRowId) {
+                  const timeStartInput = document.getElementById(`timeStart${activeRowId}`);
+                  const timeEndInput = document.getElementById(`timeEnd${activeRowId}`);
+
+                  if (timeStartInput && timeStartInput.value) {
+                    // Set current time in 24-hour format for time end
+                    const now = new Date();
+                    const hours = String(now.getHours()).padStart(2, '0');
+                    const minutes = String(now.getMinutes()).padStart(2, '0');
+                    const seconds = String(now.getSeconds()).padStart(2, '0');
+                    timeEndInput.value = `${hours}:${minutes}:${seconds}`;
+                    timeEndInput.dispatchEvent(new Event('change'));
+                    indicateScanSuccess();
+                  } else {
+                    showErrorModal("Please set time start first");
+                  }
+                }
+                stopScanning();
+                return;
+              }
+
+              // If not matching model name, use as box number
+              if (activeRowId) {
+                const boxNoInput = document.getElementById(`boxNo${activeRowId}`);
+                const timeStartInput = document.getElementById(`timeStart${activeRowId}`);
+
+                if (boxNoInput) {
+                  boxNoInput.value = parts[0];
+                  boxNoInput.dispatchEvent(new Event('change'));
+
+                  // Set current time in 24-hour format for time start
+                  const now = new Date();
+                  const hours = String(now.getHours()).padStart(2, '0');
+                  const minutes = String(now.getMinutes()).padStart(2, '0');
+                  const seconds = String(now.getSeconds()).padStart(2, '0');
+                  timeStartInput.value = `${hours}:${minutes}:${seconds}`;
+                  timeStartInput.dispatchEvent(new Event('change'));
+
+                  indicateScanSuccess();
+                }
+              }
+              stopScanning();
+            } else if (parts.length === 3) {
+              // Three parts - Model, Quantity, Lot/Box Number
+              const scannedModel = parts[0];
+              const qty = parts[1];
+              const lotNumber = parts[2];
+
+              if (scannedModel === modelName) {
+                if (activeRowId) {
+                  const boxNoInput = document.getElementById(`boxNo${activeRowId}`);
+                  const timeStartInput = document.getElementById(`timeStart${activeRowId}`);
+                  const timeEndInput = document.getElementById(`timeEnd${activeRowId}`);
+
+                  if (boxNoInput && timeStartInput && timeEndInput) {
+                    // Set box number
+                    boxNoInput.value = lotNumber;
+                    boxNoInput.dispatchEvent(new Event('change'));
+
+                    // Check if time start already has a value
+                    if (timeStartInput.value) {
+                      // Set current time in 24-hour format for time end
+                      const now = new Date();
+                      const hours = String(now.getHours()).padStart(2, '0');
+                      const minutes = String(now.getMinutes()).padStart(2, '0');
+                      const seconds = String(now.getSeconds()).padStart(2, '0');
+                      timeEndInput.value = `${hours}:${minutes}:${seconds}`;
+                      timeEndInput.dispatchEvent(new Event('change'));
+                    } else {
+                      // Set current time in 24-hour format for time start
+                      const now = new Date();
+                      const hours = String(now.getHours()).padStart(2, '0');
+                      const minutes = String(now.getMinutes()).padStart(2, '0');
+                      const seconds = String(now.getSeconds()).padStart(2, '0');
+                      timeStartInput.value = `${hours}:${minutes}:${seconds}`;
+                      timeStartInput.dispatchEvent(new Event('change'));
+                    }
+
+                    indicateScanSuccess();
+                  }
+                }
+                stopScanning();
+              } else {
+                showErrorModal("Invalid QR code: Model name mismatch");
+                stopScanning();
+              }
+            } else {
+              showErrorModal("Invalid QR code format");
+              stopScanning();
+            }
           }
         }
         requestAnimationFrame(scanQRCode);
@@ -419,11 +531,13 @@ try {
         let tracks = video.srcObject?.getTracks();
         if (tracks) tracks.forEach(track => track.stop());
         scannerModal.hide();
+        activeRowId = null;
       }
 
-      let activeInput = null;
-      document.querySelectorAll("input[id^='userCode']").forEach(input => {
-        input.addEventListener("click", async function() {
+      // Add click event listeners to row numbers
+      document.querySelectorAll('.clickable-row').forEach(cell => {
+        cell.addEventListener('click', async function() {
+          const rowId = this.closest('tr').getAttribute('data-row-id');
           const accessGranted = await navigator.mediaDevices.getUserMedia({
             video: true
           }).then(stream => {
@@ -432,8 +546,7 @@ try {
           }).catch(() => false);
 
           if (accessGranted) {
-            activeInput = this;
-            startScanning();
+            startScanning(rowId);
           } else {
             alert("Camera access denied");
           }
@@ -441,13 +554,6 @@ try {
       });
 
       document.getElementById("qrScannerModal").addEventListener("hidden.bs.modal", stopScanning);
-      document.getElementById("enterManually").addEventListener("click", () => {
-        stopScanning();
-        setTimeout(() => {
-          if (activeInput) activeInput.focus();
-        }, 300); // Delay to wait for modal fade-out animation
-      });
-
     });
   </script>
 
@@ -652,6 +758,11 @@ try {
         const rowId = this.getAttribute('data-row-id');
         const row = document.querySelector(`tr[data-row-id="${rowId}"]`);
 
+        // Show confirmation dialog
+        if (!confirm(`Are you sure you want to clear row ${rowId}?`)) {
+          return; // Stop if user cancels
+        }
+
         // Clear all inputs in the row
         row.querySelectorAll('input').forEach(input => {
           input.value = '';
@@ -692,6 +803,71 @@ try {
         }, 3000);
       });
     });
+
+    // Function to check if a row is complete
+    function isRowComplete(rowId) {
+      const boxNo = document.getElementById(`boxNo${rowId}`).value.trim();
+      const timeStart = document.getElementById(`timeStart${rowId}`).value.trim();
+      const timeEnd = document.getElementById(`timeEnd${rowId}`).value.trim();
+      return boxNo && timeStart && timeEnd; // All three fields are required
+    }
+
+    // Function to set row active/inactive
+    function setRowActive(rowId, active) {
+      const row = document.querySelector(`tr[data-row-id="${rowId}"]`);
+      const inputs = row.querySelectorAll('input:not([type="hidden"])');
+      const buttons = row.querySelectorAll('button');
+
+      if (active) {
+        row.classList.remove('row-inactive');
+        row.classList.add('row-active');
+        inputs.forEach(input => {
+          input.disabled = false;
+          if (input.id.startsWith('boxNo') || input.id.startsWith('timeStart') || input.id.startsWith('timeEnd')) {
+            input.classList.add('required-field');
+          }
+        });
+        buttons.forEach(button => button.disabled = false);
+      } else {
+        row.classList.remove('row-active');
+        row.classList.add('row-inactive');
+        inputs.forEach(input => {
+          input.disabled = true;
+          if (input.id.startsWith('boxNo') || input.id.startsWith('timeStart') || input.id.startsWith('timeEnd')) {
+            input.classList.add('required-field');
+          }
+        });
+        buttons.forEach(button => button.disabled = true);
+      }
+    }
+
+    // Function to check and update row states
+    function updateRowStates() {
+      for (let i = 2; i <= 20; i++) {
+        const prevRowComplete = isRowComplete(i - 1);
+        setRowActive(i, prevRowComplete);
+      }
+    }
+
+    // Add event listeners to required fields
+    for (let i = 1; i <= 20; i++) {
+      const boxNoInput = document.getElementById(`boxNo${i}`);
+      const timeStartInput = document.getElementById(`timeStart${i}`);
+      const timeEndInput = document.getElementById(`timeEnd${i}`);
+
+      // Add change event listeners
+      [boxNoInput, timeStartInput, timeEndInput].forEach(input => {
+        if (input) {
+          input.addEventListener('change', updateRowStates);
+          // Add required field styling
+          input.classList.add('required-field');
+        }
+      });
+    }
+
+    // Initialize row states
+    setRowActive(1, true); // First row is always active
+    updateRowStates();
   </script>
 
   <form id="deleteDorForm" method="POST" action="dor-form.php">
