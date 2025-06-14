@@ -8,19 +8,20 @@ body {
 
 /* Container settings */
 .container-fluid {
-  padding: 0 15px;
+  padding: 0;
   margin: 0;
 }
 
 /* Table styles */
 .table-container {
   overflow-x: auto;
-  padding: 0;
+  padding: 0 10px;
   padding-top: 1px !important;
 }
 
 .table {
   margin-bottom: 1rem;
+  table-layout: fixed;
 }
 
 .table th,
@@ -28,8 +29,12 @@ body {
   padding: 0.75rem;
   vertical-align: middle;
   text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
+/* Column width adjustments */
 .table th:first-child,
 .table td:first-child {
   width: 25px;
@@ -38,6 +43,48 @@ body {
   padding-left: 3px !important;
   padding-right: 3px !important;
   font-size: 0.8rem !important;
+}
+
+/* Box No column */
+.table th:nth-child(2),
+.table td:nth-child(2) {
+  width: 120px;
+  min-width: 120px;
+  max-width: 120px;
+}
+
+/* Time Start column */
+.table th:nth-child(3),
+.table td:nth-child(3) {
+  width: 100px;
+  min-width: 100px;
+  max-width: 100px;
+}
+
+/* Time End column */
+.table th:nth-child(4),
+.table td:nth-child(4) {
+  width: 100px;
+  min-width: 100px;
+  max-width: 100px;
+}
+
+/* Operator and Downtime columns */
+.table th:nth-child(5),
+.table td:nth-child(5),
+.table th:nth-child(6),
+.table td:nth-child(6) {
+  width: 150px;
+  min-width: 150px;
+  max-width: 150px;
+}
+
+/* Action column */
+.table th:last-child,
+.table td:last-child {
+  width: 50px;
+  min-width: 50px;
+  max-width: 50px;
 }
 
 .table input[type="text"] {
@@ -218,4 +265,37 @@ body {
   height: 100% !important;
   background-color: rgba(0, 255, 0, 0.25) !important;
   z-index: 9999 !important;
+}
+
+/* Action container styles */
+.action-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.btn-operator,
+.btn-outline-secondary.btn-sm {
+  margin-bottom: 5px;
+  padding: 0.5rem 0.75rem;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.operator-codes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: center;
+}
+
+.operator-codes .badge {
+  font-size: 0.8rem;
+  padding: 4px 8px;
+}
+
+.downtime-info {
+  min-height: 24px;
 }

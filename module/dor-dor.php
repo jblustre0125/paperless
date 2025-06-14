@@ -10,6 +10,8 @@ $db1 = new DbOp(1);
 
 $errorPrompt = '';
 
+var_dump($_SESSION);
+
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
   ob_end_clean();
   header('Content-Type: application/json; charset=utf-8');
@@ -173,10 +175,10 @@ try {
                   <input type="hidden" id="lotNumber<?= $i ?>" name="lotNumber<?= $i ?>">
                 </td>
                 <td class="time-column">
-                  <input type="text" class="form-control text-center time-input" id="timeStart<?= $i ?>">
+                  <input type="text" class="form-control scan-box-no text-center time-input" id="timeStart<?= $i ?>" pattern="[0-9]{2}:[0-9]{2}" placeholder="HH:mm" maxlength="5">
                 </td>
                 <td class="time-column">
-                  <input type="text" class="form-control scan-box-no text-center time-input" id="timeEnd<?= $i ?>" disabled>
+                  <input type="text" class="form-control scan-box-no text-center time-input" id="timeEnd<?= $i ?>" pattern="[0-9]{2}:[0-9]{2}" placeholder="HH:mm" maxlength="5" disabled>
                 </td>
                 <td class="align-middle text-center">
                   <div class="action-container">
@@ -303,7 +305,7 @@ try {
     <div class="modal-dialog">
       <div class="modal-content border-danger">
         <div class="modal-header bg-danger text-white">
-          <h5 class="modal-title" id="errorModalLabel">Please complete the checkpoint</h5>
+          <h5 class="modal-title" id="errorModalLabel">Error summary</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body" id="modalErrorMessage">
@@ -353,6 +355,86 @@ try {
       });
       let scanning = false;
       let activeRowId = null;
+
+      // Time input validation
+      document.querySelectorAll('.time-input').forEach(input => {
+        input.addEventListener('input', function(e) {
+          // Remove any non-numeric characters
+          let value = this.value.replace(/[^0-9]/g, '');
+
+          // Format the time as user types
+          if (value.length > 0) {
+            // If user types 4 digits, format as HH:mm
+            if (value.length >= 4) {
+              let hours = value.slice(0, 2);
+              let minutes = value.slice(2, 4);
+
+              // Validate hours and minutes
+              if (parseInt(hours) > 23) hours = '23';
+              if (parseInt(minutes) > 59) minutes = '59';
+
+              value = hours + ':' + minutes;
+            }
+            // If user types 2 digits, add colon
+            else if (value.length === 2) {
+              let hours = value;
+              if (parseInt(hours) > 23) hours = '23';
+              value = hours + ':';
+            }
+          }
+
+          this.value = value;
+        });
+
+        // Validate time on blur (when input loses focus)
+        input.addEventListener('blur', function(e) {
+          let value = this.value;
+          if (value.length === 5) { // HH:mm format
+            let [hours, minutes] = value.split(':').map(Number);
+
+            // Check if time is valid
+            if (isNaN(hours) || isNaN(minutes) ||
+              hours < 0 || hours > 23 ||
+              minutes < 0 || minutes > 59) {
+              // Show error message
+              showErrorModal('Invalid time format. Please enter time between 00:00 and 23:59');
+              // Clear invalid input
+              this.value = '';
+              // Add error styling
+              this.classList.add('is-invalid');
+            } else {
+              // Remove error styling if valid
+              this.classList.remove('is-invalid');
+            }
+          } else if (value.length > 0) {
+            // If input is not empty but not in correct format
+            showErrorModal('Invalid time format. Please enter time in HH:mm format (e.g., 09:30)');
+            this.value = '';
+            this.classList.add('is-invalid');
+          }
+        });
+
+        // Prevent paste of invalid characters
+        input.addEventListener('paste', function(e) {
+          e.preventDefault();
+          let pastedText = (e.clipboardData || window.clipboardData).getData('text');
+          let cleanText = pastedText.replace(/[^0-9]/g, '');
+
+          // Format pasted time
+          if (cleanText.length >= 4) {
+            let hours = cleanText.slice(0, 2);
+            let minutes = cleanText.slice(2, 4);
+
+            // Validate hours and minutes
+            if (parseInt(hours) > 23) hours = '23';
+            if (parseInt(minutes) > 59) minutes = '59';
+
+            this.value = hours + ':' + minutes;
+          } else {
+            this.value = cleanText;
+          }
+        });
+      });
 
       function getCameraConstraints() {
         return {
@@ -425,7 +507,7 @@ try {
           if (qrCodeData) {
             const scannedText = qrCodeData.data.trim();
             const parts = scannedText.split(" ");
-            const modelName = <?php echo json_encode($_SESSION['modelName'] ?? ''); ?>;
+            const modelName = <?php echo json_encode($_SESSION['dorModelName'] ?? ''); ?>;
 
             if (parts.length === 1) {
               // Single part - Check if it matches model name
@@ -768,10 +850,18 @@ try {
           input.value = '';
         });
 
-        // Clear operator codes
+        // Clear operator codes and add default employee code
         const operatorList = document.getElementById(`operatorList${rowId}`);
         if (operatorList) {
-          operatorList.innerHTML = '';
+          operatorList.innerHTML = `
+            <small class="badge bg-light text-dark border"><?= $employeeCode ?></small>
+          `;
+        }
+
+        // Set default employee code in hidden input
+        const operatorInput = document.getElementById(`operators${rowId}`);
+        if (operatorInput) {
+          operatorInput.value = '<?= $employeeCode ?>';
         }
 
         // Clear downtime info
