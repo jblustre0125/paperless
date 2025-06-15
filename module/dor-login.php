@@ -1,4 +1,6 @@
-<?php require_once '../admin/authenticate.php'; ?>
+<?php
+// require_once '../admin/authenticate.php'; 
+?>
 
 <!DOCTYPE html>
 <html lang="en">

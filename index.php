@@ -4,9 +4,11 @@ if (isset($_SERVER['REQUEST_URI']) && str_contains($_SERVER['REQUEST_URI'], 'man
     exit;
 }
 
-require_once "config/dbop.php";
+require_once __DIR__ . "/config/dbop.php";
+require_once __DIR__ . "/config/header.php";
 
 $db1 = new DbOp(1);
+
 $clientIp = $_SERVER['REMOTE_ADDR'];
 
 // Developer override via URL: index.php?dev
@@ -16,11 +18,22 @@ if (isset($_GET['dev'])) {
 }
 
 // Check if IP is registered and active (indicates tablet device)
-$query = "SELECT TOP 1 HostnameId FROM GenHostname WHERE IpAddress = ? AND IsActive = 1";
-$result = $db1->execute($query, [$clientIp], 1);
+$query = "EXEC RdGenHostname @IpAddress=?, @IsActive=?, @IsLoggedIn=?";
+$res = $db1->execute($query, [$clientIp, 1, 0], 1);
 
-if ($result) {
-    header("Location: module/dor-login.php");
+if (!empty($res)) {
+    // Get the first row from the results array
+    $row = $res[0];
+
+    $_SESSION['hostnameId'] = $row["HostnameId"];
+    $_SESSION['hostname'] = $row["Hostname"];
+    $_SESSION['processId'] = $row['ProcessId'];
+    $_SESSION['ipAddress'] = $row["IpAddress"];
+
+    $updQry2 = "EXEC UpdGenHostname @HostnameId=?, @IsLoggedIn=?";
+    $db1->execute($updQry2, [$row["HostnameId"], 1], 1);
+
+    header("Location: module/dor-home.php");
     exit;
 }
 

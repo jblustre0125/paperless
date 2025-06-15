@@ -1,6 +1,6 @@
 <?php
 
-require_once 'dbop.php'; // Ensure DbOp is included
+require_once __DIR__ . '/dbop.php'; // Ensure DbOp is included
 
 /**
  * Sanitize user input to prevent XSS and SQL injection.
@@ -101,11 +101,11 @@ function isValidModel($modelName)
     return true;
 }
 
-function isExistDor($dorDate, $shiftId, $lineId, $modelId, $dortypeId)
+function isExistDor($dorDate, $shiftId, $lineId)
 {
     $db1 = new DbOp(1);
-    $selSp = "EXEC CntAtoDOR @DorDate=?, @ShiftId=?, @LineId=?, @ModelId=?, @DorTypeId=?";
-    $res = $db1->execute($selSp, [$dorDate, $shiftId, $lineId, $modelId, $dortypeId], 1);
+    $selSp = "EXEC CntAtoDOR @DorDate=?, @ShiftId=?, @LineId=?";
+    $res = $db1->execute($selSp, [$dorDate, $shiftId, $lineId], 1);
 
     // Check if the result is empty or 'Count' is not set, return false
     if (empty($res) || !isset($res[0]['Count']) || $res[0]['Count'] == 0) {

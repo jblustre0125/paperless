@@ -1,7 +1,7 @@
 {
   "name": "DOR System",
   "short_name": "DOR",
-  "start_url": "/paperless/module/dor-login.php",
+  "start_url": "/paperless/module/dor-home.php",
   "display": "fullscreen",
   "background_color": "#ffffff",
   "theme_color": "#0d6efd",

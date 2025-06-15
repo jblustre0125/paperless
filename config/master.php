@@ -1,22 +1,56 @@
 <?php
-require_once "../config/header.php";
+require_once __DIR__ . "/header.php";
 
 $db1 = new DbOp(1);
 
 if (isset($_GET['logOut'])) {
-    $updQry1 = "EXEC UpdGenEmployeeAll @EmployeeCode=?, @IsLoggedIn=?";
-    $db1->execute($updQry1, [$_SESSION['employeeCode'], 0], 1);
-
+    // Update the tablet's logged in status to 0
     $updQry2 = "EXEC UpdGenHostname @HostnameId=?, @IsLoggedIn=?";
     $db1->execute($updQry2, [$_SESSION['hostnameId'], 0], 1);
 
-    if ($isProdMode === 1) {
-        header('Location: ../module/adm-mode.php');
-        exit;
-    } else {
-        header('Location: ../logout.php');
-        exit;
-    }
+    // Clear all session data
+    session_destroy();
+
+    // Send HTML response to close the window
+    echo '<!DOCTYPE html>
+    <html>
+    <head>
+        <title>Closing Application</title>
+        <style>
+            body {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                margin: 0;
+                background-color: #f8f9fa;
+                font-family: Arial, sans-serif;
+            }
+            .message {
+                text-align: center;
+                padding: 20px;
+                background: white;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+        </style>
+    </head>
+    <body>
+        <div class="message">
+            <h2>Application Closed</h2>
+            <p>Please close this window manually.</p>
+        </div>
+        <script>
+            try {
+                window.close();
+            } catch (e) {
+                // If window.close() fails, show a message
+                alert("Please close this window manually.");
+            }
+        </script>
+    </body>
+    </html>';
+    exit;
 }
 ?>
 
@@ -49,20 +83,13 @@ if (isset($_GET['logOut'])) {
 
                 <!-- Device Name Styled & Aligned -->
                 <ul class="navbar-nav">
-                    <li class="nav-item">
-                        <span class="nav-link text-info fw-bold" style="pointer-events: none;">
-                            <?= isset($_SESSION['hostname']) ? testInput($_SESSION['hostname']) : '—'; ?>
-                        </span>
-                    </li>
-
-                    <!-- Employee Dropdown (Styled & Aligned) -->
                     <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle fs-5" href="#" id="userDropdown" role="button"
+                        <a class="nav-link dropdown-toggle text-info fw-bold" href="#" id="deviceDropdown" role="button"
                             data-bs-toggle="dropdown" aria-expanded="false">
-                            <?= isset($_SESSION['employeeName']) ? testInput($_SESSION['employeeName']) : 'User'; ?>
+                            <?= isset($_SESSION['hostname']) ? testInput($_SESSION['hostname']) : 'Tablet Name'; ?>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item text-danger fw-bold" href="?logOut">Log Out</a></li>
+                            <li><a class="dropdown-item text-danger fw-bold" href="#" onclick="exitApplication(event)">Exit Application</a></li>
                         </ul>
                     </li>
                 </ul>
@@ -76,8 +103,29 @@ if (isset($_GET['logOut'])) {
     </div>
 
     <script src="../js/bootstrap.bundle.min.js"></script>
+    <script>
+        function exitApplication(event) {
+            event.preventDefault();
+
+            // Show confirmation dialog
+            if (confirm('Are you sure you want to exit the application?')) {
+                // Update database and show exit page
+                fetch('?logOut=1')
+                    .then(response => response.text())
+                    .then(html => {
+                        document.open();
+                        document.write(html);
+                        document.close();
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Please close this window manually.');
+                    });
+            }
+        }
+    </script>
 </body>
 
 </html>
 
-<?php require_once '../config/footer.php'; ?>
+<?php require_once __DIR__ . '/footer.php'; ?>

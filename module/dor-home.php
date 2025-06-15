@@ -2,8 +2,8 @@
 $title = "Homepage";
 ob_start();
 
-require_once "../config/dbop.php";
-require_once "../config/header.php";
+require_once __DIR__ . "/../config/dbop.php";
+require_once __DIR__ . "/../config/header.php";
 
 $db1 = new DbOp(1);
 
@@ -33,13 +33,11 @@ if ($res !== false && !empty($res)) {
     $selectedShift = ($currentHour >= 7 && $currentHour <= 19) ? "DS" : "NS";
 }
 
-$response = ['success' => false, 'errors' => []];
-
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     ob_end_clean();
     header('Content-Type: application/json; charset=utf-8');
 
-    $errorMessages = [];
+    $response = ['success' => false, 'errors' => []];  // Initialize response array
 
     $dorDate = testInput($_POST["dtpDate"]);
     $shiftCode = testInput($_POST['rdShift']);
@@ -49,35 +47,35 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $qty = (int) testInput($_POST["txtQty"]);
 
     if (empty($dorDate)) {
-        $errorMessages[] = "Select date.";
+        $response['errors'][] = "Select date.";
     }
 
     if (empty($shiftCode)) {
-        $errorMessages[] = "Select shift.";
+        $response['errors'][] = "Select shift.";
     }
 
     if (empty(trim($lineNumber)) || $lineNumber == "0") {
-        $errorMessages[] = "Enter line number.";
+        $response['errors'][] = "Enter line number.";
     } else {
         if (!isValidLine($lineNumber)) {
-            $errorMessages[] = "Line number is not valid or inactive.";
+            $response['errors'][] = "Line number is not valid or inactive.";
         }
     }
 
     if (testInput($dorTypeId == "0")) {
-        $errorMessages[] = "Select DOR type.";
+        $response['errors'][] = "Select DOR type.";
     }
 
     if (empty(trim($modelName))) {
-        $errorMessages[] = "Enter model name.";
+        $response['errors'][] = "Enter model name.";
     } else {
         if (!isValidModel($modelName)) {
-            $errorMessages[] = "Model name is not registered or inactive.";
+            $response['errors'][] = "Model name is not registered or inactive.";
         }
     }
 
     if (empty(trim($qty)) || $qty == 0) {
-        $errorMessages[] = "Enter quantity.";
+        $response['errors'][] = "Enter quantity.";
     }
 
     $shiftId = $lineId = $modelId = 0;
@@ -112,7 +110,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     if (empty($response['errors'])) {
         if (isset($_POST['btnCreateDor'])) {
             if (isExistDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId)) {
-                $errorMessages[] = "DOR already exists.";
+                $response['errors'][] = "DOR already exists.";
             } else {
                 handleCreateDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty, $response);
             }
@@ -121,7 +119,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         }
     }
 
-    $response['errors'] = $errorMessages;
     echo json_encode($response);
     exit;
 }
@@ -151,12 +148,11 @@ function handleCreateDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
 
     $recordId = 0;
 
-    $insQry = "EXEC InsAtoDor @DorTypeId=?, @ShiftId=?, @DorDate=?, @CreatedBy=?, @ModelId=?, @LineId=?, @Quantity=?, @HostnameId=?, @RecordId=?";
+    $insQry = "EXEC InsAtoDor @DorTypeId=?, @ShiftId=?, @DorDate=?, @ModelId=?, @LineId=?, @Quantity=?, @HostnameId=?, @RecordId=?";
     $params = [
         $dorTypeId,
         $shiftId,
         $dorDate,
-        $_SESSION["employeeCode"],
         $modelId,
         $lineId,
         $qty,
@@ -167,9 +163,9 @@ function handleCreateDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
     $res = $db1->execute($insQry, $params, 1);
 
     if ($res === false) {
-        $errorMessages[] = "SQL execution failed: </br>" . print_r(sqlsrv_errors(), true);
-    } elseif ($res === false || $recordId === 0) {
-        $errorMessages[] = "No rows affected. Insert failed.";
+        $response['errors'][] = "SQL execution failed: " . print_r(sqlsrv_errors(), true);
+    } elseif ($recordId === 0) {
+        $response['errors'][] = "No rows affected. Insert failed.";
     } else {
         $_SESSION["dorDate"] = $dorDate;
         $_SESSION["dorShift"] = $shiftId;
