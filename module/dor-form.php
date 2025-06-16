@@ -498,6 +498,7 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
         let isMinimized = false;
         const workInstructFile = <?php echo json_encode($workInstructFile); ?>;
         const preCardFile = <?php echo json_encode($preCardFile); ?>;
+        const drawingFile = <?php echo json_encode($drawingFile); ?>;
 
         document.addEventListener("DOMContentLoaded", function() {
             // Attach event listeners to buttons
