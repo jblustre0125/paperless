@@ -16,6 +16,30 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     $response = ['success' => false, 'errors' => []];
 
+    // Handle employee validation request
+    if (isset($_POST['action']) && $_POST['action'] === 'validate_employee') {
+        $employeeCode = trim($_POST['employeeCode'] ?? '');
+
+        if (empty($employeeCode)) {
+            $response['valid'] = false;
+            $response['message'] = 'Employee ID is required.';
+        } else {
+            $spRd1 = "EXEC RdGenEmployeeAll @EmployeeCode=?, @IsActive=1, @IsLoggedIn=0";
+            $res1 = $db1->execute($spRd1, [$employeeCode], 1);
+
+            if (!empty($res1)) {
+                $response['valid'] = true;
+                $response['message'] = 'Employee ID is valid.';
+            } else {
+                $response['valid'] = false;
+                $response['message'] = 'Invalid Employee ID. Please check and try again.';
+            }
+        }
+
+        echo json_encode($response);
+        exit;
+    }
+
     // Handle deletion request
     if (isset($_POST['action']) && $_POST['action'] === 'delete_dor') {
         $recordId = $_SESSION['dorRecordId'] ?? null;
@@ -199,15 +223,16 @@ try {
                             die("Invalid tabQty in session.");
                         }
                         for ($i = 1; $i <= $_SESSION['tabQty']; $i++) :
-                            $debugUserCodes = [1 => '2503-004', 2 => '2503-005', 3 => 'FMB-0826', 4 => 'FMB-0570'];
-                            $debugUserCodeValue = $debugUserCodes[$i] ?? '';
                         ?>
                             <div class="d-flex flex-column align-items-center">
-                                <button type="button" class="tab-button btn btn-secondary btn-sm mb-1"
+                                <button type="button" class="tab-button btn btn-secondary mb-1"
                                     onclick="openTab(event, 'Process<?php echo $i; ?>')">Process <?php echo $i; ?></button>
-                                <input type="text" class="form-control form-control-md" id="userCode<?php echo $i; ?>"
-                                    name="userCode<?php echo $i; ?>" placeholder="Employee ID"
-                                    value="<?php echo $debugUserCodeValue; ?>">
+                                <div class="employee-validation">
+                                    <input type="text" class="form-control form-control-md" id="userCode<?php echo $i; ?>"
+                                        name="userCode<?php echo $i; ?>" placeholder="Employee ID">
+                                    <button type="button" class="btn btn-primary btn-validate-employee"
+                                        onclick="validateEmployee(<?php echo $i; ?>)">Validate</button>
+                                </div>
                             </div>
                         <?php endfor; ?>
                     </div>
@@ -262,34 +287,20 @@ try {
                                             <td class="selection-cell">
                                                 <?php
                                                 $inputName = "Process{$i}_{$row['CheckpointId']}";
-                                                $debugResponse = '';
-                                                switch ((int)$row['CheckpointTypeId']) {
-                                                    case 1:
-                                                        $debugResponse = 'OK';
-                                                        break;
-                                                    case 2:
-                                                        $debugResponse = 'DEBUG';
-                                                        break;
-                                                    case 3:
-                                                        $debugResponse = 'CJ';
-                                                        break;
-                                                    case 4:
-                                                        $debugResponse = 'M';
-                                                        break;
-                                                }
+                                                $response = '';
 
                                                 $controlType = $row['CheckpointControl'];
                                                 $options = $row['Options'];
 
                                                 if ($controlType === 'radio' && !empty($options)) {
                                                     echo "<div class='process-radio'>";
-                                                    foreach ($options as $opt) {
-                                                        $checked = ($opt === $debugResponse) ? "checked" : "";
+                                                    foreach ($options as $index => $opt) {
+                                                        $checked = ($index === 0) ? "checked" : "";
                                                         echo "<label><input type='radio' name='{$inputName}' value='{$opt}' {$checked}> {$opt}</label> ";
                                                     }
                                                     echo "</div>";
                                                 } elseif ($controlType === 'text') {
-                                                    echo "<input type='text' name='{$inputName}' class='form-control' value='{$debugResponse}'>";
+                                                    echo "<input type='text' name='{$inputName}' class='form-control'>";
                                                 } else {
                                                     echo "<em>Unknown control type</em>";
                                                 }
@@ -372,6 +383,15 @@ try {
             const errorModal = new bootstrap.Modal(document.getElementById("errorModal"));
             errorModal.show();
         }
+
+        // Add this to handle modal closing
+        document.addEventListener('DOMContentLoaded', function() {
+            const errorModal = document.getElementById('errorModal');
+            errorModal.addEventListener('hidden.bs.modal', function() {
+                // Reset the modal content when it's closed
+                document.getElementById("modalErrorMessage").innerText = '';
+            });
+        });
     </script>
 
     <script>
@@ -537,7 +557,7 @@ try {
 
                     const code = input.value.trim();
                     if (!code) {
-                        userCodeErrorHtml += `<li>Enter Employee ID of P${i}.</li>`;
+                        userCodeErrorHtml += `<li>Enter employee ID for P${i}.</li>`;
                     } else {
                         if (userCodeValues.includes(code)) {
                             userCodeErrorHtml += `<li>Employee ID "${code}" is duplicated.</li>`;
@@ -637,6 +657,39 @@ try {
 
         });
 
+        // Add this new function for employee validation
+        async function validateEmployee(processIndex) {
+            const employeeCode = document.getElementById(`userCode${processIndex}`).value.trim();
+            if (!employeeCode) {
+                showErrorModal("Enter employee ID for P" + processIndex + ".");
+                return;
+            }
+
+            try {
+                const response = await fetch(window.location.href, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `action=validate_employee&employeeCode=${encodeURIComponent(employeeCode)}`
+                });
+
+                const data = await response.json();
+
+                if (data.valid) {
+                    // Disable the input and button after successful validation
+                    document.getElementById(`userCode${processIndex}`).disabled = true;
+                    document.querySelector(`#Process${processIndex} .btn-validate-employee`).disabled = true;
+                } else {
+                    showErrorModal(data.message || "Invalid Employee ID.");
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showErrorModal("An error occurred while validating the Employee ID.");
+            }
+        }
+
+        // Modify the existing openTab function to remove table disabling
         function openTab(event, tabName) {
             let tabContents = document.querySelectorAll(".tab-content");
             tabContents.forEach(tab => tab.style.display = "none");
@@ -644,7 +697,8 @@ try {
             let tabButtons = document.querySelectorAll(".tab-button");
             tabButtons.forEach(button => button.classList.remove("active"));
 
-            document.getElementById(tabName).style.display = "block";
+            const tabElement = document.getElementById(tabName);
+            tabElement.style.display = "block";
             event.currentTarget.classList.add("active");
 
             sessionStorage.setItem("activeTab", tabName);
