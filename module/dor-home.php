@@ -218,8 +218,8 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
 
         <div class="mb-3">
             <label for="txtLineNumber" class="form-label-lg fw-bold">Line No</label>
-            <input type="number" class="form-control form-control-lg" id="txtLineNumber" name="txtLineNumber" min="1" required
-                value="<?php echo $_POST["txtLineNumber"] ?? '1'; ?>">
+            <input type="number" class="form-control form-control-lg" id="txtLineNumber" name="txtLineNumber" min="1" required placeholder="Enter line number"
+                value="<?php echo $_POST["txtLineNumber"] ?? ''; ?>">
         </div>
 
         <div class="mb-3">
@@ -235,18 +235,19 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
         <div class="mb-3">
             <label for="txtModelName" class="form-label-lg fw-bold">Model</label>
             <input type="text" class="form-control form-control-lg" id="txtModelName" name="txtModelName" placeholder="Tap to scan ID tag" required data-scan
-                value="<?php echo $_POST["txtModelName"] ?? '7L0113-7021C'; ?>">
+                value="<?php echo $_POST["txtModelName"] ?? ''; ?>">
         </div>
 
         <div class="mb-3">
             <label for="txtQty" class="form-label-lg fw-bold">Quantity</label>
             <input type="number" class="form-control form-control-lg" id="txtQty" name="txtQty" min="1" placeholder="Tap to scan ID tag" required
-                value="<?php echo $_POST["txtQty"] ?? '100'; ?>">
+                value="<?php echo $_POST["txtQty"] ?? ''; ?>">
         </div>
 
         <div class="d-grid gap-2">
             <button type="submit" class="btn btn-primary btn-lg" name="btnCreateDor">Create DOR</button>
             <button type="submit" class="btn btn-secondary btn-lg" name="btnSearchDor">Search DOR</button>
+            <button type="submit" class="btn btn-secondary btn-lg" name="btnSetValues">Set Test Values</button>
         </div>
     </div>
 
@@ -501,6 +502,20 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
                     }
                 })
                 .catch(error => console.error("Error:", error));
+        });
+
+        // Add test values function
+        function setTestValues() {
+            document.getElementById("txtLineNumber").value = "1";
+            document.getElementById("txtModelName").value = "7M0656-7020";
+            document.getElementById("cmbDorType").value = "3";
+            document.getElementById("txtQty").value = "100";
+        }
+
+        // Add event listener for Set Test Values button
+        document.querySelector('button[name="btnSetValues"]').addEventListener('click', function(e) {
+            e.preventDefault(); // Prevent form submission
+            setTestValues();
         });
     });
 </script>

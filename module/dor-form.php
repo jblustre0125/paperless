@@ -19,20 +19,21 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     // Handle employee validation request
     if (isset($_POST['action']) && $_POST['action'] === 'validate_employee') {
         $employeeCode = trim($_POST['employeeCode'] ?? '');
+        $processIndex = trim($_POST['processIndex'] ?? '');
 
         if (empty($employeeCode)) {
             $response['valid'] = false;
-            $response['message'] = 'Employee ID is required.';
+            $response['message'] = 'Employee ID is required for P' . $processIndex . '.';
         } else {
             $spRd1 = "EXEC RdGenEmployeeAll @EmployeeCode=?, @IsActive=1, @IsLoggedIn=0";
             $res1 = $db1->execute($spRd1, [$employeeCode], 1);
 
             if (!empty($res1)) {
                 $response['valid'] = true;
-                $response['message'] = 'Employee ID is valid.';
+                $response['message'] = 'Employee ID is valid for P' . $processIndex . '.';
             } else {
                 $response['valid'] = false;
-                $response['message'] = 'Invalid employee ID.';
+                $response['message'] = 'Invalid employee ID for P' . $processIndex . '.';
             }
         }
 
@@ -141,27 +142,10 @@ foreach ($resA as $row) {
     }
 }
 
-$drawingFile = '';
-$workInstructFile = '';
-$preCardFile = '';
-
-try {
-    $drawingFile = getDrawing($_SESSION["dorTypeId"], $_SESSION['dorModelId']) ?? '';
-} catch (Throwable $e) {
-    $drawingFile = '';
-}
-
-try {
-    $workInstructFile = getWorkInstruction($_SESSION["dorTypeId"], $_SESSION['dorModelId']) ?? '';
-} catch (Throwable $e) {
-    $workInstructFile = '';
-}
-
-try {
-    $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
-} catch (Throwable $e) {
-    $preCardFile = '';
-}
+$drawingFile = getDrawing($_SESSION["dorTypeId"], $_SESSION['dorModelId']) ?? '';
+$activeProcess = isset($_SESSION['activeProcess']) ? $_SESSION['activeProcess'] : 1;
+$workInstructFile = getWorkInstruction($_SESSION["dorTypeId"], $_SESSION['dorModelId'], $activeProcess) ?? '';
+$preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
 
 ?>
 
@@ -232,6 +216,7 @@ try {
                                         name="userCode<?php echo $i; ?>" placeholder="Employee ID">
                                     <button type="button" class="btn btn-primary btn-validate-employee"
                                         onclick="validateEmployee(<?php echo $i; ?>)">Validate</button>
+                                    <div id="validationMessage<?php echo $i; ?>" class="validation-message mt-1"></div>
                                 </div>
                             </div>
                         <?php endfor; ?>
@@ -239,6 +224,9 @@ try {
                 </div>
                 <div class="sticky-table-header">
                     Required Item and Jig Condition VS Work Instruction
+                </div>
+                <div class="d-grid" style="margin-bottom: 10px; background-color: #f0f0f0;">
+                    <button type="button" class="btn btn-secondary btn-lg" onclick="setAllTestValues(event)">Set Test Values</button>
                 </div>
             </div>
             <!-- Match EXACTLY the same container structure as the body table -->
@@ -258,7 +246,7 @@ try {
         </div>
 
         <?php for ($i = 1; $i <= $_SESSION['tabQty']; $i++) : ?>
-            <div id="Process<?php echo $i; ?>" class="tab-content" style="display: none; margin-top: 45px; margin-bottom: 10px;">
+            <div id="Process<?php echo $i; ?>" class="tab-content">
                 <div class="container-fluid px-2 py-0">
                     <div class="table-container">
                         <table class="table-checkpointA table table-bordered align-middle">
@@ -287,8 +275,6 @@ try {
                                             <td class="selection-cell">
                                                 <?php
                                                 $inputName = "Process{$i}_{$row['CheckpointId']}";
-                                                $response = '';
-
                                                 $controlType = $row['CheckpointControl'];
                                                 $options = $row['Options'];
 
@@ -345,7 +331,7 @@ try {
             <div class="modal-dialog">
                 <div class="modal-content border-danger">
                     <div class="modal-header bg-danger text-white">
-                        <h5 class="modal-title" id="errorModalLabel">Please complete the checkpoint</h5>
+                        <h5 class="modal-title" id="errorModalLabel">Please complete the checkpoints</h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body" id="modalErrorMessage">
@@ -382,7 +368,7 @@ try {
 
         function showErrorModal(message) {
             const modalErrorMessage = document.getElementById("modalErrorMessage");
-            modalErrorMessage.innerText = message;
+            modalErrorMessage.innerHTML = message;
 
             // Create modal instance only if it doesn't exist
             if (!errorModalInstance) {
@@ -398,7 +384,7 @@ try {
 
             const errorModal = document.getElementById('errorModal');
             errorModal.addEventListener('hidden.bs.modal', function() {
-                document.getElementById("modalErrorMessage").innerText = '';
+                document.getElementById("modalErrorMessage").innerHTML = '';
             });
         });
     </script>
@@ -516,7 +502,9 @@ try {
         document.addEventListener("DOMContentLoaded", function() {
             // Attach event listeners to buttons
             document.getElementById("btnDrawing").addEventListener("click", function() {
-                openPiPViewer("<?php echo $drawingFile; ?>", 'image');
+                if (drawingFile !== "") {
+                    openPiPViewer(drawingFile, 'image');
+                }
             });
 
             document.getElementById("btnWorkInstruction").addEventListener("click", function() {
@@ -575,8 +563,7 @@ try {
                 const meta = {};
                 const userCodes = {};
                 const userCodeValues = [];
-
-                let userCodeErrorHtml = "";
+                let hasInvalidInputs = false;
 
                 // Loop through up to 4 tabs
                 for (let i = 1; i <= 4; i++) {
@@ -585,19 +572,22 @@ try {
 
                     const code = input.value.trim();
                     if (!code) {
-                        userCodeErrorHtml += `<li>Enter Employee ID of P${i}.</li>`;
+                        input.classList.remove('is-valid');
+                        input.classList.add('is-invalid');
+                        hasInvalidInputs = true;
                     } else {
                         if (userCodeValues.includes(code)) {
-                            userCodeErrorHtml += `<li>Employee ID "${code}" is duplicated.</li>`;
+                            input.classList.remove('is-valid');
+                            input.classList.add('is-invalid');
+                            hasInvalidInputs = true;
                         }
                         userCodes[i] = code;
                         userCodeValues.push(code);
                     }
                 }
 
-                if (userCodeErrorHtml) {
-                    modalErrorMessage.innerHTML = `${userCodeErrorHtml}`;
-                    errorModalInstance.show();
+                if (hasInvalidInputs) {
+                    showErrorModal("Please enter valid employee IDs for all processes.");
                     return;
                 }
 
@@ -612,7 +602,7 @@ try {
                                 headers: {
                                     'Content-Type': 'application/x-www-form-urlencoded',
                                 },
-                                body: `action=validate_employee&employeeCode=${encodeURIComponent(code)}`
+                                body: `action=validate_employee&employeeCode=${encodeURIComponent(code)}&processIndex=${i}`
                             }).then(res => res.json())
                         );
                     }
@@ -621,115 +611,129 @@ try {
                 try {
                     const validationResults = await Promise.all(validationPromises);
                     const invalidCodes = [];
+                    let hasInvalidValidation = false;
 
                     validationResults.forEach((result, index) => {
+                        const processNum = index + 1;
+                        const input = document.getElementById(`userCode${processNum}`);
+
                         if (!result.valid) {
-                            const processNum = index + 1;
+                            input.classList.remove('is-valid');
+                            input.classList.add('is-invalid');
                             invalidCodes.push(`P${processNum}: ${userCodes[processNum]}`);
+                            hasInvalidValidation = true;
+                        } else {
+                            input.classList.remove('is-invalid');
+                            input.classList.add('is-valid');
                         }
                     });
 
-                    if (invalidCodes.length > 0) {
-                        modalErrorMessage.innerHTML = `<ul><li>Invalid Employee ID(s):</li><li>${invalidCodes.join('</li><li>')}</li></ul>`;
-                        errorModalInstance.show();
+                    if (hasInvalidValidation) {
+                        showErrorModal(`Invalid Employee ID(s):\n${invalidCodes.join('\n')}`);
                         return;
                     }
+
+                    // Collect meta info per ProcessX_Y
+                    form.querySelectorAll("input[name^='meta[']").forEach(input => {
+                        const match = input.name.match(/meta\[(.*?)\]\[(.*?)\]/);
+                        if (match) {
+                            const field = match[1]; // e.g. Process1_105
+                            const key = match[2]; // checkpoint or tabIndex
+                            if (!meta[field]) meta[field] = {};
+                            meta[field][key] = input.value;
+                        }
+                    });
+
+                    const groups = {};
+
+                    // Group radio and text inputs by field name
+                    form.querySelectorAll("input[name^='Process'], input[type='text'][name^='Process']").forEach(input => {
+                        const name = input.name;
+                        if (!groups[name]) groups[name] = [];
+                        groups[name].push(input);
+                    });
+
+                    for (const name in groups) {
+                        const group = groups[name];
+                        const type = group[0].type;
+
+                        let valid = false;
+                        if (type === "radio") {
+                            valid = group.some(input => input.checked);
+                        } else if (type === "text") {
+                            valid = group[0].value.trim() !== "";
+                        }
+
+                        if (!valid) {
+                            const checkpoint = meta[name]?.checkpoint || name;
+                            const tabIndex = meta[name]?.tabIndex;
+                            const operator = tabIndex && userCodes[tabIndex] ? userCodes[tabIndex] : `Process ${tabIndex}`;
+
+                            if (!errorsByOperator[operator]) errorsByOperator[operator] = [];
+                            errorsByOperator[operator].push(checkpoint);
+                        }
+                    }
+
+                    // Show modal if errors exist
+                    const operatorList = Object.keys(errorsByOperator);
+                    if (operatorList.length > 0) {
+                        let html = ``;
+                        operatorList.forEach(op => {
+                            html += `<div class="mb-2"><strong>Employee ${op}</strong><ul class="mb-2">`;
+                            errorsByOperator[op].forEach(cp => {
+                                // Extract checkpoint number from the checkpoint name
+                                const checkpointMatch = cp.match(/^(\d+)\.\s*(.*)/);
+                                if (checkpointMatch) {
+                                    const [, number, name] = checkpointMatch;
+                                    html += `<li>Checkpoint ${number}: ${name}</li>`;
+                                } else {
+                                    html += `<li>${cp}</li>`;
+                                }
+                            });
+                            html += `</ul></div>`;
+                        });
+                        showErrorModal(html);
+                        return;
+                    }
+
+                    // Submit if valid
+                    let formData = new FormData(form);
+                    if (clickedButton) {
+                        formData.append(clickedButton.name, clickedButton.value || "1");
+                    }
+
+                    fetch(form.action, {
+                            method: "POST",
+                            body: formData
+                        })
+                        .then(response => response.json())
+                        .then((data) => {
+                            if (data.success) {
+                                if (clickedButton.name === "btnProceed") {
+                                    window.location.href = data.redirectUrl;
+                                    return;
+                                }
+                            } else {
+                                showErrorModal("<ul><li>" + data.errors.join("</li><li>") + "</li></ul>");
+                            }
+                        })
+                        .catch(error => console.error("Error:", error));
                 } catch (error) {
                     console.error('Error:', error);
-                    modalErrorMessage.innerHTML = "<ul><li>Error validating employee IDs. Please try again.</li></ul>";
-                    errorModalInstance.show();
-                    return;
+                    showErrorModal("Error validating employee IDs. Please try again.");
                 }
-
-                // Collect meta info per ProcessX_Y
-                form.querySelectorAll("input[name^='meta[']").forEach(input => {
-                    const match = input.name.match(/meta\[(.*?)\]\[(.*?)\]/);
-                    if (match) {
-                        const field = match[1]; // e.g. Process1_105
-                        const key = match[2]; // checkpoint or tabIndex
-                        if (!meta[field]) meta[field] = {};
-                        meta[field][key] = input.value;
-                    }
-                });
-
-                const groups = {};
-
-                // Group radio and text inputs by field name
-                form.querySelectorAll("input[name^='Process'], input[type='text'][name^='Process']").forEach(input => {
-                    const name = input.name;
-                    if (!groups[name]) groups[name] = [];
-                    groups[name].push(input);
-                });
-
-                for (const name in groups) {
-                    const group = groups[name];
-                    const type = group[0].type;
-
-                    let valid = false;
-                    if (type === "radio") {
-                        valid = group.some(input => input.checked);
-                    } else if (type === "text") {
-                        valid = group[0].value.trim() !== "";
-                    }
-
-                    if (!valid) {
-                        const checkpoint = meta[name]?.checkpoint || name;
-                        const tabIndex = meta[name]?.tabIndex;
-                        const operator = tabIndex && userCodes[tabIndex] ? userCodes[tabIndex] : `Process ${tabIndex}`;
-
-                        if (!errorsByOperator[operator]) errorsByOperator[operator] = [];
-                        errorsByOperator[operator].push(checkpoint);
-                    }
-                }
-
-                // Show modal if errors exist
-                const operatorList = Object.keys(errorsByOperator);
-                if (operatorList.length > 0) {
-                    let html = ``;
-                    operatorList.forEach(op => {
-                        html += `<div><strong>${op}</strong><ul>`;
-                        errorsByOperator[op].forEach(cp => {
-                            html += `<li>${cp}</li>`;
-                        });
-                        html += `</ul></div>`;
-                    });
-                    modalErrorMessage.innerHTML = html;
-                    errorModalInstance.show();
-                    return;
-                }
-
-                // Submit if valid
-                let formData = new FormData(form);
-                if (clickedButton) {
-                    formData.append(clickedButton.name, clickedButton.value || "1");
-                }
-
-                fetch(form.action, {
-                        method: "POST",
-                        body: formData
-                    })
-                    .then(response => response.json())
-                    .then((data) => {
-                        if (data.success) {
-                            if (clickedButton.name === "btnProceed") {
-                                window.location.href = data.redirectUrl;
-                                return;
-                            }
-                        } else {
-                            modalErrorMessage.innerHTML = "<ul><li>" + data.errors.join("</li><li>") + "</li></ul>";
-                            errorModalInstance.show();
-                        }
-                    })
-                    .catch(error => console.error("Error:", error));
             });
 
         });
 
         // Add this new function for employee validation
         async function validateEmployee(processIndex) {
-            const employeeCode = document.getElementById(`userCode${processIndex}`).value.trim();
-            if (!employeeCode) {
+            const employeeCode = document.getElementById(`userCode${processIndex}`);
+            const code = employeeCode.value.trim();
+
+            if (!code) {
                 showErrorModal("Enter employee ID for P" + processIndex + ".");
+                employeeCode.classList.remove('is-valid', 'is-invalid');
                 return;
             }
 
@@ -739,21 +743,24 @@ try {
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
                     },
-                    body: `action=validate_employee&employeeCode=${encodeURIComponent(employeeCode)}`
+                    body: `action=validate_employee&employeeCode=${encodeURIComponent(code)}&processIndex=${processIndex}`
                 });
 
                 const data = await response.json();
 
                 if (data.valid) {
-                    // Disable the input and button after successful validation
-                    // document.getElementById(`userCode${processIndex}`).disabled = true;
-                    // document.querySelector(`#Process${processIndex} .btn-validate-employee`).disabled = true;
+                    employeeCode.classList.remove('is-invalid');
+                    employeeCode.classList.add('is-valid');
                 } else {
-                    showErrorModal(data.message || "Invalid Employee ID.");
+                    employeeCode.classList.remove('is-valid');
+                    employeeCode.classList.add('is-invalid');
+                    showErrorModal(data.message);
                 }
             } catch (error) {
                 console.error('Error:', error);
-                showErrorModal("An error occurred while validating the Employee ID.");
+                employeeCode.classList.remove('is-valid');
+                employeeCode.classList.add('is-invalid');
+                showErrorModal("Invalid employee ID for P" + processIndex + ".");
             }
         }
 
@@ -768,6 +775,20 @@ try {
             const tabElement = document.getElementById(tabName);
             tabElement.style.display = "block";
             event.currentTarget.classList.add("active");
+
+            // Store active process number
+            const processNumber = parseInt(tabName.replace('Process', ''));
+
+            // Send process number to PHP session
+            fetch('set-process.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `processNumber=${processNumber}`
+            }).then(() => {
+                window.location.reload();
+            });
 
             sessionStorage.setItem("activeTab", tabName);
         }
@@ -816,11 +837,36 @@ try {
                     alert("Error occurred while deleting.");
                 });
         }
-    </script>
 
-    <form id="deleteDorForm" method="POST" action="dor-form.php">
-        <input type="hidden" name="action" value="delete_dor">
-    </form>
+        // Add this new function for setting all test values
+        function setAllTestValues(e) {
+            // Prevent form submission
+            e.preventDefault();
+
+            const testCodes = {
+                1: '2503-005',
+                2: '2503-004',
+                3: 'FMB-0826',
+                4: 'FMB-0570'
+            };
+
+            // Set all employee codes
+            for (let i = 1; i <= 4; i++) {
+                const input = document.getElementById(`userCode${i}`);
+                if (input && testCodes[i]) {
+                    input.value = testCodes[i];
+                    // Validate each code after setting
+                    validateEmployee(i);
+                }
+            }
+
+            document.querySelectorAll('input[type="text"][name^="Process"]').forEach(input => {
+                // Generate random number between 1 and 10
+                const randomNum = Math.floor(Math.random() * 10) + 1;
+                input.value = randomNum;
+            });
+        }
+    </script>
 
     <script src="../js/pdf.min.js"></script>
     <script src="../js/pdf.worker.min.js"></script>

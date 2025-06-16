@@ -179,7 +179,7 @@ function getPreparationCard($modelId)
     return "";
 }
 
-function getWorkInstruction($dorTypeId, $modelId)
+function getWorkInstruction($dorTypeId, $modelId, $processNumber = 1)
 {
     $db1 = new DbOp(1);
     $dorType = '';
@@ -222,7 +222,10 @@ function getWorkInstruction($dorTypeId, $modelId)
     $latestFile = null;
     $latestMTime = 0;
 
-    error_log("Searching for Work Instruction - Model: " . $modelName . ", DorType: " . $dorType);
+    // Map process number to letter code
+    $processLetter = chr(64 + $processNumber); // 1->A, 2->B, 3->C, 4->D
+
+    error_log("Searching for Work Instruction - Model: " . $modelName . ", DorType: " . $dorType . ", Process: " . $processLetter);
 
     // Search recursively
     $iterator = new RecursiveIteratorIterator(
@@ -233,8 +236,12 @@ function getWorkInstruction($dorTypeId, $modelId)
         if ($file->isFile() && strtolower($file->getExtension()) === 'pdf') {
             $filename = strtoupper($file->getFilename());
 
-            // Match: contains model + dorType
-            if (strpos($filename, $modelName) !== false && strpos($filename, $dorType) !== false) {
+            // Match: contains model + dorType + process letter before "Rev"
+            if (
+                strpos($filename, $modelName) !== false &&
+                strpos($filename, $dorType) !== false &&
+                preg_match('/' . $processLetter . '\s+Rev\./i', $filename)
+            ) {
                 $mtime = $file->getMTime();
                 if ($mtime > $latestMTime) {
                     $latestMTime = $mtime;
@@ -253,6 +260,6 @@ function getWorkInstruction($dorTypeId, $modelId)
         return $webPath;
     }
 
-    error_log("No matching work instruction found for Model: " . $modelName . ", DorType: " . $dorType);
+    error_log("No matching work instruction found for Model: " . $modelName . ", DorType: " . $dorType . ", Process: " . $processLetter);
     return "";
 }

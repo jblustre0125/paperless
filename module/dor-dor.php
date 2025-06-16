@@ -149,6 +149,7 @@ try {
               <th>Box No.</th>
               <th>Time Start</th>
               <th>Time End</th>
+              <th>Duration</th>
               <th>Operator</th>
               <th>Downtime</th>
               <th>Action</th>
@@ -165,7 +166,7 @@ try {
           <tbody>
             <?php for ($i = 1; $i <= 20; $i++) { ?>
               <tr data-row-id="<?= $i ?>">
-                <td class="clickable-row text-center align-middle" style="cursor: pointer; width: 60px;">
+                <td class="clickable-row text-center align-middle row-number-cell">
                   <?= $i ?>
                   <i class="bi bi-qr-code-scan ms-1"></i>
                 </td>
@@ -180,24 +181,21 @@ try {
                 <td class="time-column">
                   <input type="text" class="form-control scan-box-no text-center time-input" id="timeEnd<?= $i ?>" pattern="[0-9]{2}:[0-9]{2}" placeholder="HH:mm" maxlength="5" disabled>
                 </td>
-                <td class="align-middle text-center">
+                <td class="duration-column text-center align-middle">
+                  <span id="duration<?= $i ?>" class="duration-value"></span>
+                </td>
+                <td class="operator-column align-middle text-center">
                   <div class="action-container">
                     <button type="button" class="btn btn-outline-primary btn-sm btn-operator" id="operator<?= $i ?>">
                       <i class="bi bi-person-plus"></i> Manage Operators
                     </button>
                     <div class="operator-codes" id="operatorList<?= $i ?>">
-                      <?php if ($i % 2 === 0): // Even rows show 4 codes 
-                      ?>
-                        <small class="badge bg-light text-dark border"><?= $employeeCode ?></small>
-                      <?php else: // Odd rows show 3 codes 
-                      ?>
-                        <small class="badge bg-light text-dark border"><?= $employeeCode ?></small>
-                      <?php endif; ?>
+                      <small class="badge bg-light text-dark border"><?= $employeeCode ?></small>
                     </div>
                   </div>
                   <input type="hidden" id="operators<?= $i ?>" name="operators<?= $i ?>" value="<?= $employeeCode ?>">
                 </td>
-                <td class="align-middle text-center">
+                <td class="remarks-column align-middle text-center">
                   <div class="action-container">
                     <button type="button" class="btn btn-outline-secondary btn-sm" id="downtime<?= $i ?>">
                       <i class="bi bi-clock-history"></i> Manage Downtime
@@ -205,7 +203,7 @@ try {
                     <div class="downtime-info small text-muted" id="downtimeInfo<?= $i ?>"></div>
                   </div>
                 </td>
-                <td class="align-middle text-center">
+                <td class="delete-column align-middle text-center">
                   <button type="button" class="btn btn-outline-danger btn-sm delete-row" data-row-id="<?= $i ?>" title="Delete Row">
                     <span style="font-size: 1.2rem; font-weight: bold;">×</span>
                   </button>
@@ -509,6 +507,18 @@ try {
             const parts = scannedText.split(" ");
             const modelName = <?php echo json_encode($_SESSION['dorModelName'] ?? ''); ?>;
 
+            // Function to check for duplicate box numbers
+            function isDuplicateBoxNumber(boxNumber) {
+              for (let i = 1; i <= 20; i++) {
+                if (i === activeRowId) continue; // Skip current row
+                const existingBoxNo = document.getElementById(`boxNo${i}`).value.trim();
+                if (existingBoxNo === boxNumber) {
+                  return true;
+                }
+              }
+              return false;
+            }
+
             if (parts.length === 1) {
               // Single part - Check if it matches model name
               if (parts[0] === modelName) {
@@ -516,18 +526,19 @@ try {
                 if (activeRowId) {
                   const timeStartInput = document.getElementById(`timeStart${activeRowId}`);
                   const timeEndInput = document.getElementById(`timeEnd${activeRowId}`);
+                  const boxNoInput = document.getElementById(`boxNo${activeRowId}`);
 
                   if (timeStartInput && timeStartInput.value) {
                     // Set current time in 24-hour format for time end
                     const now = new Date();
                     const hours = String(now.getHours()).padStart(2, '0');
                     const minutes = String(now.getMinutes()).padStart(2, '0');
-                    const seconds = String(now.getSeconds()).padStart(2, '0');
-                    timeEndInput.value = `${hours}:${minutes}:${seconds}`;
+                    timeEndInput.value = `${hours}:${minutes}`;
                     timeEndInput.dispatchEvent(new Event('change'));
+                    updateDuration(activeRowId);
                     indicateScanSuccess();
                   } else {
-                    showErrorModal("Please set time start first");
+                    showErrorModal("Please set time start first.");
                   }
                 }
                 stopScanning();
@@ -540,6 +551,13 @@ try {
                 const timeStartInput = document.getElementById(`timeStart${activeRowId}`);
 
                 if (boxNoInput) {
+                  // Check for duplicate box number only if this is a new box number (not time end scan)
+                  if (!timeStartInput.value && isDuplicateBoxNumber(parts[0])) {
+                    showErrorModal(`Lot number ${parts[0]} already scanned.`);
+                    stopScanning();
+                    return;
+                  }
+
                   boxNoInput.value = parts[0];
                   boxNoInput.dispatchEvent(new Event('change'));
 
@@ -547,9 +565,9 @@ try {
                   const now = new Date();
                   const hours = String(now.getHours()).padStart(2, '0');
                   const minutes = String(now.getMinutes()).padStart(2, '0');
-                  const seconds = String(now.getSeconds()).padStart(2, '0');
-                  timeStartInput.value = `${hours}:${minutes}:${seconds}`;
+                  timeStartInput.value = `${hours}:${minutes}`;
                   timeStartInput.dispatchEvent(new Event('change'));
+                  updateDuration(activeRowId);
 
                   indicateScanSuccess();
                 }
@@ -568,6 +586,13 @@ try {
                   const timeEndInput = document.getElementById(`timeEnd${activeRowId}`);
 
                   if (boxNoInput && timeStartInput && timeEndInput) {
+                    // Check for duplicate box number only if this is a new box number (not time end scan)
+                    if (!timeStartInput.value && isDuplicateBoxNumber(lotNumber)) {
+                      showErrorModal(`Lot number ${lotNumber} already scanned.`);
+                      stopScanning();
+                      return;
+                    }
+
                     // Set box number
                     boxNoInput.value = lotNumber;
                     boxNoInput.dispatchEvent(new Event('change'));
@@ -578,17 +603,17 @@ try {
                       const now = new Date();
                       const hours = String(now.getHours()).padStart(2, '0');
                       const minutes = String(now.getMinutes()).padStart(2, '0');
-                      const seconds = String(now.getSeconds()).padStart(2, '0');
-                      timeEndInput.value = `${hours}:${minutes}:${seconds}`;
+                      timeEndInput.value = `${hours}:${minutes}`;
                       timeEndInput.dispatchEvent(new Event('change'));
+                      updateDuration(activeRowId);
                     } else {
                       // Set current time in 24-hour format for time start
                       const now = new Date();
                       const hours = String(now.getHours()).padStart(2, '0');
                       const minutes = String(now.getMinutes()).padStart(2, '0');
-                      const seconds = String(now.getSeconds()).padStart(2, '0');
-                      timeStartInput.value = `${hours}:${minutes}:${seconds}`;
+                      timeStartInput.value = `${hours}:${minutes}`;
                       timeStartInput.dispatchEvent(new Event('change'));
+                      updateDuration(activeRowId);
                     }
 
                     indicateScanSuccess();
@@ -596,11 +621,11 @@ try {
                 }
                 stopScanning();
               } else {
-                showErrorModal("Invalid QR code: Model name mismatch");
+                showErrorModal("Invalid QR code: Model name mismatch.");
                 stopScanning();
               }
             } else {
-              showErrorModal("Invalid QR code format");
+              showErrorModal("Invalid QR code format.");
               stopScanning();
             }
           }
@@ -845,54 +870,88 @@ try {
           return; // Stop if user cancels
         }
 
-        // Clear all inputs in the row
-        row.querySelectorAll('input').forEach(input => {
-          input.value = '';
-        });
+        // Get all rows after the current one
+        const nextRows = Array.from(document.querySelectorAll('tr[data-row-id]'))
+          .filter(r => parseInt(r.getAttribute('data-row-id')) > parseInt(rowId));
 
-        // Clear operator codes and add default employee code
-        const operatorList = document.getElementById(`operatorList${rowId}`);
-        if (operatorList) {
-          operatorList.innerHTML = `
-            <small class="badge bg-light text-dark border"><?= $employeeCode ?></small>
-          `;
+        // Move data from next row up
+        if (nextRows.length > 0) {
+          const currentRow = row;
+          const nextRow = nextRows[0];
+
+          // Move values from next row to current row
+          const fields = ['boxNo', 'timeStart', 'timeEnd', 'operators'];
+          fields.forEach(field => {
+            const currentInput = document.getElementById(`${field}${rowId}`);
+            const nextInput = document.getElementById(`${field}${nextRow.getAttribute('data-row-id')}`);
+            if (currentInput && nextInput) {
+              currentInput.value = nextInput.value;
+              if (field === 'timeStart' || field === 'timeEnd') {
+                currentInput.dispatchEvent(new Event('change'));
+              }
+            }
+          });
+
+          // Move operator codes
+          const currentOperatorList = document.getElementById(`operatorList${rowId}`);
+          const nextOperatorList = document.getElementById(`operatorList${nextRow.getAttribute('data-row-id')}`);
+          if (currentOperatorList && nextOperatorList) {
+            currentOperatorList.innerHTML = nextOperatorList.innerHTML;
+          }
+
+          // Move downtime info
+          const currentDowntimeInfo = document.getElementById(`downtimeInfo${rowId}`);
+          const nextDowntimeInfo = document.getElementById(`downtimeInfo${nextRow.getAttribute('data-row-id')}`);
+          if (currentDowntimeInfo && nextDowntimeInfo) {
+            currentDowntimeInfo.innerHTML = nextDowntimeInfo.innerHTML;
+          }
+
+          // Clear the next row
+          clearRow(nextRow.getAttribute('data-row-id'));
+        } else {
+          // If no next row, just clear the current row
+          clearRow(rowId);
         }
 
-        // Set default employee code in hidden input
-        const operatorInput = document.getElementById(`operators${rowId}`);
-        if (operatorInput) {
-          operatorInput.value = '<?= $employeeCode ?>';
-        }
-
-        // Clear downtime info
-        const downtimeInfo = document.getElementById(`downtimeInfo${rowId}`);
-        if (downtimeInfo) {
-          downtimeInfo.innerHTML = '';
-        }
-
-        // Show success message
-        const toast = document.createElement('div');
-        toast.className = 'position-fixed bottom-0 end-0 p-3';
-        toast.style.zIndex = '5';
-        toast.innerHTML = `
-          <div class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
-            <div class="toast-header">
-              <strong class="me-auto">Success</strong>
-              <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
-            </div>
-            <div class="toast-body">
-              Row ${rowId} has been cleared.
-            </div>
-          </div>
-        `;
-        document.body.appendChild(toast);
-
-        // Remove toast after 3 seconds
-        setTimeout(() => {
-          toast.remove();
-        }, 3000);
+        // Update row states
+        updateRowStates();
       });
     });
+
+    function clearRow(rowId) {
+      const row = document.querySelector(`tr[data-row-id="${rowId}"]`);
+
+      // Clear all inputs in the row
+      row.querySelectorAll('input').forEach(input => {
+        input.value = '';
+      });
+
+      // Clear operator codes and add default employee code
+      const operatorList = document.getElementById(`operatorList${rowId}`);
+      if (operatorList) {
+        operatorList.innerHTML = `
+          <small class="badge bg-light text-dark border"><?= $employeeCode ?></small>
+        `;
+      }
+
+      // Set default employee code in hidden input
+      const operatorInput = document.getElementById(`operators${rowId}`);
+      if (operatorInput) {
+        operatorInput.value = '<?= $employeeCode ?>';
+      }
+
+      // Clear downtime info
+      const downtimeInfo = document.getElementById(`downtimeInfo${rowId}`);
+      if (downtimeInfo) {
+        downtimeInfo.innerHTML = '';
+      }
+
+      // Clear duration
+      const durationSpan = document.getElementById(`duration${rowId}`);
+      if (durationSpan) {
+        durationSpan.textContent = '';
+      }
+    }
 
     // Function to check if a row is complete
     function isRowComplete(rowId) {
@@ -958,6 +1017,69 @@ try {
     // Initialize row states
     setRowActive(1, true); // First row is always active
     updateRowStates();
+
+    // Function to calculate duration between two times
+    function calculateDuration(timeStart, timeEnd) {
+      if (!timeStart || !timeEnd) return '';
+
+      const [startHours, startMinutes] = timeStart.split(':').map(Number);
+      const [endHours, endMinutes] = timeEnd.split(':').map(Number);
+
+      let totalStartMinutes = startHours * 60 + startMinutes;
+      let totalEndMinutes = endHours * 60 + endMinutes;
+
+      // Handle case where end time is on the next day
+      if (totalEndMinutes < totalStartMinutes) {
+        totalEndMinutes += 24 * 60; // Add 24 hours worth of minutes
+      }
+
+      const durationMinutes = totalEndMinutes - totalStartMinutes;
+      return durationMinutes.toString();
+    }
+
+    // Function to update duration for a specific row
+    function updateDuration(rowId) {
+      const timeStartInput = document.getElementById(`timeStart${rowId}`);
+      const timeEndInput = document.getElementById(`timeEnd${rowId}`);
+      const durationSpan = document.getElementById(`duration${rowId}`);
+
+      if (timeStartInput && timeEndInput && durationSpan) {
+        durationSpan.textContent = calculateDuration(timeStartInput.value, timeEndInput.value);
+      }
+    }
+
+    // Add event listeners for time inputs to update duration
+    document.querySelectorAll('.time-input').forEach(input => {
+      input.addEventListener('change', function() {
+        const rowId = this.closest('tr').getAttribute('data-row-id');
+        updateDuration(rowId);
+      });
+    });
+
+    // Update the existing time input handling to include duration updates
+    document.querySelectorAll('.time-input').forEach(input => {
+      input.addEventListener('input', function(e) {
+        // Existing time input validation code...
+        // ... existing code ...
+        timeEndInput.value = `${hours}:${minutes}`;
+        timeEndInput.dispatchEvent(new Event('change'));
+        updateDuration(activeRowId);
+        indicateScanSuccess();
+        // ... existing code ...
+        timeStartInput.value = `${hours}:${minutes}`;
+        timeStartInput.dispatchEvent(new Event('change'));
+        updateDuration(activeRowId);
+        // ... existing code ...
+        timeEndInput.value = `${hours}:${minutes}`;
+        timeEndInput.dispatchEvent(new Event('change'));
+        updateDuration(activeRowId);
+        // ... existing code ...
+        timeStartInput.value = `${hours}:${minutes}`;
+        timeStartInput.dispatchEvent(new Event('change'));
+        updateDuration(activeRowId);
+        // ... existing code ...
+      });
+    });
   </script>
 
   <form id="deleteDorForm" method="POST" action="dor-form.php">

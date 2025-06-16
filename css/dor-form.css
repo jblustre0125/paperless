@@ -10,6 +10,7 @@ body {
   top: 58px;
   z-index: 1035;
   width: 100%;
+  background-color: #f0f0f0;
 }
 
 .sticky-dor-bar .container-fluid {
@@ -93,6 +94,7 @@ body {
   position: sticky;
   top: 58px;
   z-index: 1040;
+  background-color: #f8f9fa;
 }
 
 .table-checkpointA thead.table-light {
@@ -306,4 +308,221 @@ input[id^="userCode"] {
 .table-checkpointA tbody {
   position: relative;
   z-index: 1030;
+}
+
+/* Add margin to first row to prevent overlap */
+.table-checkpointA tbody tr:first-child td {
+  padding-top: 16px !important;
+}
+
+/* Column width definitions */
+.table-checkpointA th,
+.table-checkpointA td {
+  border: 1px solid #dee2e6 !important;
+  padding: 8px !important;
+  vertical-align: middle;
+}
+
+/* Fixed width columns */
+.row-number-cell {
+  width: 120px !important;
+  cursor: pointer;
+  text-align: center;
+}
+
+.box-no-column {
+  width: 150px !important;
+}
+
+.time-column {
+  width: 120px !important;
+}
+
+.duration-column {
+  width: 100px !important;
+}
+
+.delete-column {
+  width: 200px !important;
+}
+
+/* Auto-expand columns */
+.operator-column,
+.remarks-column {
+  width: auto;
+}
+
+/* Row number cell styles */
+.clickable-row {
+  cursor: pointer;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.clickable-row:hover {
+  background-color: #f8f9fa;
+}
+
+/* QR code scan icon styles */
+.bi-qr-code-scan {
+  font-size: 1.1rem;
+  color: #6c757d;
+}
+
+/* Duration value styles */
+.duration-value {
+  font-weight: 500;
+  text-align: center;
+}
+
+/* Delete button styles */
+.delete-row {
+  padding: 0.25rem 0.5rem;
+  font-size: 1.2rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+/* Operator styles */
+.operator-codes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: center;
+  min-height: 24px;
+}
+
+/* Form control styles */
+.form-control {
+  border-radius: 4px;
+  border: 1px solid #ced4da;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+.form-control:disabled {
+  background-color: #e9ecef;
+  cursor: not-allowed;
+}
+
+/* Required field styles */
+.required-field:not(:disabled) {
+  border-color: #80bdff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* Row state styles */
+.row-active {
+  background-color: #fff;
+}
+
+.row-inactive {
+  background-color: #f8f9fa;
+  opacity: 0.7;
+}
+
+/* Toast styles */
+.toast {
+  background-color: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.1);
+}
+
+.toast-header {
+  background-color: rgba(255, 255, 255, 0.85);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* Badge styles */
+.badge {
+  font-weight: 500;
+  padding: 0.35em 0.65em;
+  font-size: 0.75em;
+}
+
+/* Button styles */
+.btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  border-radius: 0.2rem;
+}
+
+.btn-outline-primary,
+.btn-outline-secondary,
+.btn-outline-danger {
+  border-width: 1px;
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 767px) {
+  .row-number-cell {
+    width: 100px !important;
+  }
+
+  .time-column {
+    width: 100px !important;
+  }
+
+  .duration-column {
+    width: 80px !important;
+  }
+
+  .delete-column {
+    width: 150px !important;
+  }
+}
+
+/* Input validation styles */
+input[id^="userCode"].is-valid {
+  border-color: #198754 !important;
+  background-color: #f8fff9 !important;
+  box-shadow: 0 0 0 0.25rem rgba(25, 135, 84, 0.15) !important;
+}
+
+input[id^="userCode"].is-invalid {
+  border-color: #dc3545 !important;
+  background-color: #fff8f8 !important;
+  box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.15) !important;
+}
+
+/* Remove the old validation message styles */
+.validation-message {
+  display: none;
+}
+
+/* Tab content styles */
+.tab-content {
+  display: none;
+  margin-top: 45px;
+  margin-bottom: 10px;
+}
+
+/* Nav button group styles */
+.nav-btn-group {
+  white-space: nowrap;
+}
+
+/* Short and long label styles */
+.short-label {
+  display: none;
+}
+
+.long-label {
+  display: inline;
+}
+
+@media screen and (max-width: 767px) {
+  .short-label {
+    display: inline;
+  }
+  .long-label {
+    display: none;
+  }
 }
