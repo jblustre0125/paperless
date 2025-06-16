@@ -32,7 +32,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $response['message'] = 'Employee ID is valid.';
             } else {
                 $response['valid'] = false;
-                $response['message'] = 'Invalid Employee ID. Please check and try again.';
+                $response['message'] = 'Invalid employee ID.';
             }
         }
 
@@ -377,18 +377,27 @@ try {
 
     <script src="../js/jsQR.min.js"></script>
     <script>
+        // Create a single modal instance
+        let errorModalInstance = null;
+
         function showErrorModal(message) {
             const modalErrorMessage = document.getElementById("modalErrorMessage");
             modalErrorMessage.innerText = message;
-            const errorModal = new bootstrap.Modal(document.getElementById("errorModal"));
-            errorModal.show();
+
+            // Create modal instance only if it doesn't exist
+            if (!errorModalInstance) {
+                errorModalInstance = new bootstrap.Modal(document.getElementById("errorModal"));
+            }
+
+            errorModalInstance.show();
         }
 
-        // Add this to handle modal closing
+        // Initialize modal when document is ready
         document.addEventListener('DOMContentLoaded', function() {
+            errorModalInstance = new bootstrap.Modal(document.getElementById("errorModal"));
+
             const errorModal = document.getElementById('errorModal');
             errorModal.addEventListener('hidden.bs.modal', function() {
-                // Reset the modal content when it's closed
                 document.getElementById("modalErrorMessage").innerText = '';
             });
         });
@@ -535,7 +544,26 @@ try {
                 document.querySelector(`[onclick="openTab(event, '${defaultTab}')"]`).classList.add("active");
             }
 
-            form.addEventListener("submit", function(e) {
+            // Form submission handling
+            const form = document.querySelector("#myForm");
+            const modalErrorMessage = document.getElementById("modalErrorMessage");
+
+            let clickedButton = null;
+
+            // Track which submit button was clicked
+            document.querySelectorAll("button[type='submit']").forEach(button => {
+                button.addEventListener("click", function(e) {
+                    e.preventDefault(); // Prevent default form submission
+                    clickedButton = this;
+
+                    // If it's the proceed button, trigger form validation and submission
+                    if (this.id === "btnProceed") {
+                        form.dispatchEvent(new Event('submit'));
+                    }
+                });
+            });
+
+            form.addEventListener("submit", async function(e) {
                 e.preventDefault();
 
                 // Only run validation if btnProceed triggered this
@@ -557,7 +585,7 @@ try {
 
                     const code = input.value.trim();
                     if (!code) {
-                        userCodeErrorHtml += `<li>Enter employee ID for P${i}.</li>`;
+                        userCodeErrorHtml += `<li>Enter Employee ID of P${i}.</li>`;
                     } else {
                         if (userCodeValues.includes(code)) {
                             userCodeErrorHtml += `<li>Employee ID "${code}" is duplicated.</li>`;
@@ -569,7 +597,47 @@ try {
 
                 if (userCodeErrorHtml) {
                     modalErrorMessage.innerHTML = `${userCodeErrorHtml}`;
-                    errorModal.show();
+                    errorModalInstance.show();
+                    return;
+                }
+
+                // Validate all employee codes
+                const validationPromises = [];
+                for (let i = 1; i <= 4; i++) {
+                    const code = userCodes[i];
+                    if (code) {
+                        validationPromises.push(
+                            fetch(window.location.href, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/x-www-form-urlencoded',
+                                },
+                                body: `action=validate_employee&employeeCode=${encodeURIComponent(code)}`
+                            }).then(res => res.json())
+                        );
+                    }
+                }
+
+                try {
+                    const validationResults = await Promise.all(validationPromises);
+                    const invalidCodes = [];
+
+                    validationResults.forEach((result, index) => {
+                        if (!result.valid) {
+                            const processNum = index + 1;
+                            invalidCodes.push(`P${processNum}: ${userCodes[processNum]}`);
+                        }
+                    });
+
+                    if (invalidCodes.length > 0) {
+                        modalErrorMessage.innerHTML = `<ul><li>Invalid Employee ID(s):</li><li>${invalidCodes.join('</li><li>')}</li></ul>`;
+                        errorModalInstance.show();
+                        return;
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    modalErrorMessage.innerHTML = "<ul><li>Error validating employee IDs. Please try again.</li></ul>";
+                    errorModalInstance.show();
                     return;
                 }
 
@@ -626,7 +694,7 @@ try {
                         html += `</ul></div>`;
                     });
                     modalErrorMessage.innerHTML = html;
-                    errorModal.show();
+                    errorModalInstance.show();
                     return;
                 }
 
@@ -649,7 +717,7 @@ try {
                             }
                         } else {
                             modalErrorMessage.innerHTML = "<ul><li>" + data.errors.join("</li><li>") + "</li></ul>";
-                            errorModal.show();
+                            errorModalInstance.show();
                         }
                     })
                     .catch(error => console.error("Error:", error));
@@ -678,8 +746,8 @@ try {
 
                 if (data.valid) {
                     // Disable the input and button after successful validation
-                    document.getElementById(`userCode${processIndex}`).disabled = true;
-                    document.querySelector(`#Process${processIndex} .btn-validate-employee`).disabled = true;
+                    // document.getElementById(`userCode${processIndex}`).disabled = true;
+                    // document.querySelector(`#Process${processIndex} .btn-validate-employee`).disabled = true;
                 } else {
                     showErrorModal(data.message || "Invalid Employee ID.");
                 }
@@ -748,26 +816,6 @@ try {
                     alert("Error occurred while deleting.");
                 });
         }
-
-        // Form submission handling
-        const form = document.querySelector("#myForm");
-        const errorModal = new bootstrap.Modal(document.getElementById("errorModal"));
-        const modalErrorMessage = document.getElementById("modalErrorMessage");
-
-        let clickedButton = null;
-
-        // Track which submit button was clicked
-        document.querySelectorAll("button[type='submit']").forEach(button => {
-            button.addEventListener("click", function(e) {
-                e.preventDefault(); // Prevent default form submission
-                clickedButton = this;
-
-                // If it's the proceed button, trigger form validation and submission
-                if (this.id === "btnProceed") {
-                    form.dispatchEvent(new Event('submit'));
-                }
-            });
-        });
     </script>
 
     <form id="deleteDorForm" method="POST" action="dor-form.php">
