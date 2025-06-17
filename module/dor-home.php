@@ -507,9 +507,9 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
         // Add test values function
         function setTestValues() {
             document.getElementById("txtLineNumber").value = "1";
-            // document.getElementById("txtModelName").value = "7M0656-7020";
-            document.getElementById("txtModelName").value = "7L0113-7021C";
-            document.getElementById("cmbDorType").value = "2";
+            document.getElementById("txtModelName").value = "7M0656-7020";
+            // document.getElementById("txtModelName").value = "7L0113-7021C";
+            document.getElementById("cmbDorType").value = "3";
             document.getElementById("txtQty").value = "100";
         }
 
