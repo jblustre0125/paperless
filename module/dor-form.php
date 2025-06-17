@@ -214,8 +214,6 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                                 <div class="employee-validation">
                                     <input type="text" class="form-control form-control-md" id="userCode<?php echo $i; ?>"
                                         name="userCode<?php echo $i; ?>" placeholder="Employee ID">
-                                    <button type="button" class="btn btn-primary btn-validate-employee"
-                                        onclick="validateEmployee(<?php echo $i; ?>)">Validate</button>
                                     <div id="validationMessage<?php echo $i; ?>" class="validation-message mt-1"></div>
                                 </div>
                             </div>
@@ -727,44 +725,6 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
 
         });
 
-        // Add this new function for employee validation
-        async function validateEmployee(processIndex) {
-            const employeeCode = document.getElementById(`userCode${processIndex}`);
-            const code = employeeCode.value.trim();
-
-            if (!code) {
-                showErrorModal("Enter employee ID for P" + processIndex + ".");
-                employeeCode.classList.remove('is-valid', 'is-invalid');
-                return;
-            }
-
-            try {
-                const response = await fetch(window.location.href, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: `action=validate_employee&employeeCode=${encodeURIComponent(code)}&processIndex=${processIndex}`
-                });
-
-                const data = await response.json();
-
-                if (data.valid) {
-                    employeeCode.classList.remove('is-invalid');
-                    employeeCode.classList.add('is-valid');
-                } else {
-                    employeeCode.classList.remove('is-valid');
-                    employeeCode.classList.add('is-invalid');
-                    showErrorModal(data.message);
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                employeeCode.classList.remove('is-valid');
-                employeeCode.classList.add('is-invalid');
-                showErrorModal("Invalid employee ID for P" + processIndex + ".");
-            }
-        }
-
         // Modify the existing openTab function to remove table disabling
         function openTab(event, tabName) {
             let tabContents = document.querySelectorAll(".tab-content");
@@ -780,16 +740,14 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
             // Store active process number
             const processNumber = parseInt(tabName.replace('Process', ''));
 
-            // Send process number to PHP session
+            // Send process number to PHP session without page reload
             fetch('set-process.php', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
                 body: `processNumber=${processNumber}`
-            }).then(() => {
-                window.location.reload();
-            });
+            }).catch(error => console.error('Error updating process:', error));
 
             sessionStorage.setItem("activeTab", tabName);
         }
@@ -856,8 +814,6 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                 const input = document.getElementById(`userCode${i}`);
                 if (input && testCodes[i]) {
                     input.value = testCodes[i];
-                    // Validate each code after setting
-                    validateEmployee(i);
                 }
             }
 

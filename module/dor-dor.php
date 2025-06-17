@@ -190,10 +190,22 @@ try {
                       <i class="bi bi-person-plus"></i> Manage Operators
                     </button>
                     <div class="operator-codes" id="operatorList<?= $i ?>">
-                      <small class="badge bg-light text-dark border"><?= $employeeCode ?></small>
+                      <?php
+                      // Get employee codes from session
+                      $employeeCodes = [];
+                      for ($j = 1; $j <= 4; $j++) {
+                        if (isset($_SESSION["userCode$j"])) {
+                          $employeeCodes[] = $_SESSION["userCode$j"];
+                        }
+                      }
+                      // Display employee codes as badges
+                      foreach ($employeeCodes as $code) {
+                        echo "<small class='badge bg-light text-dark border'>$code</small>";
+                      }
+                      ?>
                     </div>
                   </div>
-                  <input type="hidden" id="operators<?= $i ?>" name="operators<?= $i ?>" value="<?= $employeeCode ?>">
+                  <input type="hidden" id="operators<?= $i ?>" name="operators<?= $i ?>" value="<?= implode(',', $employeeCodes) ?>">
                 </td>
                 <td class="remarks-column align-middle text-center">
                   <div class="action-container">
