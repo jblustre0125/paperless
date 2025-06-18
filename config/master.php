@@ -62,7 +62,12 @@ if (isset($_GET['logOut'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php $title = $title ?? 'DOR System'; ?></title>
     <link rel="icon" type="image/png" href="../img/dor-1024.png">
-    <link href="../css/bootstrap.min.css" rel="stylesheet">
+    <!-- <link href="../css/bootstrap.min.css" rel="stylesheet"> -->
+     <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Bootstrap JS Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <link href="../css/master.css" rel="stylesheet">
 </head>
 
