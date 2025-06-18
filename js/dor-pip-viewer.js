@@ -14,7 +14,8 @@ let currentType = "",
   currentPdf = null,
   currentPage = 1,
   lastPageChangeTime = 0,
-  PAGE_CHANGE_DELAY = 500;
+  PAGE_CHANGE_DELAY = 500,
+  isWorkInstructionMode = false;
 
 function openPiPViewer(path, type) {
   // Check if required libraries are loaded
@@ -34,6 +35,7 @@ function openPiPViewer(path, type) {
   currentScale = 1;
   currentPage = 1;
   currentPdf = null;
+  isWorkInstructionMode = document.activeElement?.id === "btnWorkInstruction";
 
   const pipViewer = document.getElementById("pipViewer");
   const pipContent = document.getElementById("pipContent");
@@ -60,11 +62,13 @@ function openPiPViewer(path, type) {
     pipViewer.classList.add("pdf-mode");
   }
 
-  // Show/hide process labels based on whether it's a work instruction
+  // Show/hide process labels based on work instruction mode
   if (pipProcessLabels) {
-    const isWorkInstruction =
-      document.activeElement?.id === "btnWorkInstruction";
-    pipProcessLabels.style.display = isWorkInstruction ? "flex" : "none";
+    if (isWorkInstructionMode) {
+      pipProcessLabels.classList.add("show");
+    } else {
+      pipProcessLabels.classList.remove("show");
+    }
   }
 
   // Show/hide appropriate buttons
@@ -93,7 +97,7 @@ function openPiPViewer(path, type) {
     setupPanZoom(img);
   } else if (type === "pdf") {
     // If this is a work instruction, we'll load it based on the active process
-    if (document.activeElement?.id === "btnWorkInstruction") {
+    if (isWorkInstructionMode) {
       // Get the active process from the active label or default to 1
       const activeLabel = document.querySelector(".pip-process-label.active");
       const processNumber = activeLabel
@@ -477,6 +481,7 @@ function showPdfPage(pageNum) {
 
 function minimizeViewer() {
   const pipViewer = document.getElementById("pipViewer");
+  const pipProcessLabels = document.getElementById("pipProcessLabels");
 
   // Remove all styles first
   pipViewer.removeAttribute("style");
@@ -485,11 +490,10 @@ function minimizeViewer() {
   pipViewer.classList.remove("maximize-mode");
   pipViewer.classList.add("minimize-mode");
 
-  // Set minimal required styles for minimize mode - increased size for tablet
-  pipViewer.style.right = "1rem";
-  pipViewer.style.bottom = "1rem";
-  pipViewer.style.width = "400px"; // Increased from 300px
-  pipViewer.style.height = "300px"; // Increased from 200px
+  // Hide process labels in minimize mode
+  if (pipProcessLabels) {
+    pipProcessLabels.classList.remove("show");
+  }
 
   // Hide page indicator in minimize mode
   const pageIndicator = document.querySelector(".page-indicator");
@@ -516,6 +520,7 @@ function minimizeViewer() {
 
 function maximizeViewer() {
   const pipViewer = document.getElementById("pipViewer");
+  const pipProcessLabels = document.getElementById("pipProcessLabels");
 
   // Remove all styles first
   pipViewer.removeAttribute("style");
@@ -523,6 +528,11 @@ function maximizeViewer() {
   // Update classes
   pipViewer.classList.remove("minimize-mode");
   pipViewer.classList.add("maximize-mode");
+
+  // Show process labels if in work instruction mode
+  if (pipProcessLabels && isWorkInstructionMode) {
+    pipProcessLabels.classList.add("show");
+  }
 
   // Show page indicator in maximize mode
   const pageIndicator = document.querySelector(".page-indicator");
@@ -876,3 +886,18 @@ window.onpageshow = function (event) {
     document.dispatchEvent(new Event("DOMContentLoaded"));
   }
 };
+
+// Add this new function to handle process label clicks
+function handleProcessLabelClick(processNumber) {
+  if (document.activeElement?.id === "btnWorkInstruction") {
+    fetch(`/paperless/module/get-work-instruction.php?process=${processNumber}`)
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.success && data.file) {
+          const pipContent = document.getElementById("pipContent");
+          pipContent.innerHTML = "";
+          loadPdfFile(data.file);
+        }
+      });
+  }
+}

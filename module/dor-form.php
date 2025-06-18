@@ -848,19 +848,20 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
     <style>
         .pip-process-labels {
             display: none;
-            /* Hidden by default */
             gap: 10px;
             padding: 0 10px;
         }
 
         .pip-viewer.maximize-mode .pip-process-labels {
             display: none;
-            /* Changed from flex to none */
         }
 
         .pip-viewer.maximize-mode .pip-process-labels.show {
             display: flex;
-            /* Show when has show class */
+        }
+
+        .pip-viewer.minimize-mode .pip-process-labels {
+            display: none !important;
         }
 
         .pip-process-label {
@@ -870,15 +871,12 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
             font-weight: 500;
             transition: all 0.2s ease;
             background-color: #ffffff;
-            /* White background */
             color: #000;
-            /* Black text */
             border: 1px solid #dee2e6;
         }
 
         .pip-process-label:hover {
             background-color: #f8f9fa;
-            /* Light gray on hover */
             border-color: #dee2e6;
         }
 
@@ -915,9 +913,17 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                     // Add active class to clicked label
                     this.classList.add('active');
 
-                    // Here you can add logic to switch content based on process
-                    // For example:
-                    // switchProcessContent(this.dataset.process);
+                    // Load work instruction immediately
+                    const processNumber = parseInt(this.dataset.process);
+                    fetch(`/paperless/module/get-work-instruction.php?process=${processNumber}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success && data.file) {
+                                const pipContent = document.getElementById("pipContent");
+                                pipContent.innerHTML = "";
+                                loadPdfFile(data.file);
+                            }
+                        });
                 });
 
                 processLabelsContainer.appendChild(label);
