@@ -10,8 +10,6 @@ $db1 = new DbOp(1);
 
 $errorPrompt = '';
 
-var_dump($_SESSION);
-
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
   ob_end_clean();
   header('Content-Type: application/json; charset=utf-8');

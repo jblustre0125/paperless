@@ -39,84 +39,89 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     $response = ['success' => false, 'errors' => []];  // Initialize response array
 
-    $dorDate = testInput($_POST["dtpDate"]);
-    $shiftCode = testInput($_POST['rdShift']);
-    $lineNumber = testInput($_POST["txtLineNumber"]);
-    $dorTypeId = testInput($_POST["cmbDorType"]);
-    $modelName = testInput($_POST["txtModelName"]);
-    $qty = (int) testInput($_POST["txtQty"]);
+    try {
+        $dorDate = testInput($_POST["dtpDate"]);
+        $shiftCode = testInput($_POST['rdShift']);
+        $lineNumber = testInput($_POST["txtLineNumber"]);
+        $dorTypeId = testInput($_POST["cmbDorType"]);
+        $modelName = testInput($_POST["txtModelName"]);
+        $qty = (int) testInput($_POST["txtQty"]);
 
-    if (empty($dorDate)) {
-        $response['errors'][] = "Select date.";
-    }
-
-    if (empty($shiftCode)) {
-        $response['errors'][] = "Select shift.";
-    }
-
-    if (empty(trim($lineNumber)) || $lineNumber == "0") {
-        $response['errors'][] = "Enter line number.";
-    } else {
-        if (!isValidLine($lineNumber)) {
-            $response['errors'][] = "Line number is not valid or inactive.";
+        if (empty($dorDate)) {
+            $response['errors'][] = "Select date.";
         }
-    }
 
-    if (testInput($dorTypeId == "0")) {
-        $response['errors'][] = "Select DOR type.";
-    }
-
-    if (empty(trim($modelName))) {
-        $response['errors'][] = "Enter model name.";
-    } else {
-        if (!isValidModel($modelName)) {
-            $response['errors'][] = "Model name is not registered or inactive.";
+        if (empty($shiftCode)) {
+            $response['errors'][] = "Select shift.";
         }
-    }
 
-    if (empty(trim($qty)) || $qty == 0) {
-        $response['errors'][] = "Enter quantity.";
-    }
-
-    $shiftId = $lineId = $modelId = 0;
-
-    $selQry = "EXEC RdGenShift @ShiftCode=?";
-    $res = $db1->execute($selQry, [$shiftCode], 1);
-
-    if ($res !== false) {
-        foreach ($res as $row) {
-            $shiftId = $row['ShiftId'];
-        }
-    }
-
-    $selQry = "EXEC RdGenLine @LineNumber=?";
-    $res = $db1->execute($selQry, [$lineNumber], 1);
-
-    if (!empty($res)) {
-        foreach ($res as $row) {
-            $lineId = $row['LineId'];
-        }
-    }
-
-    $selQry = "EXEC RdGenModel @IsActive=?, @ITEM_ID=?";
-    $res = $db1->execute($selQry, [1, $modelName], 1);
-
-    if ($res !== false) {
-        foreach ($res as $row) {
-            $modelId = $row['MODEL_ID'];
-        }
-    }
-
-    if (empty($response['errors'])) {
-        if (isset($_POST['btnCreateDor'])) {
-            if (isExistDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId)) {
-                $response['errors'][] = "DOR already exists.";
-            } else {
-                handleCreateDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty, $response);
+        if (empty(trim($lineNumber)) || $lineNumber == "0") {
+            $response['errors'][] = "Enter line number.";
+        } else {
+            if (!isValidLine($lineNumber)) {
+                $response['errors'][] = "Line number is not valid or inactive.";
             }
-        } elseif (isset($_POST['btnSearchDor'])) {
-            handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty, $response);
         }
+
+        if (testInput($dorTypeId == "0")) {
+            $response['errors'][] = "Select DOR type.";
+        }
+
+        if (empty(trim($modelName))) {
+            $response['errors'][] = "Enter model name.";
+        } else {
+            if (!isValidModel($modelName)) {
+                $response['errors'][] = "Model name is not registered or inactive.";
+            }
+        }
+
+        if (empty(trim($qty)) || $qty == 0) {
+            $response['errors'][] = "Enter quantity.";
+        }
+
+        $shiftId = $lineId = $modelId = 0;
+
+        $selQry = "EXEC RdGenShift @ShiftCode=?";
+        $res = $db1->execute($selQry, [$shiftCode], 1);
+
+        if ($res !== false) {
+            foreach ($res as $row) {
+                $shiftId = $row['ShiftId'];
+            }
+        }
+
+        $selQry = "EXEC RdGenLine @LineNumber=?";
+        $res = $db1->execute($selQry, [$lineNumber], 1);
+
+        if (!empty($res)) {
+            foreach ($res as $row) {
+                $lineId = $row['LineId'];
+            }
+        }
+
+        $selQry = "EXEC RdGenModel @IsActive=?, @ITEM_ID=?";
+        $res = $db1->execute($selQry, [1, $modelName], 1);
+
+        if ($res !== false) {
+            foreach ($res as $row) {
+                $modelId = $row['MODEL_ID'];
+            }
+        }
+
+        if (empty($response['errors'])) {
+            if (isset($_POST['btnCreateDor'])) {
+                if (isExistDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId)) {
+                    $response['errors'][] = "DOR already exists.";
+                } else {
+                    handleCreateDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty, $response);
+                }
+            } elseif (isset($_POST['btnSearchDor'])) {
+                handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty, $response);
+            }
+        }
+    } catch (Exception $e) {
+        globalExceptionHandler($e);
+        $response['errors'][] = "An error occurred while processing your request.";
     }
 
     echo json_encode($response);
@@ -127,68 +132,78 @@ function handleCreateDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
 {
     global $db1;
 
-    // Fetch the tabQty from the database     
-    $selProcessTab = "SELECT ISNULL(MP, 0) AS 'MP' FROM dbo.GenModel WHERE MODEL_ID = ?";
-    $res = $db1->execute($selProcessTab, [$modelId], 1);
+    try {
+        // Fetch the tabQty from the database     
+        $selProcessTab = "SELECT ISNULL(MP, 0) AS 'MP' FROM dbo.GenModel WHERE MODEL_ID = ?";
+        $res = $db1->execute($selProcessTab, [$modelId], 1);
 
-    if ($res !== false) {
-        foreach ($res as $row) {
-            $_SESSION["tabQty"] = $row['MP'];
+        if ($res !== false) {
+            foreach ($res as $row) {
+                $_SESSION["tabQty"] = $row['MP'];
+            }
+        } else {
+            $_SESSION["tabQty"] = 0;
         }
-    } else {
-        $_SESSION["tabQty"] = 0;
-    }
 
-    // Check if tabQty is 0
-    if ($_SESSION["tabQty"] === 0) {
-        $response['success'] = false;
-        $response['errors'][] = "No process MP set to the selected model.";
-        return; // Stop further execution
-    }
+        // Check if tabQty is 0
+        if ($_SESSION["tabQty"] === 0) {
+            $response['success'] = false;
+            $response['errors'][] = "No process MP set to the selected model.";
+            return; // Stop further execution
+        }
 
-    $recordId = 0;
+        $recordId = 0;
 
-    $insQry = "EXEC InsAtoDor @DorTypeId=?, @ShiftId=?, @DorDate=?, @ModelId=?, @LineId=?, @Quantity=?, @HostnameId=?, @RecordId=?";
-    $params = [
-        $dorTypeId,
-        $shiftId,
-        $dorDate,
-        $modelId,
-        $lineId,
-        $qty,
-        $_SESSION["hostnameId"],
-        [&$recordId, SQLSRV_PARAM_OUT]
-    ];
+        $insQry = "EXEC InsAtoDor @DorTypeId=?, @ShiftId=?, @DorDate=?, @ModelId=?, @LineId=?, @Quantity=?, @HostnameId=?, @RecordId=?";
+        $params = [
+            $dorTypeId,
+            $shiftId,
+            $dorDate,
+            $modelId,
+            $lineId,
+            $qty,
+            $_SESSION["hostnameId"],
+            [&$recordId, SQLSRV_PARAM_OUT]
+        ];
 
-    $res = $db1->execute($insQry, $params, 1);
+        $res = $db1->execute($insQry, $params, 1);
 
-    if ($res === false) {
-        $response['errors'][] = "SQL execution failed: " . print_r(sqlsrv_errors(), true);
-    } elseif ($recordId === 0) {
-        $response['errors'][] = "No rows affected. Insert failed.";
-    } else {
-        $_SESSION["dorDate"] = $dorDate;
-        $_SESSION["dorShift"] = $shiftId;
-        $_SESSION["dorLineId"] = $lineId;
-        $_SESSION["dorQty"] = $qty;
-        $_SESSION["dorModelId"] = $modelId;
-        $_SESSION["dorModelName"] = testInput($_POST["txtModelName"]);
-        $_SESSION["dorTypeId"] = $dorTypeId;
-        $_SESSION["dorRecordId"] = $recordId;
-        $response['success'] = true;
-        $response['redirectUrl'] = "dor-form.php";
+        if ($res === false) {
+            $response['errors'][] = "SQL execution failed: " . print_r(sqlsrv_errors(), true);
+        } elseif ($recordId === 0) {
+            $response['errors'][] = "No rows affected. Insert failed.";
+        } else {
+            $_SESSION["dorDate"] = $dorDate;
+            $_SESSION["dorShift"] = $shiftId;
+            $_SESSION["dorLineId"] = $lineId;
+            $_SESSION["dorQty"] = $qty;
+            $_SESSION["dorModelId"] = $modelId;
+            $_SESSION["dorModelName"] = testInput($_POST["txtModelName"]);
+            $_SESSION["dorTypeId"] = $dorTypeId;
+            $_SESSION["dorRecordId"] = $recordId;
+            $response['success'] = true;
+            $response['redirectUrl'] = "dor-form.php";
+        }
+    } catch (Exception $e) {
+        globalExceptionHandler($e);
+        $response['errors'][] = "An error occurred while creating the DOR.";
     }
 }
 
 //TODO: Populate the DOR form with the selected DOR details
 function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty, &$response)
 {
-    if (isExistDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId)) {
-        $response['success'] = true;
-        $response['redirectUrl'] = "dor-form.php";
-    } else {
-        $response['success'] = false;
-        $response['errors'][] = "No DOR found for the selected criteria.";
+    try {
+        if (isExistDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId)) {
+            $response['success'] = true;
+            $response['redirectUrl'] = "dor-form.php";
+        } else {
+            $response['success'] = false;
+            $response['errors'][] = "No DOR found for the selected criteria.";
+        }
+    } catch (Exception $e) {
+        globalExceptionHandler($e);
+        $response['errors'][] = "An error occurred while searching for the DOR.";
     }
 }
 

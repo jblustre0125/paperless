@@ -64,6 +64,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         if (isset($_POST['btnProceed'])) {
             $recordId = $_SESSION['dorRecordId'] ?? 0;
             if ($recordId > 0) {
+                // Get the last userCode from the form
+                $lastUserCode = $_POST['lastUserCode'] ?? '';
+
+                // Update the creator in AtoDor table
+                if (!empty($lastUserCode)) {
+                    $updateSp = "EXEC UpdAtoDor @RecordId=?, @CreatedBy=?";
+                    $db1->execute($updateSp, [$recordId, $lastUserCode]);
+                }
+
                 foreach ($_POST as $key => $value) {
                     if (preg_match('/^Process(\d+)_(\d+)$/', $key, $matches)) {
                         $processIndex = (int)$matches[1];
@@ -214,14 +223,12 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                                 <div class="employee-validation">
                                     <input type="text" class="form-control form-control-md" id="userCode<?php echo $i; ?>"
                                         name="userCode<?php echo $i; ?>" placeholder="Employee ID">
+                                    <button type="button" class="btn btn-secondary btn-sm scan-btn" onclick="startScanning(<?php echo $i; ?>)">Scan ID</button>
                                     <div id="validationMessage<?php echo $i; ?>" class="validation-message mt-1"></div>
                                 </div>
                             </div>
                         <?php endfor; ?>
                     </div>
-                </div>
-                <div class="sticky-table-header">
-                    Required Item and Jig Condition VS Work Instruction
                 </div>
                 <div class="d-grid" style="margin-bottom: 10px; background-color: #f0f0f0;">
                     <button type="button" class="btn btn-secondary btn-lg" onclick="setAllTestValues(event)">Set Test Values</button>
@@ -329,7 +336,7 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
             <div class="modal-dialog">
                 <div class="modal-content border-danger">
                     <div class="modal-header bg-danger text-white">
-                        <h5 class="modal-title" id="errorModalLabel">Please complete the checkpoints</h5>
+                        <h5 class="modal-title" id="errorModalLabel">Please complete all checkpoints</h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body" id="modalErrorMessage">
@@ -414,8 +421,6 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                 navigator.mediaDevices.getUserMedia(getCameraConstraints())
                     .then(setupVideoStream)
                     .catch((err1) => {
-                        console.error("Back camera failed", err1);
-
                         navigator.mediaDevices.getUserMedia({
                                 video: {
                                     facingMode: "user"
@@ -423,7 +428,6 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                             })
                             .then(setupVideoStream)
                             .catch((err2) => {
-                                console.error("Front camera failed", err2);
                                 alert("Camera access is blocked or not available on this tablet.");
                             });
                     });
@@ -463,8 +467,15 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
             }
 
             let activeInput = null;
+            // Remove the click event listener from userCode inputs since we'll use the scan button instead
             document.querySelectorAll("input[id^='userCode']").forEach(input => {
-                input.addEventListener("click", async function() {
+                // Remove the click event listener that was here
+            });
+
+            // Add click handler for scan buttons
+            document.querySelectorAll(".scan-btn").forEach(button => {
+                button.addEventListener("click", async function() {
+                    const processIndex = this.closest('.employee-validation').querySelector('input[id^="userCode"]').id.replace('userCode', '');
                     const accessGranted = await navigator.mediaDevices.getUserMedia({
                         video: true
                     }).then(stream => {
@@ -473,7 +484,7 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                     }).catch(() => false);
 
                     if (accessGranted) {
-                        activeInput = this;
+                        activeInput = document.getElementById(`userCode${processIndex}`);
                         startScanning();
                     } else {
                         alert("Camera access denied");
@@ -586,7 +597,7 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                 }
 
                 if (hasInvalidInputs) {
-                    showErrorModal("Please enter valid employee IDs for all processes.");
+                    showErrorModal("Enter valid employee IDs for all processes.");
                     return;
                 }
 
@@ -628,7 +639,7 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                     });
 
                     if (hasInvalidValidation) {
-                        showErrorModal(`Invalid Employee ID(s):\n${invalidCodes.join('\n')}`);
+                        showErrorModal(`Invalid Employee ID(s):<br>${invalidCodes.join('<br>')}`);
                         return;
                     }
 
@@ -701,6 +712,10 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                         formData.append(clickedButton.name, clickedButton.value || "1");
                     }
 
+                    // Get the last userCode from the list
+                    const lastUserCode = Object.values(userCodes).pop();
+                    formData.append('lastUserCode', lastUserCode);
+
                     fetch(form.action, {
                             method: "POST",
                             body: formData
@@ -715,11 +730,10 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                             } else {
                                 showErrorModal("<ul><li>" + data.errors.join("</li><li>") + "</li></ul>");
                             }
-                        })
-                        .catch(error => console.error("Error:", error));
+                        });
                 } catch (error) {
                     console.error('Error:', error);
-                    showErrorModal("Error validating employee IDs. Please try again.");
+                    showErrorModal("Error validating employee IDs.");
                 }
             });
 
@@ -747,7 +761,7 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
                 body: `processNumber=${processNumber}`
-            }).catch(error => console.error('Error updating process:', error));
+            });
 
             sessionStorage.setItem("activeTab", tabName);
         }
@@ -790,10 +804,6 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                     } else {
                         alert(data.errors?.[0] || "Failed to delete DOR record.");
                     }
-                })
-                .catch(err => {
-                    console.error("Error:", err);
-                    alert("Error occurred while deleting.");
                 });
         }
 
