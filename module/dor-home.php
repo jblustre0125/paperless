@@ -291,7 +291,7 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
         <div class="modal-dialog">
             <div class="modal-content border-danger">
                 <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title" id="errorModalLabel">Please complete the information</h5>
+                    <h5 class="modal-title" id="errorModalLabel">Please complete all information</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body" id="modalErrorMessage">

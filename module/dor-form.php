@@ -179,7 +179,7 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                 <!-- Left-aligned group -->
                 <div class="d-flex gap-2 flex-wrap">
                     <button class="btn btn-secondary btn-lg nav-btn-lg btn-nav-group" id="btnDrawing">Drawing</button>
-                    <button class="btn btn-secondary btn-lg nav-btn-lg btn-nav-group" id="btnWorkInstruction">
+                    <button class="btn btn-secondary btn-lg nav-btn-lg btn-nav-group" id="btnWorkInstruction" data-file="<?php echo htmlspecialchars($workInstructFile); ?>">
                         <span class="short-label">WI</span>
                         <span class="long-label">Work Instruction</span>
                     </button>
@@ -353,10 +353,15 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
     <!-- PiP Viewer HTML: supports maximize and minimize modes -->
     <div id="pipViewer" class="pip-viewer d-none maximize-mode">
         <div id="pipHeader">
-            <button id="pipMaximize" class="pip-btn d-none" title="Maximize"><i class="bi bi-fullscreen"></i></button>
-            <button id="pipMinimize" class="pip-btn" title="Minimize"><i class="bi bi-fullscreen-exit"></i></button>
-            <button id="pipReset" class="pip-btn" title="Reset View"><i class="bi bi-arrow-counterclockwise"></i></button>
-            <button id="pipClose" class="pip-btn" title="Close"><i class="bi bi-x-lg"></i></button>
+            <div id="pipProcessLabels" class="pip-process-labels">
+                <!-- Process labels will be dynamically inserted here -->
+            </div>
+            <div class="pip-controls">
+                <button id="pipMaximize" class="pip-btn d-none" title="Maximize"><i class="bi bi-fullscreen"></i></button>
+                <button id="pipMinimize" class="pip-btn" title="Minimize"><i class="bi bi-fullscreen-exit"></i></button>
+                <button id="pipReset" class="pip-btn" title="Reset View"><i class="bi bi-arrow-counterclockwise"></i></button>
+                <button id="pipClose" class="pip-btn" title="Close"><i class="bi bi-x-lg"></i></button>
+            </div>
         </div>
         <div id="pipContent"></div>
     </div>
@@ -839,6 +844,97 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
     <script src="../js/pdf.worker.min.js"></script>
     <script src="../js/hammer.min.js"></script>
     <script src="../js/dor-pip-viewer.js"></script>
+
+    <style>
+        .pip-process-labels {
+            display: none;
+            /* Hidden by default */
+            gap: 10px;
+            padding: 0 10px;
+        }
+
+        .pip-viewer.maximize-mode .pip-process-labels {
+            display: none;
+            /* Changed from flex to none */
+        }
+
+        .pip-viewer.maximize-mode .pip-process-labels.show {
+            display: flex;
+            /* Show when has show class */
+        }
+
+        .pip-process-label {
+            padding: 4px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            background-color: #ffffff;
+            /* White background */
+            color: #000;
+            /* Black text */
+            border: 1px solid #dee2e6;
+        }
+
+        .pip-process-label:hover {
+            background-color: #f8f9fa;
+            /* Light gray on hover */
+            border-color: #dee2e6;
+        }
+
+        .pip-process-label.active {
+            background-color: #0d6efd;
+            color: white;
+            border-color: #0d6efd;
+        }
+
+        .pip-controls {
+            display: flex;
+            gap: 5px;
+            margin-left: auto;
+        }
+    </style>
+
+    <script>
+        // Add this to your existing JavaScript
+        function initializeProcessLabels() {
+            const tabQty = <?php echo $_SESSION["tabQty"] ?? 0; ?>;
+            const processLabelsContainer = document.getElementById('pipProcessLabels');
+            processLabelsContainer.innerHTML = ''; // Clear existing labels
+
+            for (let i = 1; i <= tabQty; i++) {
+                const label = document.createElement('div');
+                label.className = 'pip-process-label';
+                label.textContent = `P${i}`;
+                label.dataset.process = i;
+
+                // Add click handler
+                label.addEventListener('click', function() {
+                    // Remove active class from all labels
+                    document.querySelectorAll('.pip-process-label').forEach(l => l.classList.remove('active'));
+                    // Add active class to clicked label
+                    this.classList.add('active');
+
+                    // Here you can add logic to switch content based on process
+                    // For example:
+                    // switchProcessContent(this.dataset.process);
+                });
+
+                processLabelsContainer.appendChild(label);
+            }
+
+            // Set first process as active by default
+            const firstLabel = processLabelsContainer.querySelector('.pip-process-label');
+            if (firstLabel) {
+                firstLabel.classList.add('active');
+            }
+        }
+
+        // Call this when the PiP viewer is initialized
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeProcessLabels();
+        });
+    </script>
 
 </body>
 

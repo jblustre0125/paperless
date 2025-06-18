@@ -40,6 +40,7 @@ function openPiPViewer(path, type) {
   const btnMin = document.getElementById("pipMinimize");
   const btnMax = document.getElementById("pipMaximize");
   const pipBackdrop = document.getElementById("pipBackdrop");
+  const pipProcessLabels = document.getElementById("pipProcessLabels");
 
   if (!pipViewer || !pipContent || !btnMin || !btnMax || !pipBackdrop) {
     console.error("Required PiP viewer elements not found");
@@ -57,6 +58,13 @@ function openPiPViewer(path, type) {
   pipViewer.classList.add("maximize-mode");
   if (type === "pdf") {
     pipViewer.classList.add("pdf-mode");
+  }
+
+  // Show/hide process labels based on whether it's a work instruction
+  if (pipProcessLabels) {
+    const isWorkInstruction =
+      document.activeElement?.id === "btnWorkInstruction";
+    pipProcessLabels.style.display = isWorkInstruction ? "flex" : "none";
   }
 
   // Show/hide appropriate buttons
@@ -84,120 +92,28 @@ function openPiPViewer(path, type) {
     pipContent.appendChild(img);
     setupPanZoom(img);
   } else if (type === "pdf") {
-    pdfjsLib
-      .getDocument(path)
-      .promise.then(function (pdf) {
-        currentPdf = pdf;
-        currentPage = 1;
-        showPdfPage(currentPage);
+    // If this is a work instruction, we'll load it based on the active process
+    if (document.activeElement?.id === "btnWorkInstruction") {
+      // Get the active process from the active label or default to 1
+      const activeLabel = document.querySelector(".pip-process-label.active");
+      const processNumber = activeLabel
+        ? parseInt(activeLabel.dataset.process)
+        : 1;
 
-        // Keyboard navigation
-        document.addEventListener("keydown", function (e) {
-          if (e.key === "ArrowUp" && currentPage > 1) {
-            currentPage--;
-            showPdfPage(currentPage);
-          } else if (e.key === "ArrowDown" && currentPage < pdf.numPages) {
-            currentPage++;
-            showPdfPage(currentPage);
+      // Fetch the work instruction file for the selected process
+      fetch(
+        `/paperless/module/get-work-instruction.php?process=${processNumber}`
+      )
+        .then((response) => response.json())
+        .then((data) => {
+          if (data.success && data.file) {
+            loadPdfFile(data.file);
           }
         });
-
-        // Set up unified touch handling for page navigation
-        const pageSwipeHandler = new Hammer.Manager(pipContent);
-
-        // Configure vertical pan detection
-        const pan = new Hammer.Pan({
-          direction: Hammer.DIRECTION_VERTICAL,
-          threshold: 50,
-        });
-        pageSwipeHandler.add(pan);
-
-        // Track swipe state
-        let swipeStartY = 0;
-        let isProcessingSwipe = false;
-
-        pageSwipeHandler.on("panstart", function (e) {
-          swipeStartY = e.center.y;
-          isProcessingSwipe = false;
-        });
-
-        pageSwipeHandler.on("panmove", function (e) {
-          if (isProcessingSwipe) return;
-
-          const diff = swipeStartY - e.center.y;
-          const absDiff = Math.abs(diff);
-
-          if (absDiff > 50) {
-            isProcessingSwipe = true;
-
-            if (diff > 0) {
-              // Swipe up - go to next page
-              if (currentPage < pdf.numPages) {
-                currentPage++;
-                showPdfPage(currentPage);
-              }
-            } else {
-              // Swipe down - go to previous page
-              if (currentPage > 1) {
-                currentPage--;
-                showPdfPage(currentPage);
-              }
-            }
-          }
-        });
-
-        pageSwipeHandler.on("panend", function () {
-          isProcessingSwipe = false;
-        });
-
-        // Mouse wheel
-        pipContent.addEventListener(
-          "wheel",
-          function (e) {
-            const currentTime = Date.now();
-            if (currentTime - lastPageChangeTime < PAGE_CHANGE_DELAY) return;
-
-            if (e.deltaY > 0 && currentPage < pdf.numPages) {
-              currentPage++;
-              showPdfPage(currentPage);
-              lastPageChangeTime = currentTime;
-            } else if (e.deltaY < 0 && currentPage > 1) {
-              currentPage--;
-              showPdfPage(currentPage);
-              lastPageChangeTime = currentTime;
-            }
-            e.preventDefault();
-          },
-          { passive: false }
-        );
-
-        // Mouse click for page navigation
-        pipContent.addEventListener("click", function (e) {
-          // Skip if event originated from touch
-          if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) {
-            return;
-          }
-
-          const currentTime = Date.now();
-          if (currentTime - lastPageChangeTime < PAGE_CHANGE_DELAY) return;
-
-          const rect = pipContent.getBoundingClientRect();
-          const y = e.clientY - rect.top;
-
-          if (y < rect.height / 2 && currentPage > 1) {
-            currentPage--;
-            showPdfPage(currentPage);
-            lastPageChangeTime = currentTime;
-          } else if (y >= rect.height / 2 && currentPage < pdf.numPages) {
-            currentPage++;
-            showPdfPage(currentPage);
-            lastPageChangeTime = currentTime;
-          }
-        });
-      })
-      .catch(function (error) {
-        console.error("Error loading PDF:", error);
-      });
+    } else {
+      // For other PDFs (like prep cards), load directly
+      loadPdfFile(path);
+    }
   }
 
   if (!pipViewer.dataset.doubleTapEnabled) {
@@ -222,6 +138,133 @@ function openPiPViewer(path, type) {
       }
     });
   }
+}
+
+// New function to handle PDF loading
+function loadPdfFile(path) {
+  console.log("loadPdfFile called with path:", path);
+  if (!path) {
+    console.error("No path provided to loadPdfFile");
+    return;
+  }
+
+  const pipContent = document.getElementById("pipContent");
+
+  pdfjsLib
+    .getDocument(path)
+    .promise.then(function (pdf) {
+      console.log("PDF loaded successfully");
+      currentPdf = pdf;
+      currentPage = 1;
+      showPdfPage(currentPage);
+
+      // Keyboard navigation
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "ArrowUp" && currentPage > 1) {
+          currentPage--;
+          showPdfPage(currentPage);
+        } else if (e.key === "ArrowDown" && currentPage < pdf.numPages) {
+          currentPage++;
+          showPdfPage(currentPage);
+        }
+      });
+
+      // Set up unified touch handling for page navigation
+      const pageSwipeHandler = new Hammer.Manager(pipContent);
+
+      // Configure vertical pan detection
+      const pan = new Hammer.Pan({
+        direction: Hammer.DIRECTION_VERTICAL,
+        threshold: 50,
+      });
+      pageSwipeHandler.add(pan);
+
+      // Track swipe state
+      let swipeStartY = 0;
+      let isProcessingSwipe = false;
+
+      pageSwipeHandler.on("panstart", function (e) {
+        swipeStartY = e.center.y;
+        isProcessingSwipe = false;
+      });
+
+      pageSwipeHandler.on("panmove", function (e) {
+        if (isProcessingSwipe) return;
+
+        const diff = swipeStartY - e.center.y;
+        const absDiff = Math.abs(diff);
+
+        if (absDiff > 50) {
+          isProcessingSwipe = true;
+
+          if (diff > 0) {
+            // Swipe up - go to next page
+            if (currentPage < pdf.numPages) {
+              currentPage++;
+              showPdfPage(currentPage);
+            }
+          } else {
+            // Swipe down - go to previous page
+            if (currentPage > 1) {
+              currentPage--;
+              showPdfPage(currentPage);
+            }
+          }
+        }
+      });
+
+      pageSwipeHandler.on("panend", function () {
+        isProcessingSwipe = false;
+      });
+
+      // Mouse wheel
+      pipContent.addEventListener(
+        "wheel",
+        function (e) {
+          const currentTime = Date.now();
+          if (currentTime - lastPageChangeTime < PAGE_CHANGE_DELAY) return;
+
+          if (e.deltaY > 0 && currentPage < pdf.numPages) {
+            currentPage++;
+            showPdfPage(currentPage);
+            lastPageChangeTime = currentTime;
+          } else if (e.deltaY < 0 && currentPage > 1) {
+            currentPage--;
+            showPdfPage(currentPage);
+            lastPageChangeTime = currentTime;
+          }
+          e.preventDefault();
+        },
+        { passive: false }
+      );
+
+      // Mouse click for page navigation
+      pipContent.addEventListener("click", function (e) {
+        // Skip if event originated from touch
+        if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) {
+          return;
+        }
+
+        const currentTime = Date.now();
+        if (currentTime - lastPageChangeTime < PAGE_CHANGE_DELAY) return;
+
+        const rect = pipContent.getBoundingClientRect();
+        const y = e.clientY - rect.top;
+
+        if (y < rect.height / 2 && currentPage > 1) {
+          currentPage--;
+          showPdfPage(currentPage);
+          lastPageChangeTime = currentTime;
+        } else if (y >= rect.height / 2 && currentPage < pdf.numPages) {
+          currentPage++;
+          showPdfPage(currentPage);
+          lastPageChangeTime = currentTime;
+        }
+      });
+    })
+    .catch(function (error) {
+      console.error("Error loading PDF:", error);
+    });
 }
 
 function showPdfPage(pageNum) {
@@ -564,6 +607,60 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   enableDraggableMinimizedViewer();
+
+  // Initialize process labels
+  const processLabels = document.querySelectorAll(".pip-process-label");
+  console.log("Found process labels:", processLabels.length);
+
+  processLabels.forEach((label) => {
+    label.addEventListener("click", function () {
+      console.log("Process label clicked:", this.dataset.process);
+      console.log("Active element:", document.activeElement?.id);
+
+      // Only handle if we're viewing work instructions
+      if (document.activeElement?.id === "btnWorkInstruction") {
+        console.log("Handling work instruction click");
+
+        // Remove active class from all labels
+        processLabels.forEach((l) => l.classList.remove("active"));
+        // Add active class to clicked label
+        this.classList.add("active");
+
+        // Get the process number
+        const processNumber = parseInt(this.dataset.process);
+        console.log("Fetching work instruction for process:", processNumber);
+
+        // Fetch the work instruction for this process
+        fetch(`/paperless/get-work-instruction.php?process=${processNumber}`)
+          .then((response) => {
+            console.log("Response status:", response.status);
+            return response.json();
+          })
+          .then((data) => {
+            console.log("Response data:", data);
+            if (data.success && data.file) {
+              console.log("Loading file:", data.file);
+              // Clear existing content
+              const pipContent = document.getElementById("pipContent");
+              pipContent.innerHTML = "";
+
+              // Load the new PDF
+              loadPdfFile(data.file);
+            } else {
+              console.error("Failed to load work instruction:", data.error);
+            }
+          })
+          .catch((error) => {
+            console.error("Error fetching work instruction:", error);
+          });
+      } else {
+        console.log(
+          "Not handling work instruction click - active element is:",
+          document.activeElement?.id
+        );
+      }
+    });
+  });
 });
 
 function setupPanZoom(img) {
