@@ -1,5 +1,4 @@
 <?php
-// require_once '../admin/authenticate.php'; 
 $errorPrompt = "";
 ?>
 
