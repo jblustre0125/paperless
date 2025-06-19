@@ -3,7 +3,6 @@
   "short_name": "DOR",
   "start_url": "/paperless/module/dor-home.php",
   "display": "fullscreen",
-  "orientation": "landscape",
   "background_color": "#ffffff",
   "theme_color": "#0d6efd",
   "icons": [
