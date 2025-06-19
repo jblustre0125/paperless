@@ -1,5 +1,7 @@
 <?php
 $errorPrompt = "";
+
+require_once "../controller/login.php";
 ?>
 
 <!DOCTYPE html>
@@ -12,7 +14,6 @@ $errorPrompt = "";
     <link rel="icon" type="image/png" href="../img/dor-1024.png">
     <link rel="stylesheet" href="../../css/bootstrap.min.css" />
     <link rel="stylesheet" href="../../css/index.css" />
-    <script src="../../js/bootstrap.bundle.min.js"></script>
     <link rel="manifest" href="../../manifest.json">
     <meta name="theme-color" content="#0d6efd">
     <meta name="mobile-web-app-capable" content="yes">
@@ -26,16 +27,16 @@ $errorPrompt = "";
                 <h2 class="mb-0 text-white">DOR System</h2>
             </div>
             <div class="card-body">
-                <form id="myForm" action="" method="POST">
+                <form id="myForm" method="POST">
                     <div class="mb-4">
                         <!-- <label for="productionCode" class="form-label">Employee ID</label>
                         <input type="text" class="form-control form-control-lg" id="productionCode" name="txtProductionCode"  required data-scan placeholder="Tap to scan ID"  value="2410-016">1 -->
                         <label for="codeInput" class="form-label">Employee ID</label>
-                        <input type="text" name="txtProductionCode" id="codeInput" class="form-control py-2 mb-3" placeholder="Enter manually your employee ID">
+                        <input type="text" name="employee_code" id="codeInput" class="form-control py-2 mb-3" placeholder="Enter manually your employee ID">
                         <button type="button" class="btn btn-outline-secondary" id="scanToggleBtn">Scan ID</button>
                     </div>
                     <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-primary btn-lg" name="btnlogin" id="btnlogin">Login</button>
+                        <button type="submit" class="btn btn-primary btn-lg" name="btnLogin" id="btnLogin">Login</button>
                     </div>
                 </form>
 
@@ -71,7 +72,7 @@ $errorPrompt = "";
         </div>
     </div>
 
-    <script src="../../js/jsQR.min.js"></script>
+    <script src="../../../js/jsQR.min.js"></script>
     <script>
         document.addEventListener("DOMContentLoaded", function() {
             const scannerModal = new bootstrap.Modal(document.getElementById("qrScannerModal"));
@@ -149,13 +150,14 @@ $errorPrompt = "";
                         if (parts.length > 0) {
                             const codeOnly = parts[0];
                             if (activeInput) {
-                                activeInput.value = codeOnly;
+                                activeInput = document.getElementById("codeInput");
+
 
                                 stopScanning();
 
                                 // Trigger submit after a tiny delay to allow DOM update
                                 setTimeout(() => {
-                                    const loginBtn = document.getElementById("btnlogin");
+                                    const loginBtn = document.getElementById("btnLogin");
                                     if (loginBtn) loginBtn.click();
                                 }, 100); // Delay ensures input is registered before submit
                             }
