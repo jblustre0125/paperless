@@ -99,7 +99,7 @@ $title = "Leader Dashboard";
                                                     Correct shifting & winding/ NO peel off, flip out, loose tape
                                                 </td>
                                                 <td>Wrong shifting & winding/ peel off/flip out/loose tape</td>
-                                                <td rowspan="2" class="text-center align-middle">
+                                                <td rowspan="1" class="text-center align-middle">
                                                     <div class="d-flex justify-content-center">
                                                         <div class="form-check me-3">
                                                         <input type="radio" name="taping_hatsumono" id="taping_good" value="OK">
@@ -119,7 +119,25 @@ $title = "Leader Dashboard";
                                                 </td>
                                             </tr>
                                             <tr>
-                                                <td colspan="3">*PUT <strong>WF </strong> if WITH FOLDING and <small>WOF </small> if WITHOUT FOLDING</td>
+                                                <td colspan="3" rowspan="1">*PUT <strong>WF </strong> if WITH FOLDING and <strong>WOF </strong> if WITHOUT FOLDING</td>
+                                                <td rowspan="1" class="text-center align-middle">
+                                                    <div class="d-flex justify-content-center">
+                                                        <div class="form-check me-3">
+                                                        <input type="radio" name="taping_hatsumono" id="taping_good" value="OK">
+                                                        <label for="taping_good" class="form-check-label">Good</label>
+                                                    </div>
+
+                                                    <div class="form-check me-3">
+                                                        <input type="radio" name="taping_hatsumono" id="taping_na" value="NA">
+                                                        <label for="taping_na" class="form-check-label">N/A</label>
+                                                    </div>
+
+                                                    <div class="form-check">
+                                                        <input type="radio" name="taping_hatsumono" id="taping_ng" value="NG">
+                                                        <label for="taping_ng" class="form-check-label">NG</label>
+                                                    </div>
+                                                    </div>
+                                                </td>
                                             </tr>
                                             <tr>
                                                 <td class="text-center">2. Connector Lock Condition</td>
@@ -185,7 +203,25 @@ $title = "Leader Dashboard";
                                                 </td>
                                             </tr>
                                             <tr>
-                                                <td colspan="3">*PUT <strong>WF </strong> if WITH FOLDING and <small>WOF </small> if WITHOUT FOLDING</td>
+                                                <td colspan="3" rowspan="1">*PUT <strong>WF </strong> if WITH FOLDING and <strong>WOF </strong> if WITHOUT FOLDING</td>
+                                                <td rowspan="1" class="text-center align-middle">
+                                                    <div class="d-flex justify-content-center">
+                                                        <div class="form-check me-3">
+                                                        <input type="radio" name="taping_hatsumono" id="taping_good" value="OK">
+                                                        <label for="taping_good" class="form-check-label">Good</label>
+                                                    </div>
+
+                                                    <div class="form-check me-3">
+                                                        <input type="radio" name="taping_hatsumono" id="taping_na" value="NA">
+                                                        <label for="taping_na" class="form-check-label">N/A</label>
+                                                    </div>
+
+                                                    <div class="form-check">
+                                                        <input type="radio" name="taping_hatsumono" id="taping_ng" value="NG">
+                                                        <label for="taping_ng" class="form-check-label">NG</label>
+                                                    </div>
+                                                    </div>
+                                                </td>
                                             </tr>
                                             <tr>
                                                 <td class="text-center">2. Connector Lock Condition</td>
@@ -230,7 +266,7 @@ $title = "Leader Dashboard";
                                                     Correct shifting & winding/ NO peel off, flip out, loose tape
                                                 </td>
                                                 <td>Wrong shifting & winding/ peel off/flip out/loose tape</td>
-                                                <td rowspan="2" class="text-center align-middle">
+                                                <td rowspan="1" class="text-center align-middle">
                                                     <div class="d-flex justify-content-center">
                                                         <div class="form-check me-3">
                                                         <input type="radio" name="taping_nakamono" id="taping_good" value="OK">
@@ -250,8 +286,8 @@ $title = "Leader Dashboard";
                                                 </td>
                                             </tr>
                                             <tr>
-                                                <td colspan="3">*PUT <strong>WF </strong> if WITH FOLDING and <small>WOF </small> if WITHOUT FOLDING</td>
-                                                <td rowspan="2" class="text-center align-middle">
+                                                <td colspan="3">*PUT <strong>WF </strong> if WITH FOLDING and <strong>WOF </strong> if WITHOUT FOLDING</td>
+                                                <td rowspan="1" class="text-center align-middle">
                                                     <div class="d-flex justify-content-center">
                                                         <div class="form-check me-3">
                                                         <input type="radio" name="taping_hatsumono" id="taping_good" value="OK">

@@ -189,6 +189,10 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                     </button>
                 </div>
             </div>
+<<<<<<< HEAD
+=======
+            <button class="btn btn-primary btn-lg" onclick="submitForm()">Proceed to DOR</button>
+>>>>>>> parent of 349db73 (Merge pull request #1 from ejmalibong/add-mntform-dortype)
         </div>
     </nav>
     <form id="myForm" method="post" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" novalidate>
@@ -832,4 +836,101 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
 
 </body>
 
+<<<<<<< HEAD
+=======
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        let storedTab = sessionStorage.getItem("activeTab");
+        if (storedTab) {
+            document.getElementById(storedTab).style.display = "block";
+            document.querySelector(`[onclick="openTab(event, '${storedTab}')"]`).classList.add("active");
+        } else {
+            document.querySelector(".tab-content").style.display = "block";
+        }
+    });
+
+    function openTab(evt, processName) {
+        document.querySelectorAll(".tab-content").forEach(el => el.style.display = "none");
+        document.querySelectorAll(".tab-button").forEach(el => el.classList.remove("active"));
+        document.getElementById(processName).style.display = "block";
+        evt.currentTarget.classList.add("active");
+        sessionStorage.setItem("activeTab", processName);
+    }
+
+    function goBack() {
+        window.location.href = "dor.php";
+    }
+
+    function submitForm() {
+        document.getElementById("myForm").submit();
+    }
+</script>
+
+<script>
+    function showDrawing() {
+        const dorTypeId = 1; // Change dynamically based on the selected DOR type
+
+        fetch(`get_drawing.php?dorTypeId=${dorTypeId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.drawing) {
+                    document.getElementById("drawingImage").src = data.drawing;
+                    document.getElementById("drawingWindow").style.display = "block";
+                } else {
+                    alert(data.error);
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                alert("An error occurred while fetching the drawing.");
+            });
+    }
+
+    // Close the floating window
+    function closeDrawing() {
+        document.getElementById("drawingWindow").style.display = "none";
+    }
+
+    // Make the floating window draggable
+    dragElement(document.getElementById("drawingWindow"));
+
+    function dragElement(el) {
+        let pos1 = 0,
+            pos2 = 0,
+            pos3 = 0,
+            pos4 = 0;
+        const header = document.getElementById("drawingHeader");
+
+        if (header) {
+            header.onmousedown = dragMouseDown;
+        }
+
+        function dragMouseDown(e) {
+            e.preventDefault();
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+            document.onmouseup = closeDragElement;
+            document.onmousemove = elementDrag;
+        }
+
+        function elementDrag(e) {
+            e.preventDefault();
+            pos1 = pos3 - e.clientX;
+            pos2 = pos4 - e.clientY;
+            pos3 = e.clientX;
+            pos4 = e.clientY;
+            el.style.top = (el.offsetTop - pos2) + "px";
+            el.style.left = (el.offsetLeft - pos1) + "px";
+        }
+
+        function closeDragElement() {
+            document.onmouseup = null;
+            document.onmousemove = null;
+        }
+    }
+</script>
+
+<script src="../js/bootstrap.bundle.min.js"></script>
+
+>>>>>>> parent of 349db73 (Merge pull request #1 from ejmalibong/add-mntform-dortype)
 </html>
