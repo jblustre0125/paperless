@@ -64,6 +64,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         if (isset($_POST['btnProceed'])) {
             $recordId = $_SESSION['dorRecordId'] ?? 0;
             if ($recordId > 0) {
+                // Get the last userCode from the form
+                $lastUserCode = $_POST['lastUserCode'] ?? '';
+
+                // Update the creator in AtoDor table
+                if (!empty($lastUserCode)) {
+                    $updateSp = "EXEC UpdAtoDor @RecordId=?, @CreatedBy=?";
+                    $db1->execute($updateSp, [$recordId, $lastUserCode]);
+                }
+
                 foreach ($_POST as $key => $value) {
                     if (preg_match('/^Process(\d+)_(\d+)$/', $key, $matches)) {
                         $processIndex = (int)$matches[1];
@@ -170,7 +179,7 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                 <!-- Left-aligned group -->
                 <div class="d-flex gap-2 flex-wrap">
                     <button class="btn btn-secondary btn-lg nav-btn-lg btn-nav-group" id="btnDrawing">Drawing</button>
-                    <button class="btn btn-secondary btn-lg nav-btn-lg btn-nav-group" id="btnWorkInstruction">
+                    <button class="btn btn-secondary btn-lg nav-btn-lg btn-nav-group" id="btnWorkInstruction" data-file="<?php echo htmlspecialchars($workInstructFile); ?>">
                         <span class="short-label">WI</span>
                         <span class="long-label">Work Instruction</span>
                     </button>
@@ -218,14 +227,12 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                                 <div class="employee-validation">
                                     <input type="text" class="form-control form-control-md" id="userCode<?php echo $i; ?>"
                                         name="userCode<?php echo $i; ?>" placeholder="Employee ID">
+                                    <button type="button" class="btn btn-secondary btn-sm scan-btn" onclick="startScanning(<?php echo $i; ?>)">Scan ID</button>
                                     <div id="validationMessage<?php echo $i; ?>" class="validation-message mt-1"></div>
                                 </div>
                             </div>
                         <?php endfor; ?>
                     </div>
-                </div>
-                <div class="sticky-table-header">
-                    Required Item and Jig Condition VS Work Instruction
                 </div>
                 <div class="d-grid" style="margin-bottom: 10px; background-color: #f0f0f0;">
                     <button type="button" class="btn btn-secondary btn-lg" onclick="setAllTestValues(event)">Set Test Values</button>
@@ -333,7 +340,7 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
             <div class="modal-dialog">
                 <div class="modal-content border-danger">
                     <div class="modal-header bg-danger text-white">
-                        <h5 class="modal-title" id="errorModalLabel">Please complete the checkpoints</h5>
+                        <h5 class="modal-title" id="errorModalLabel">Please complete all checkpoints</h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body" id="modalErrorMessage">
@@ -350,10 +357,15 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
     <!-- PiP Viewer HTML: supports maximize and minimize modes -->
     <div id="pipViewer" class="pip-viewer d-none maximize-mode">
         <div id="pipHeader">
-            <button id="pipMaximize" class="pip-btn d-none" title="Maximize"><i class="bi bi-fullscreen"></i></button>
-            <button id="pipMinimize" class="pip-btn" title="Minimize"><i class="bi bi-fullscreen-exit"></i></button>
-            <button id="pipReset" class="pip-btn" title="Reset View"><i class="bi bi-arrow-counterclockwise"></i></button>
-            <button id="pipClose" class="pip-btn" title="Close"><i class="bi bi-x-lg"></i></button>
+            <div id="pipProcessLabels" class="pip-process-labels">
+                <!-- Process labels will be dynamically inserted here -->
+            </div>
+            <div class="pip-controls">
+                <button id="pipMaximize" class="pip-btn d-none" title="Maximize"><i class="bi bi-fullscreen"></i></button>
+                <button id="pipMinimize" class="pip-btn" title="Minimize"><i class="bi bi-fullscreen-exit"></i></button>
+                <button id="pipReset" class="pip-btn" title="Reset View"><i class="bi bi-arrow-counterclockwise"></i></button>
+                <button id="pipClose" class="pip-btn" title="Close"><i class="bi bi-x-lg"></i></button>
+            </div>
         </div>
         <div id="pipContent"></div>
     </div>
@@ -418,8 +430,6 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                 navigator.mediaDevices.getUserMedia(getCameraConstraints())
                     .then(setupVideoStream)
                     .catch((err1) => {
-                        console.error("Back camera failed", err1);
-
                         navigator.mediaDevices.getUserMedia({
                                 video: {
                                     facingMode: "user"
@@ -427,7 +437,6 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                             })
                             .then(setupVideoStream)
                             .catch((err2) => {
-                                console.error("Front camera failed", err2);
                                 alert("Camera access is blocked or not available on this tablet.");
                             });
                     });
@@ -467,8 +476,15 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
             }
 
             let activeInput = null;
+            // Remove the click event listener from userCode inputs since we'll use the scan button instead
             document.querySelectorAll("input[id^='userCode']").forEach(input => {
-                input.addEventListener("click", async function() {
+                // Remove the click event listener that was here
+            });
+
+            // Add click handler for scan buttons
+            document.querySelectorAll(".scan-btn").forEach(button => {
+                button.addEventListener("click", async function() {
+                    const processIndex = this.closest('.employee-validation').querySelector('input[id^="userCode"]').id.replace('userCode', '');
                     const accessGranted = await navigator.mediaDevices.getUserMedia({
                         video: true
                     }).then(stream => {
@@ -477,7 +493,7 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                     }).catch(() => false);
 
                     if (accessGranted) {
-                        activeInput = this;
+                        activeInput = document.getElementById(`userCode${processIndex}`);
                         startScanning();
                     } else {
                         alert("Camera access denied");
@@ -590,7 +606,7 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                 }
 
                 if (hasInvalidInputs) {
-                    showErrorModal("Please enter valid employee IDs for all processes.");
+                    showErrorModal("Enter valid employee IDs for all processes.");
                     return;
                 }
 
@@ -632,7 +648,7 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                     });
 
                     if (hasInvalidValidation) {
-                        showErrorModal(`Invalid Employee ID(s):\n${invalidCodes.join('\n')}`);
+                        showErrorModal(`Invalid Employee ID(s):<br>${invalidCodes.join('<br>')}`);
                         return;
                     }
 
@@ -705,6 +721,10 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                         formData.append(clickedButton.name, clickedButton.value || "1");
                     }
 
+                    // Get the last userCode from the list
+                    const lastUserCode = Object.values(userCodes).pop();
+                    formData.append('lastUserCode', lastUserCode);
+
                     fetch(form.action, {
                             method: "POST",
                             body: formData
@@ -719,11 +739,10 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                             } else {
                                 showErrorModal("<ul><li>" + data.errors.join("</li><li>") + "</li></ul>");
                             }
-                        })
-                        .catch(error => console.error("Error:", error));
+                        });
                 } catch (error) {
                     console.error('Error:', error);
-                    showErrorModal("Error validating employee IDs. Please try again.");
+                    showErrorModal("Error validating employee IDs.");
                 }
             });
 
@@ -751,7 +770,7 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
                 body: `processNumber=${processNumber}`
-            }).catch(error => console.error('Error updating process:', error));
+            });
 
             sessionStorage.setItem("activeTab", tabName);
         }
@@ -794,10 +813,6 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                     } else {
                         alert(data.errors?.[0] || "Failed to delete DOR record.");
                     }
-                })
-                .catch(err => {
-                    console.error("Error:", err);
-                    alert("Error occurred while deleting.");
                 });
         }
 
@@ -833,6 +848,103 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
     <script src="../js/pdf.worker.min.js"></script>
     <script src="../js/hammer.min.js"></script>
     <script src="../js/dor-pip-viewer.js"></script>
+
+    <style>
+        .pip-process-labels {
+            display: none;
+            gap: 10px;
+            padding: 0 10px;
+        }
+
+        .pip-viewer.maximize-mode .pip-process-labels {
+            display: none;
+        }
+
+        .pip-viewer.maximize-mode .pip-process-labels.show {
+            display: flex;
+        }
+
+        .pip-viewer.minimize-mode .pip-process-labels {
+            display: none !important;
+        }
+
+        .pip-process-label {
+            padding: 4px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            background-color: #ffffff;
+            color: #000;
+            border: 1px solid #dee2e6;
+        }
+
+        .pip-process-label:hover {
+            background-color: #f8f9fa;
+            border-color: #dee2e6;
+        }
+
+        .pip-process-label.active {
+            background-color: #0d6efd;
+            color: white;
+            border-color: #0d6efd;
+        }
+
+        .pip-controls {
+            display: flex;
+            gap: 5px;
+            margin-left: auto;
+        }
+    </style>
+
+    <script>
+        // Add this to your existing JavaScript
+        function initializeProcessLabels() {
+            const tabQty = <?php echo $_SESSION["tabQty"] ?? 0; ?>;
+            const processLabelsContainer = document.getElementById('pipProcessLabels');
+            processLabelsContainer.innerHTML = ''; // Clear existing labels
+
+            for (let i = 1; i <= tabQty; i++) {
+                const label = document.createElement('div');
+                label.className = 'pip-process-label';
+                label.textContent = `P${i}`;
+                label.dataset.process = i;
+
+                // Add click handler
+                label.addEventListener('click', function() {
+                    // Remove active class from all labels
+                    document.querySelectorAll('.pip-process-label').forEach(l => l.classList.remove('active'));
+                    // Add active class to clicked label
+                    this.classList.add('active');
+
+                    // Load work instruction immediately
+                    const processNumber = parseInt(this.dataset.process);
+                    fetch(`/paperless/module/get-work-instruction.php?process=${processNumber}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success && data.file) {
+                                const pipContent = document.getElementById("pipContent");
+                                pipContent.innerHTML = "";
+                                loadPdfFile(data.file);
+                            }
+                        });
+                });
+
+                processLabelsContainer.appendChild(label);
+            }
+
+            // Set first process as active by default
+            const firstLabel = processLabelsContainer.querySelector('.pip-process-label');
+            if (firstLabel) {
+                firstLabel.classList.add('active');
+            }
+        }
+
+        // Call this when the PiP viewer is initialized
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeProcessLabels();
+        });
+    </script>
 
 </body>
 

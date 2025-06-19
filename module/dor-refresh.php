@@ -49,6 +49,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
                 if (!$existingRecord || empty($existingRecord)) {
                     // Execute stored procedure to save new responses
+
                     $insSp = "EXEC InsAtoDorCheckpointRefresh 
                         @RecordId=?, 
                         @OpLeaderResponse=?,
@@ -59,6 +60,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                         $leaderToOperator,
                         $operatorToLeader
                     ]);
+
+                    error_log("Leader to Operator: " . $leaderToOperator);
+                    error_log("Operator to Leader: " . $operatorToLeader);
 
                     if ($result !== false) {
                         $response['success'] = true;

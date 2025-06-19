@@ -100,7 +100,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-      webView.loadUrl("https://192.168.184.161:444/paperless/index.php")
+//      webView.loadUrl("https://192.168.184.161:444/paperless/index.php")
+        webView.loadUrl("https://192.168.22.144:444/paperless/index.php")
         //   webView.loadUrl("https://192.168.21.144:444/paperless/module/dor-home.php")
     }
 

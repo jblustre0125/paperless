@@ -5,6 +5,8 @@ require_once "method.php";
 ob_start();
 
 $title = "Leader Dashboard";
+$method = new Method(1);
+$hostnames = $method->getActiveHostnames();
 
 ?>
 <!DOCTYPE html>

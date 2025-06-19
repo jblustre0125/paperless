@@ -27,8 +27,12 @@ if (isset($_GET['mode']) && $_GET['mode'] === 'operator') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $title ?? 'Default Title'; ?></title>
+<<<<<<< HEAD
     <link rel="stylesheet" href="../../css/bootstrap.min.css" />
     <link rel="stylesheet" href="../../css/index.css" />
+=======
+    <link href="../css/bootstrap.min.css" rel="stylesheet">
+>>>>>>> 7cb8947616a0e28f0eb1192552c69742cab2b8ff
     <link href="../css/master.css" rel="stylesheet">
     <script src="../../js/bootstrap.bundle.min.js"></script>
 </head>
@@ -39,9 +43,8 @@ if (isset($_GET['mode']) && $_GET['mode'] === 'operator') {
         <div class="d-grid gap-3 col-6 mx-auto">
             <a href="?mode=operator" class="btn btn-outline-primary btn-lg">Operator Mode</a>
             <a href="adm-dashboard.php" class="btn btn-outline-secondary btn-lg">Admin Dashboard</a>
-            <a href="../leader/module/dor-leader-dashboard.php" class="btn btn-outline-warning btn-lg">Leader Dashboard</a>
         </div>
     </div>
 </body>
 
-</html> 
+</html>
