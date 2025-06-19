@@ -13,18 +13,11 @@ $title = "Leader Dashboard";
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?=$title ?></title>
-    <!-- <link rel="stylesheet" href="../../css/bootstrap.min.css" /> -->
-     <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-
-    <!-- Bootstrap Bundle JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
-    <link rel="stylesheet" href="../../css/index.css" />
-
+    <link rel="stylesheet" href="../../css/bootstrap.min.css">
     <link href="../css/leader-dashboard.css" rel="stylesheet">
 </head>
 <body>
+    <script src="../../js/bootstrap.bundle.min.js"></script>
     <div class="container mt-5">
         <div class="row row-cols-4 row-cols-md-8 row-cols-xl-8 g-3">
             <?php if(!empty($hostnames)): ?>
@@ -48,7 +41,7 @@ $title = "Leader Dashboard";
         </div>
         <!-- modal that handles the visual inspection checklist -->
         <div class="modal fade" id="hostnameModal" tabindex="-1" aria-labelledby="hostnameModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered" style="max-width: 70%;">
+            <div class="modal-dialog modal-dialog-centered" style="max-width: 80%;">
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title" id="hostnameModalLabel"></h5>
@@ -81,7 +74,7 @@ $title = "Leader Dashboard";
 
                          <!-- Tab content -->
                           <div class="tab-content p-3">
-                            <div class="tab-pane fade show active" id="tab1" role="tabpanel">
+                            <div class="tab-pane fade show active" id="tab1" role="tabpanel" aria-labelledby="tab1-tab">
                                 <div class="container">
                                     <span>Incharge: Leader</span>
                                     <table class="table table-bordered">
@@ -166,7 +159,7 @@ $title = "Leader Dashboard";
                                     </table>
                                 </div>
                             </div>
-                            <div class="tab-pane fade" id="tab2" role="tabpanel">
+                            <div class="tab-pane fade" id="tab2" role="tabpanel" aria-labelledby="tab2-tab">
                                 <span>Incharge: Leader</span>
                                 <table class="table table-bordered">
                                         <thead class="table-light">
@@ -249,7 +242,7 @@ $title = "Leader Dashboard";
                                         </tbody>
                                     </table>
                             </div>
-                            <div class="tab-pane fade" id="tab3" role="tabpanel">
+                            <div class="tab-pane fade" id="tab3" role="tabpanel" aria-labelledby="tab3-tab">
                                 <span>Incharge: Leader</span>
                                 <table class="table table-bordered">
                                         <thead class="table-light">
@@ -332,7 +325,7 @@ $title = "Leader Dashboard";
                                         </tbody>
                                     </table>
                             </div>
-                            <div class="tab-pane fade" id="tab4" role="tabpanel">
+                            <div class="tab-pane fade" id="tab4" role="tabpanel" aria-labelledby="tab4-tab">
                                 <div class="table-responsive">
                                     <table class="table table-bordered text-center">
                                         <thead class="table-light">
@@ -389,8 +382,15 @@ $title = "Leader Dashboard";
                 // modalBody.innerHTML = `
                 // <p><strong>Hostname: </strong> ${hostname}</p>
                 // <p><strong>Status: </strong> ${status}</p>`;
+
+                //always reselected the tab when the modal is opened.
+                const firtTabTrigger = document.querySelector('#tab1-tab');
+                const firstTab = new bootstrap.Tab(firtTabTrigger);
+                firstTab.show();                
             });
         });
-    </script>  
+
+    </script> 
+    
 </body>
 </html>
