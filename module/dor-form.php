@@ -198,10 +198,6 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                     </button>
                 </div>
             </div>
-<<<<<<< HEAD
-=======
-            <button class="btn btn-primary btn-lg" onclick="submitForm()">Proceed to DOR</button>
->>>>>>> parent of 349db73 (Merge pull request #1 from ejmalibong/add-mntform-dortype)
         </div>
     </nav>
     <form id="myForm" method="post" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" novalidate>
@@ -948,8 +944,6 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
 
 </body>
 
-<<<<<<< HEAD
-=======
 <script>
     document.addEventListener("DOMContentLoaded", function() {
         let storedTab = sessionStorage.getItem("activeTab");
@@ -967,10 +961,6 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
         document.getElementById(processName).style.display = "block";
         evt.currentTarget.classList.add("active");
         sessionStorage.setItem("activeTab", processName);
-    }
-
-    function goBack() {
-        window.location.href = "dor.php";
     }
 
     function submitForm() {
@@ -1044,5 +1034,4 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
 
 <script src="../js/bootstrap.bundle.min.js"></script>
 
->>>>>>> parent of 349db73 (Merge pull request #1 from ejmalibong/add-mntform-dortype)
 </html>
