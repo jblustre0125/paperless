@@ -396,5 +396,3 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
-*.png
-thirdparties/pdfjs/.git-blame-ignore-revs
