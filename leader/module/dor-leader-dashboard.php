@@ -183,7 +183,7 @@ $title = "Leader Dashboard";
                                                     Correct shifting & winding/ NO peel off, flip out, loose tape
                                                 </td>
                                                 <td>Wrong shifting & winding/ peel off/flip out/loose tape</td>
-                                                <td rowspan="2" class="text-center align-middle">
+                                                <td rowspan="1" class="text-center align-middle">
                                                     <div class="d-flex justify-content-center">
                                                         <div class="form-check me-3">
                                                         <input type="radio" name="taping_nakamono" id="taping_good" value="OK">
