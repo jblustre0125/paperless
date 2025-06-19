@@ -1,7 +1,8 @@
 <?php
 require_once __DIR__ . "/../../config/header.php";
 require_once __DIR__ . "/../../config/dbop.php";
-require_once "method.php";
+require_once "../controller/method.php";
+//require_once "submit-inspection.php";
 ob_start();
 
 $title = "Leader Dashboard";
@@ -75,7 +76,9 @@ $hostnames = $method->getActiveHostnames();
                          </ul>
 
                          <!-- Tab content -->
-                          <div class="tab-content p-3">
+                          <form action="" method="POST">
+                            <input type="hidden" name="record_id" value="129">
+                            <div class="tab-content p-3">
                             <div class="tab-pane fade show active" id="tab1" role="tabpanel" aria-labelledby="tab1-tab">
                                 <div class="container">
                                     <span>Incharge: Leader</span>
@@ -97,18 +100,18 @@ $hostnames = $method->getActiveHostnames();
                                                 <td rowspan="1" class="text-center align-middle">
                                                     <div class="d-flex justify-content-center">
                                                         <div class="form-check me-3">
-                                                        <input type="radio" name="taping_hatsumono" id="taping_good" value="OK">
-                                                        <label for="taping_good" class="form-check-label">Good</label>
+                                                        <input type="radio" name="checkpoint1_hatsunomo" id="hatsumono_taping_good" value="OK" checked>
+                                                        <label for="hatsumono_taping_good" class="form-check-label">Good</label>
                                                     </div>
 
                                                     <div class="form-check me-3">
-                                                        <input type="radio" name="taping_hatsumono" id="taping_na" value="NA">
-                                                        <label for="taping_na" class="form-check-label">N/A</label>
+                                                        <input type="radio" name="checkpoint1_hatsunomo" id="hatsumono_taping_na" value="NA">
+                                                        <label for="hatsumono_taping_na" class="form-check-label">N/A</label>
                                                     </div>
 
                                                     <div class="form-check">
-                                                        <input type="radio" name="taping_hatsumono" id="taping_ng" value="NG">
-                                                        <label for="taping_ng" class="form-check-label">NG</label>
+                                                        <input type="radio" name="checkpoint1_hatsunomo" id="hatsumono_taping_ng" value="NG">
+                                                        <label for="hatsumono_taping_ng" class="form-check-label">NG</label>
                                                     </div>
                                                     </div>
                                                 </td>
@@ -118,18 +121,18 @@ $hostnames = $method->getActiveHostnames();
                                                 <td rowspan="1" class="text-center align-middle">
                                                     <div class="d-flex justify-content-center">
                                                         <div class="form-check me-3">
-                                                        <input type="radio" name="taping_hatsumono" id="taping_good" value="OK">
-                                                        <label for="taping_good" class="form-check-label">Good</label>
+                                                        <input type="radio" name="checkpoint2_hatsunomo" id="hatsumono_taping_good" value="OK" checked>
+                                                        <label for="hatsumono_taping_good" class="form-check-label">Good</label>
                                                     </div>
 
                                                     <div class="form-check me-3">
-                                                        <input type="radio" name="taping_hatsumono" id="taping_na" value="NA">
-                                                        <label for="taping_na" class="form-check-label">N/A</label>
+                                                        <input type="radio" name="checkpoint2_hatsunomo" id="hatsumono_taping_na" value="NA">
+                                                        <label for="hatsumono_taping_na" class="form-check-label">N/A</label>
                                                     </div>
 
                                                     <div class="form-check">
-                                                        <input type="radio" name="taping_hatsumono" id="taping_ng" value="NG">
-                                                        <label for="taping_ng" class="form-check-label">NG</label>
+                                                        <input type="radio" name="checkpoint2_hatsunomo" id="hatsumono_taping_ng" value="NG">
+                                                        <label for="hatsumono_taping_ng" class="form-check-label">NG</label>
                                                     </div>
                                                     </div>
                                                 </td>
@@ -141,18 +144,18 @@ $hostnames = $method->getActiveHostnames();
                                                 <td rowspan="2" class="text-center align-middle">
                                                     <div class="d-flex justify-content-center">
                                                         <div class="form-check me-3">
-                                                        <input type="radio" name="taping_hatsumono" id="taping_good" value="OK">
-                                                        <label for="taping_good" class="form-check-label">Good</label>
+                                                        <input type="radio" name="checkpoint3_hatsunomo" id="hatsumono_taping_good" value="OK" checked>
+                                                        <label for="hatsumono_taping_good" class="form-check-label">Good</label>
                                                     </div>
 
                                                     <div class="form-check me-3">
-                                                        <input type="radio" name="taping_hatsumono" id="taping_na" value="NA">
-                                                        <label for="taping_na" class="form-check-label">N/A</label>
+                                                        <input type="radio" name="checkpoint3_hatsunomo" id="hatsumono_taping_na" value="NA">
+                                                        <label for="hatsumono_taping_na" class="form-check-label">N/A</label>
                                                     </div>
 
                                                     <div class="form-check">
-                                                        <input type="radio" name="taping_hatsumono" id="taping_ng" value="NG">
-                                                        <label for="taping_ng" class="form-check-label">NG</label>
+                                                        <input type="radio" name="checkpoint2_hatsunomo" id="hatsumono_taping_ng" value="NG">
+                                                        <label for="hatsumono_taping_ng" class="form-check-label">NG</label>
                                                     </div>
                                                     </div>
                                                 </td>
@@ -181,18 +184,18 @@ $hostnames = $method->getActiveHostnames();
                                                 <td rowspan="1" class="text-center align-middle">
                                                     <div class="d-flex justify-content-center">
                                                         <div class="form-check me-3">
-                                                        <input type="radio" name="taping_nakamono" id="taping_good" value="OK">
-                                                        <label for="taping_good" class="form-check-label">Good</label>
+                                                        <input type="radio" name="checkpoint1_nakamono" id="nakamono_taping_good" value="OK" checked>
+                                                        <label for="nakamono_taping_good" class="form-check-label">Good</label>
                                                     </div>
 
                                                     <div class="form-check me-3">
-                                                        <input type="radio" name="taping_nakamono" id="taping_na" value="NA">
-                                                        <label for="taping_na" class="form-check-label">N/A</label>
+                                                        <input type="radio" name="checkpoint1_nakamono" id="nakamono_taping_na" value="NA">
+                                                        <label for="nakamono_taping_na" class="form-check-label">N/A</label>
                                                     </div>
 
                                                     <div class="form-check">
-                                                        <input type="radio" name="taping_nakamono" id="taping_ng" value="NG">
-                                                        <label for="taping_ng" class="form-check-label">NG</label>
+                                                        <input type="radio" name="checkpoint1_nakamono" id="nakamono_taping_ng" value="NG">
+                                                        <label for="nakamono_taping_ng" class="form-check-label">NG</label>
                                                     </div>
                                                     </div>
                                                 </td>
@@ -202,18 +205,18 @@ $hostnames = $method->getActiveHostnames();
                                                 <td rowspan="1" class="text-center align-middle">
                                                     <div class="d-flex justify-content-center">
                                                         <div class="form-check me-3">
-                                                        <input type="radio" name="taping_hatsumono" id="taping_good" value="OK">
-                                                        <label for="taping_good" class="form-check-label">Good</label>
+                                                        <input type="radio" name="checkpoint2_nakamono" id="nakamono_taping_good" value="OK" checked>
+                                                        <label for="nakamono_taping_good" class="form-check-label">Good</label>
                                                     </div>
 
                                                     <div class="form-check me-3">
-                                                        <input type="radio" name="taping_hatsumono" id="taping_na" value="NA">
-                                                        <label for="taping_na" class="form-check-label">N/A</label>
+                                                        <input type="radio" name="checkpoint2_nakamono" id="nakamono_taping_na" value="NA">
+                                                        <label for="nakamono_taping_na" class="form-check-label">N/A</label>
                                                     </div>
 
                                                     <div class="form-check">
-                                                        <input type="radio" name="taping_hatsumono" id="taping_ng" value="NG">
-                                                        <label for="taping_ng" class="form-check-label">NG</label>
+                                                        <input type="radio" name="checkpoint2_nakamono" id="nakamono_taping_ng" value="NG">
+                                                        <label for="nakamono_taping_ng" class="form-check-label">NG</label>
                                                     </div>
                                                     </div>
                                                 </td>
@@ -225,18 +228,18 @@ $hostnames = $method->getActiveHostnames();
                                                 <td rowspan="2" class="text-center align-middle">
                                                     <div class="d-flex justify-content-center">
                                                         <div class="form-check me-3">
-                                                        <input type="radio" name="taping_hatsumono" id="taping_good" value="OK">
-                                                        <label for="taping_good" class="form-check-label">Good</label>
+                                                        <input type="radio" name="checkpoint3_nakamono" id="nakamono_taping_good" value="OK" checked>
+                                                        <label for="nakamono_taping_good" class="form-check-label">Good</label>
                                                     </div>
 
                                                     <div class="form-check me-3">
-                                                        <input type="radio" name="taping_hatsumono" id="taping_na" value="NA">
-                                                        <label for="taping_na" class="form-check-label">N/A</label>
+                                                        <input type="radio" name="checkpoint3_nakamono" id="nakamono_taping_na" value="NA">
+                                                        <label for="nakamono_taping_na" class="form-check-label">N/A</label>
                                                     </div>
 
                                                     <div class="form-check">
-                                                        <input type="radio" name="taping_hatsumono" id="taping_ng" value="NG">
-                                                        <label for="taping_ng" class="form-check-label">NG</label>
+                                                        <input type="radio" name="checkpoint3_nakamono" id="nakamono_taping_ng" value="NG">
+                                                        <label for="nakamono_taping_ng" class="form-check-label">NG</label>
                                                     </div>
                                                     </div>
                                                 </td>
@@ -264,18 +267,18 @@ $hostnames = $method->getActiveHostnames();
                                                 <td rowspan="1" class="text-center align-middle">
                                                     <div class="d-flex justify-content-center">
                                                         <div class="form-check me-3">
-                                                        <input type="radio" name="taping_nakamono" id="taping_good" value="OK">
-                                                        <label for="taping_good" class="form-check-label">Good</label>
+                                                        <input type="radio" name="checkpoint1_owarinomo" id="owarinomo_taping_good" value="OK" checked>
+                                                        <label for="owarinomo_taping_good" class="form-check-label">Good</label>
                                                     </div>
 
                                                     <div class="form-check me-3">
-                                                        <input type="radio" name="taping_nakamono" id="taping_na" value="NA">
-                                                        <label for="taping_na" class="form-check-label">N/A</label>
+                                                        <input type="radio" name="checkpoint1_owarinomo" id="owarinomo_taping_na" value="NA">
+                                                        <label for="owarinomo_taping_na" class="form-check-label">N/A</label>
                                                     </div>
 
                                                     <div class="form-check">
-                                                        <input type="radio" name="taping_nakamono" id="taping_ng" value="NG">
-                                                        <label for="taping_ng" class="form-check-label">NG</label>
+                                                        <input type="radio" name="checkpoint1_owarinomo" id="owarinomo_taping_ng" value="NG">
+                                                        <label for="owarinomo_taping_ng" class="form-check-label">NG</label>
                                                     </div>
                                                     </div>
                                                 </td>
@@ -285,18 +288,18 @@ $hostnames = $method->getActiveHostnames();
                                                 <td rowspan="1" class="text-center align-middle">
                                                     <div class="d-flex justify-content-center">
                                                         <div class="form-check me-3">
-                                                        <input type="radio" name="taping_hatsumono" id="taping_good" value="OK">
-                                                        <label for="taping_good" class="form-check-label">Good</label>
+                                                        <input type="radio" name="checkpoint2_owarinomo" id="owarinomo_taping_good" value="OK" checked>
+                                                        <label for="owarinomo_taping_good" class="form-check-label">Good</label>
                                                     </div>
 
                                                     <div class="form-check me-3">
-                                                        <input type="radio" name="taping_hatsumono" id="taping_na" value="NA">
-                                                        <label for="taping_na" class="form-check-label">N/A</label>
+                                                        <input type="radio" name="checkpoint2_owarinomo" id="owarinomo_taping_na" value="NA">
+                                                        <label for="owarinomo_taping_na" class="form-check-label">N/A</label>
                                                     </div>
 
                                                     <div class="form-check">
-                                                        <input type="radio" name="taping_hatsumono" id="taping_ng" value="NG">
-                                                        <label for="taping_ng" class="form-check-label">NG</label>
+                                                        <input type="radio" name="checkpoint2_owarinomo" id="owarinomo_taping_ng" value="NG">
+                                                        <label for="owarinomo_taping_ng" class="form-check-label">NG</label>
                                                     </div>
                                                     </div>
                                                 </td>
@@ -308,18 +311,18 @@ $hostnames = $method->getActiveHostnames();
                                                 <td rowspan="2" class="text-center align-middle">
                                                     <div class="d-flex justify-content-center">
                                                         <div class="form-check me-3">
-                                                        <input type="radio" name="taping_hatsumono" id="taping_good" value="OK">
-                                                        <label for="taping_good" class="form-check-label">Good</label>
+                                                        <input type="radio" name="checkpoint3_owarinomo" id="owarinomo_taping_good" value="OK" checked>
+                                                        <label for="owarinomo_taping_good" class="form-check-label">Good</label>
                                                     </div>
 
                                                     <div class="form-check me-3">
-                                                        <input type="radio" name="taping_hatsumono" id="taping_na" value="NA">
-                                                        <label for="taping_na" class="form-check-label">N/A</label>
+                                                        <input type="radio" name="checkpoint3_owarinomo" id="owarinomo_taping_na" value="NA">
+                                                        <label for="owarinomo_taping_na" class="form-check-label">N/A</label>
                                                     </div>
 
                                                     <div class="form-check">
-                                                        <input type="radio" name="taping_hatsumono" id="taping_ng" value="NG">
-                                                        <label for="taping_ng" class="form-check-label">NG</label>
+                                                        <input type="radio" name="checkpoint3_owarinomo" id="owarinomo_taping_ng" value="NG">
+                                                        <label for="owarinomo_taping_ng" class="form-check-label">NG</label>
                                                     </div>
                                                     </div>
                                                 </td>
@@ -359,6 +362,7 @@ $hostnames = $method->getActiveHostnames();
                                 </div>
                             </div>
                           </div>
+                          </form>
                     </div>
                     <div class="modal-footer">
                          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
