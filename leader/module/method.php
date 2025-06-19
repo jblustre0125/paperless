@@ -1,7 +1,3 @@
-<!-- Login methods to follow -->
-
-<!-- Method in fetching Tablet Hostname1 -->
-
 <?php
     require_once "../../config/dbop.php";
 
