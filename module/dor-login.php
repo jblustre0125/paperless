@@ -1,5 +1,10 @@
 <?php
 // require_once '../admin/authenticate.php'; 
+session_start();
+if(isset($_SESSION['login_error'])){
+    echo '<div class="alert alert-danger">'.htmlspecialchars($_SESSION['login_error']).'</div>';
+    unset($_SESSION['login_error']);
+}
 ?>
 
 <!DOCTYPE html>
