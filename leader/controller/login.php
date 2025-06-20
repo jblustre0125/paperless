@@ -3,50 +3,70 @@ ob_start();
 session_start();
 require_once '../../config/dbop.php';
 
-
-//get user ip
+// Get user IP
 function getUserIP(){
-        if(!empty($_SERVER['HTTP_CLIENT_IP'])) return $_SERVER['HTTP_CLIENT_IP'];
-        elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) return $_SERVER['HTTP_X_FORWARDED_FOR'];
-        else return $_SERVER['REMOTE_ADDR'];
+    if(!empty($_SERVER['HTTP_CLIENT_IP'])) return $_SERVER['HTTP_CLIENT_IP'];
+    elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) return $_SERVER['HTTP_X_FORWARDED_FOR'];
+    else return $_SERVER['REMOTE_ADDR'];
 }
 
 $ip = getUserIP();
-
-$employeeCode = $_POST['employee_code'] ?? '';
+$employeeCode = isset($_POST['employee_code']) ? trim($_POST['employee_code']) : '';
 
 if(isset($_POST['btnLogin'])){
     $db = new DbOp(1);
+    $error = '';
 
-    $hostQuery = "SELECT Hostname, IsActive FROM GenHostname WHERE IPAddress = ?";
+    // 1. First check tablet/hostname status
+    $hostQuery = "SELECT HostnameId, Hostname, IsLoggedin, IsActive FROM GenHostname WHERE IPAddress = ?";
     $hostData = $db->execute($hostQuery, [$ip]);
 
-    if(!$hostData || $hostData[0]['IsActive'] != 1){
-        header('Location: ../../module/dor-login.php');
+    if(empty($hostData)){
+        $error = "Tablet not registered with IP: $ip";
+    } 
+    elseif($hostData[0]['IsActive'] != 1){
+        $error = "Tablet is inactive";
+    }
+    elseif($hostData[0]['IsLogin'] == 1){
+        $error = "Tablet is already logged in";
     }
 
-//selecting leader and sr leader from the GenOperator
-$userQuery = "SELECT OperatorId, EmployeeCode, EmployeeName, IsLeader, IsSrLeader, IsActive FROM GenOperator WHERE LTRIM(RTRIM(EmployeeCode)) = ?";
+    // Only proceed with user auth if tablet checks pass
+    if(empty($error)){
+        $userQuery = "SELECT OperatorId, EmployeeCode, EmployeeName, IsLeader, IsSrLeader, IsActive 
+                     FROM GenOperator 
+                     WHERE LTRIM(RTRIM(EmployeeCode)) = ?";
+        $userData = $db->execute($userQuery, [$employeeCode]);
 
-$userData = $db->execute($userQuery, [$employeeCode]);
-
-if($userData && count($userData) > 0){
-    $user = $userData[0];
-
-    if($user['IsActive'] != 1){
-        $errorPrompt = "Your account is inactive.";
-    }elseif($user['IsLeader'] == 1 || $user['IsSrLeader'] == 1){
-        $_SESSION['employee_code'] = $user['EmployeeCode'];
-        $_SESSION['is_leader'] = $user['IsLeader'];
-        $_SESSION['is_sr_leader'] = $user['IsSrLeader'];
-
-        header('Location: ../../leader/module/dor-leader-dashboard.php');
-        exit();
-    }else{
-        header('Location: ../../module/dor-login.php');
+        if(empty($userData)){
+            $error = "Employee ID [$employeeCode] not found";
+        }
+        elseif($userData[0]['IsActive'] != 1){
+            $error = "Your account is inactive";
+        }
+        elseif($userData[0]['IsLeader'] == 1 || $userData[0]['IsSrLeader'] == 1){
+            // All checks passed - log them in
+            $_SESSION['employee_code'] = $userData[0]['EmployeeCode'];
+            $_SESSION['employee_name'] = $userData[0]['EmployeeName'];
+            $_SESSION['is_leader'] = $userData[0]['IsLeader'];
+            $_SESSION['is_sr_leader'] = $userData[0]['IsSrLeader'];
+            $_SESSION['hostnameId'] = $hostData[0]['HostnameId'];
+            $_SESSION['hostname'] = $hostData[0]['Hostname'];
+            
+            // Update tablet login status
+            $updateQuery = "UPDATE GenHostname SET IsLogin = 1 WHERE HostnameId = ?";
+            $db->execute($updateQuery, [$hostData[0]['HostnameId']]);
+            
+            header('Location: ../../leader/module/dor-leader-dashboard.php');
+            exit();
+        }
+        else {
+            $error = "You don't have leader privileges";
+        }
     }
-    }else{
-    echo "Employee ID [$employeeCode] is not found.";
-    }
+
+    // If we get here, there was an error
+    $_SESSION['login_error'] = $error;
+    header('Location: ../../module/dor-login.php');
+    exit();
 }
-?>
