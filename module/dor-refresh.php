@@ -250,10 +250,15 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
     <!-- PiP Viewer HTML: supports maximize and minimize modes -->
     <div id="pipViewer" class="pip-viewer d-none maximize-mode">
         <div id="pipHeader">
-            <button id="pipMaximize" class="pip-btn d-none" title="Maximize"><i class="bi bi-fullscreen"></i></button>
-            <button id="pipMinimize" class="pip-btn" title="Minimize"><i class="bi bi-fullscreen-exit"></i></button>
-            <button id="pipReset" class="pip-btn" title="Reset View"><i class="bi bi-arrow-counterclockwise"></i></button>
-            <button id="pipClose" class="pip-btn" title="Close"><i class="bi bi-x-lg"></i></button>
+            <div id="pipProcessLabels" class="pip-process-labels">
+                <!-- Process labels will be dynamically inserted here -->
+            </div>
+            <div class="pip-controls">
+                <button id="pipMaximize" class="pip-btn d-none" title="Maximize"><i class="bi bi-fullscreen"></i></button>
+                <button id="pipMinimize" class="pip-btn" title="Minimize"><i class="bi bi-fullscreen-exit"></i></button>
+                <button id="pipReset" class="pip-btn" title="Reset View"><i class="bi bi-arrow-counterclockwise"></i></button>
+                <button id="pipClose" class="pip-btn" title="Close"><i class="bi bi-x-lg"></i></button>
+            </div>
         </div>
         <div id="pipContent"></div>
     </div>
@@ -334,6 +339,55 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
     <script src="../js/pdf.worker.min.js"></script>
     <script src="../js/hammer.min.js"></script>
     <script src="../js/dor-pip-viewer.js"></script>
+
+    <script>
+        // Add this to your existing JavaScript
+        function initializeProcessLabels() {
+            const tabQty = <?php echo $_SESSION["tabQty"] ?? 0; ?>;
+            const processLabelsContainer = document.getElementById('pipProcessLabels');
+            processLabelsContainer.innerHTML = ''; // Clear existing labels
+
+            for (let i = 1; i <= tabQty; i++) {
+                const label = document.createElement('div');
+                label.className = 'pip-process-label';
+                label.textContent = `P${i}`;
+                label.dataset.process = i;
+
+                // Add click handler
+                label.addEventListener('click', function() {
+                    // Remove active class from all labels
+                    document.querySelectorAll('.pip-process-label').forEach(l => l.classList.remove('active'));
+                    // Add active class to clicked label
+                    this.classList.add('active');
+
+                    // Load work instruction immediately
+                    const processNumber = parseInt(this.dataset.process);
+                    fetch(`/paperless/module/get-work-instruction.php?process=${processNumber}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success && data.file) {
+                                const pipContent = document.getElementById("pipContent");
+                                pipContent.innerHTML = "";
+                                loadPdfFile(data.file);
+                            }
+                        });
+                });
+
+                processLabelsContainer.appendChild(label);
+            }
+
+            // Set first process as active by default
+            const firstLabel = processLabelsContainer.querySelector('.pip-process-label');
+            if (firstLabel) {
+                firstLabel.classList.add('active');
+            }
+        }
+
+        // Call this when the PiP viewer is initialized
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeProcessLabels();
+        });
+    </script>
 
 </body>
 
