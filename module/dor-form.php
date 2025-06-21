@@ -64,6 +64,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         if (isset($_POST['btnProceed'])) {
             $recordId = $_SESSION['dorRecordId'] ?? 0;
             if ($recordId > 0) {
+                // Store employee codes in session for use in dor-dor.php
+                for ($i = 1; $i <= 4; $i++) {
+                    if (isset($_POST["userCode{$i}"]) && !empty($_POST["userCode{$i}"])) {
+                        $_SESSION["userCode{$i}"] = $_POST["userCode{$i}"];
+                    }
+                }
+
                 // Get the last userCode from the form
                 $lastUserCode = $_POST['lastUserCode'] ?? '';
 
