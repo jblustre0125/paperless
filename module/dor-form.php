@@ -508,6 +508,11 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
         });
     </script>
 
+    <script src="../js/pdf.min.js"></script>
+    <script src="../js/pdf.worker.min.js"></script>
+    <script src="../js/hammer.min.js"></script>
+    <script src="../js/dor-pip-viewer.js"></script>
+
     <script>
         let isMinimized = false;
         const workInstructFile = <?php echo json_encode($workInstructFile); ?>;
@@ -839,59 +844,6 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
             });
         }
     </script>
-
-    <script src="../js/pdf.min.js"></script>
-    <script src="../js/pdf.worker.min.js"></script>
-    <script src="../js/hammer.min.js"></script>
-    <script src="../js/dor-pip-viewer.js"></script>
-
-    <style>
-        .pip-process-labels {
-            display: none;
-            gap: 10px;
-            padding: 0 10px;
-        }
-
-        .pip-viewer.maximize-mode .pip-process-labels {
-            display: none;
-        }
-
-        .pip-viewer.maximize-mode .pip-process-labels.show {
-            display: flex;
-        }
-
-        .pip-viewer.minimize-mode .pip-process-labels {
-            display: none !important;
-        }
-
-        .pip-process-label {
-            padding: 4px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: 500;
-            transition: all 0.2s ease;
-            background-color: #ffffff;
-            color: #000;
-            border: 1px solid #dee2e6;
-        }
-
-        .pip-process-label:hover {
-            background-color: #f8f9fa;
-            border-color: #dee2e6;
-        }
-
-        .pip-process-label.active {
-            background-color: #0d6efd;
-            color: white;
-            border-color: #0d6efd;
-        }
-
-        .pip-controls {
-            display: flex;
-            gap: 5px;
-            margin-left: auto;
-        }
-    </style>
 
     <script>
         // Add this to your existing JavaScript

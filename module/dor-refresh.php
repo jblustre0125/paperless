@@ -45,7 +45,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
                 // First check if record exists
                 $checkSp = "EXEC RdAtoDorCheckpointRefreshRecordId @RecordId=?";
-                $existingRecord = $db1->execute($checkSp, [$recordId]);
+                $existingRecord = $db1->execute($checkSp, [$recordId], 1);
 
                 if (!$existingRecord || empty($existingRecord)) {
                     // Execute stored procedure to save new responses
@@ -60,9 +60,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                         $leaderToOperator,
                         $operatorToLeader
                     ]);
-
-                    error_log("Leader to Operator: " . $leaderToOperator);
-                    error_log("Operator to Leader: " . $operatorToLeader);
 
                     if ($result !== false) {
                         $response['success'] = true;
@@ -103,27 +100,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     exit;
 }
 
-$drawingFile = '';
-$workInstructFile = '';
-$preCardFile = '';
-
-try {
-    $drawingFile = getDrawing($_SESSION["dorTypeId"], $_SESSION['dorModelId']) ?? '';
-} catch (Throwable $e) {
-    $drawingFile = '';
-}
-
-try {
-    $workInstructFile = getWorkInstruction($_SESSION["dorTypeId"], $_SESSION['dorModelId']) ?? '';
-} catch (Throwable $e) {
-    $workInstructFile = '';
-}
-
-try {
-    $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
-} catch (Throwable $e) {
-    $preCardFile = '';
-}
+$drawingFile = getDrawing($_SESSION["dorTypeId"], $_SESSION['dorModelId']) ?? '';
+$activeProcess = isset($_SESSION['activeProcess']) ? $_SESSION['activeProcess'] : 1;
+$workInstructFile = getWorkInstruction($_SESSION["dorTypeId"], $_SESSION['dorModelId'], $activeProcess) ?? '';
+$preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
 
 ?>
 
@@ -151,7 +131,7 @@ try {
                 <!-- Left-aligned group -->
                 <div class="d-flex gap-2 flex-wrap">
                     <button class="btn btn-secondary btn-lg nav-btn-lg btn-nav-group" id="btnDrawing">Drawing</button>
-                    <button class="btn btn-secondary btn-lg nav-btn-lg btn-nav-group" id="btnWorkInstruction">
+                    <button class="btn btn-secondary btn-lg nav-btn-lg btn-nav-group" id="btnWorkInstruction" data-file="<?php echo htmlspecialchars($workInstructFile); ?>">
                         <span class="short-label">WI</span>
                         <span class="long-label">Work Instruction</span>
                     </button>
