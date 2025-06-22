@@ -90,14 +90,32 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                         $employeeCode = $_POST["userCode{$processIndex}"] ?? '';
 
                         if ($checkpointId && $employeeCode !== '') {
-                            $insSp = "EXEC InsAtoDorCheckpointDefinition @RecordId=?, @ProcessIndex=?, @EmployeeCode=?, @CheckpointId=?, @CheckpointResponse=?";
-                            $db1->execute($insSp, [
-                                $recordId,
-                                $processIndex,
-                                $employeeCode,
-                                $checkpointId,
-                                $value
-                            ]);
+                            // Check if a record for this specific checkpoint already exists
+                            $checkSp = "SELECT COUNT(*) as NumRecords FROM dbo.AtoDorCheckpointDefinition WHERE RecordId = ? AND CheckpointId = ? AND ProcessIndex = ?";
+                            $result = $db1->execute($checkSp, [$recordId, $checkpointId, $processIndex]);
+                            $recordExists = !empty($result) && isset($result[0]['NumRecords']) && $result[0]['NumRecords'] > 0;
+
+                            if ($recordExists) {
+                                // Record exists, so update it
+                                $updateSp = "EXEC UpdAtoDorCheckpointDefinition @RecordId=?, @ProcessIndex=?, @EmployeeCode=?, @CheckpointId=?, @CheckpointResponse=?";
+                                $db1->execute($updateSp, [
+                                    $recordId,
+                                    $processIndex,
+                                    $employeeCode,
+                                    $checkpointId,
+                                    $value
+                                ]);
+                            } else {
+                                // Record doesn't exist, so insert it
+                                $insSp = "EXEC InsAtoDorCheckpointDefinition @RecordId=?, @ProcessIndex=?, @EmployeeCode=?, @CheckpointId=?, @CheckpointResponse=?";
+                                $db1->execute($insSp, [
+                                    $recordId,
+                                    $processIndex,
+                                    $employeeCode,
+                                    $checkpointId,
+                                    $value
+                                ]);
+                            }
                         }
                     }
                 }
