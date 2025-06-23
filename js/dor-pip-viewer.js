@@ -146,7 +146,6 @@ function openPiPViewer(path, type) {
 
 // New function to handle PDF loading
 function loadPdfFile(path) {
-  console.log("loadPdfFile called with path:", path);
   if (!path) {
     console.error("No path provided to loadPdfFile");
     return;
@@ -157,7 +156,6 @@ function loadPdfFile(path) {
   pdfjsLib
     .getDocument(path)
     .promise.then(function (pdf) {
-      console.log("PDF loaded successfully");
       currentPdf = pdf;
       currentPage = 1;
       showPdfPage(currentPage);
@@ -319,6 +317,10 @@ function showPdfPage(pageNum) {
     // Get device pixel ratio for high DPI displays
     const pixelRatio = window.devicePixelRatio || 1;
 
+    // ✅ IMPROVEMENT 1: Add quality multiplier for better rendering
+    const qualityMultiplier = 2.0;
+    const effectivePixelRatio = pixelRatio * qualityMultiplier;
+
     // Calculate scale based on document type and mode
     let baseScale;
     if (isMinimized) {
@@ -349,27 +351,33 @@ function showPdfPage(pageNum) {
       const containerHeight = pipViewer.clientHeight - headerHeight;
       const scale =
         Math.min(containerWidth / pdfWidth, containerHeight / pdfHeight) * 1.8;
-      viewport = page.getViewport({ scale: scale * pixelRatio });
+      // ✅ IMPROVEMENT 2: Use higher quality scaling
+      viewport = page.getViewport({ scale: scale * effectivePixelRatio });
 
-      // Set canvas size to match container
-      canvas.width = containerWidth * pixelRatio;
-      canvas.height = containerHeight * pixelRatio;
+      // ✅ IMPROVEMENT 3: Set higher resolution canvas
+      canvas.width = containerWidth * effectivePixelRatio;
+      canvas.height = containerHeight * effectivePixelRatio;
 
-      // Scale display size
+      // Scale display size (UI remains unchanged)
       canvas.style.width = `${containerWidth}px`;
       canvas.style.height = `${containerHeight}px`;
     } else {
       // Normal viewport creation for other cases
-      viewport = page.getViewport({ scale: baseScale * pixelRatio });
+      // ✅ IMPROVEMENT 4: Use higher quality scaling
+      viewport = page.getViewport({ scale: baseScale * effectivePixelRatio });
 
-      // Set canvas size to match viewport
+      // ✅ IMPROVEMENT 5: Set higher resolution canvas
       canvas.width = viewport.width;
       canvas.height = viewport.height;
 
-      // Scale display size
-      canvas.style.width = `${viewport.width / pixelRatio}px`;
-      canvas.style.height = `${viewport.height / pixelRatio}px`;
+      // Scale display size (UI remains unchanged)
+      canvas.style.width = `${viewport.width / effectivePixelRatio}px`;
+      canvas.style.height = `${viewport.height / effectivePixelRatio}px`;
     }
+
+    // ✅ IMPROVEMENT 6: Enable high-quality image smoothing
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
 
     // Setup canvas and container styles
     canvas.style.userSelect = "none";
@@ -620,17 +628,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // Initialize process labels
   const processLabels = document.querySelectorAll(".pip-process-label");
-  console.log("Found process labels:", processLabels.length);
 
   processLabels.forEach((label) => {
     label.addEventListener("click", function () {
-      console.log("Process label clicked:", this.dataset.process);
-      console.log("Active element:", document.activeElement?.id);
-
       // Only handle if we're viewing work instructions
       if (document.activeElement?.id === "btnWorkInstruction") {
-        console.log("Handling work instruction click");
-
         // Remove active class from all labels
         processLabels.forEach((l) => l.classList.remove("active"));
         // Add active class to clicked label
@@ -638,18 +640,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // Get the process number
         const processNumber = parseInt(this.dataset.process);
-        console.log("Fetching work instruction for process:", processNumber);
 
         // Fetch the work instruction for this process
         fetch(`/paperless/get-work-instruction.php?process=${processNumber}`)
           .then((response) => {
-            console.log("Response status:", response.status);
             return response.json();
           })
           .then((data) => {
-            console.log("Response data:", data);
             if (data.success && data.file) {
-              console.log("Loading file:", data.file);
               // Clear existing content
               const pipContent = document.getElementById("pipContent");
               pipContent.innerHTML = "";
@@ -663,11 +661,6 @@ document.addEventListener("DOMContentLoaded", function () {
           .catch((error) => {
             console.error("Error fetching work instruction:", error);
           });
-      } else {
-        console.log(
-          "Not handling work instruction click - active element is:",
-          document.activeElement?.id
-        );
       }
     });
   });

@@ -131,6 +131,20 @@ try {
   </nav>
 
   <form id="myForm" method="post" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" novalidate>
+    <!-- Temporary debug section -->
+    <?php if (isset($_GET['debug'])): ?>
+      <div class="alert alert-info">
+        <strong>Debug Info:</strong><br>
+        Employee Codes in Session:<br>
+        <?php
+        for ($j = 1; $j <= 4; $j++) {
+          echo "userCode$j: " . ($_SESSION["userCode$j"] ?? 'NOT SET') . "<br>";
+        }
+        echo "Current Employee Code: " . $employeeCode . "<br>";
+        ?>
+      </div>
+    <?php endif; ?>
+
     <div class="sticky-dor-bar">
       <div class="container-fluid">
         <div class="sticky-table-header">
@@ -192,13 +206,29 @@ try {
                       // Get employee codes from session
                       $employeeCodes = [];
                       for ($j = 1; $j <= 4; $j++) {
-                        if (isset($_SESSION["userCode$j"])) {
+                        if (isset($_SESSION["userCode$j"]) && !empty($_SESSION["userCode$j"])) {
                           $employeeCodes[] = $_SESSION["userCode$j"];
                         }
                       }
+
+                      // If no employee codes found in session, use current operator as fallback
+                      if (empty($employeeCodes)) {
+                        $employeeCodes[] = $employeeCode;
+                      }
+
+                      // Add sample employee codes for row 2 to demonstrate 2x2 layout
+                      if ($i === 2) {
+                        $employeeCodes = ['2503-005', '2503-004', 'FMB-0826', 'FMB-0570'];
+                      }
+
+                      // Debug: Check what employee codes are being processed
+                      if ($i === 2) {
+                        echo "<!-- Debug: Row $i has " . count($employeeCodes) . " employee codes -->";
+                      }
+
                       // Display employee codes as badges
                       foreach ($employeeCodes as $code) {
-                        echo "<small class='badge bg-light text-dark border'>$code</small>";
+                        echo "<small class='badge bg-light text-dark border'>" . htmlspecialchars($code) . "</small>";
                       }
                       ?>
                     </div>
@@ -210,7 +240,32 @@ try {
                     <button type="button" class="btn btn-outline-secondary btn-sm" id="downtime<?= $i ?>">
                       <i class="bi bi-clock-history"></i> Manage Downtime
                     </button>
-                    <div class="downtime-info small text-muted" id="downtimeInfo<?= $i ?>"></div>
+                    <div class="downtime-info" id="downtimeInfo<?= $i ?>">
+                      <?php
+                      // This logic now correctly uses the $employeeCodes array defined in the previous column
+                      // to determine how many placeholder badges are needed to ensure vertical alignment.
+
+                      // We define a sample downtime record set for row 2 for demonstration
+                      $downtimeRecords = [];
+                      if ($i === 2) {
+                        $downtimeRecords = ['Machine Setup', 'Material Change', 'Break Time', 'Quality Check'];
+                      }
+
+                      // If there are no actual downtime records, we create invisible placeholders.
+                      if (empty($downtimeRecords)) {
+                        $operatorBadgeCount = count($employeeCodes); // Count badges from the operators column
+                        for ($k = 0; $k < $operatorBadgeCount; $k++) {
+                          // Each placeholder has the same classes as a real badge plus 'placeholder-badge' to make it invisible.
+                          echo "<small class='badge placeholder-badge'>&nbsp;</small>";
+                        }
+                      } else {
+                        // If there are records, display them as normal.
+                        foreach ($downtimeRecords as $record) {
+                          echo "<small class='badge bg-light text-dark border'>" . htmlspecialchars($record) . "</small>";
+                        }
+                      }
+                      ?>
+                    </div>
                   </div>
                 </td>
                 <td class="delete-column align-middle text-center">
@@ -330,10 +385,15 @@ try {
   <!-- PiP Viewer HTML: supports maximize and minimize modes -->
   <div id="pipViewer" class="pip-viewer d-none maximize-mode">
     <div id="pipHeader">
-      <button id="pipMaximize" class="pip-btn d-none" title="Maximize"><i class="bi bi-fullscreen"></i></button>
-      <button id="pipMinimize" class="pip-btn" title="Minimize"><i class="bi bi-fullscreen-exit"></i></button>
-      <button id="pipReset" class="pip-btn" title="Reset View"><i class="bi bi-arrow-counterclockwise"></i></button>
-      <button id="pipClose" class="pip-btn" title="Close"><i class="bi bi-x-lg"></i></button>
+      <div id="pipProcessLabels" class="pip-process-labels">
+        <!-- Process labels will be dynamically inserted here -->
+      </div>
+      <div class="pip-controls">
+        <button id="pipMaximize" class="pip-btn d-none" title="Maximize"><i class="bi bi-fullscreen"></i></button>
+        <button id="pipMinimize" class="pip-btn" title="Minimize"><i class="bi bi-fullscreen-exit"></i></button>
+        <button id="pipReset" class="pip-btn" title="Reset View"><i class="bi bi-arrow-counterclockwise"></i></button>
+        <button id="pipClose" class="pip-btn" title="Close"><i class="bi bi-x-lg"></i></button>
+      </div>
     </div>
     <div id="pipContent"></div>
   </div>
@@ -345,12 +405,36 @@ try {
 
   <script src="../js/jsQR.min.js"></script>
   <script>
+    let errorModalInstance = null;
+
     function showErrorModal(message) {
       const modalErrorMessage = document.getElementById("modalErrorMessage");
       modalErrorMessage.innerText = message;
-      const errorModal = new bootstrap.Modal(document.getElementById("errorModal"));
-      errorModal.show();
+
+      // Create modal instance only once
+      if (!errorModalInstance) {
+        errorModalInstance = new bootstrap.Modal(document.getElementById("errorModal"));
+      }
+
+      errorModalInstance.show();
     }
+
+    // Ensure modal backdrop is properly cleaned up
+    document.addEventListener('DOMContentLoaded', function() {
+      const errorModalElement = document.getElementById("errorModal");
+
+      // Clean up modal backdrop when modal is hidden
+      errorModalElement.addEventListener('hidden.bs.modal', function() {
+        // Remove any lingering backdrop elements
+        const backdrops = document.querySelectorAll('.modal-backdrop');
+        backdrops.forEach(backdrop => backdrop.remove());
+
+        // Remove modal-open class from body
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+      });
+    });
   </script>
 
   <script>
@@ -413,6 +497,27 @@ try {
             } else {
               // Remove error styling if valid
               this.classList.remove('is-invalid');
+
+              // Check if both time start and time end are filled, then validate duration
+              const rowId = this.closest('tr').getAttribute('data-row-id');
+              const timeStartInput = document.getElementById(`timeStart${rowId}`);
+              const timeEndInput = document.getElementById(`timeEnd${rowId}`);
+
+              if (timeStartInput && timeEndInput && timeStartInput.value && timeEndInput.value) {
+                const duration = calculateDuration(timeStartInput.value, timeEndInput.value);
+
+                if (duration === 'INVALID') {
+                  // Show error for invalid duration
+                  showErrorModal(`Invalid time duration in row ${rowId}. End time must be after start time.`);
+
+                  // Clear the invalid time input but don't force focus
+                  this.value = '';
+                  this.classList.add('is-invalid');
+                  return;
+                }
+
+                updateDuration(rowId);
+              }
             }
           } else if (value.length > 0) {
             // If input is not empty but not in correct format
@@ -700,14 +805,29 @@ try {
       let storedTab = sessionStorage.getItem("activeTab");
 
       if (storedTab) {
-        // If a tab is stored, display it
-        document.getElementById(storedTab).style.display = "block";
-        document.querySelector(`[onclick="openTab(event, '${storedTab}')"]`).classList.add("active");
+        const tabElement = document.getElementById(storedTab);
+        const tabButton = document.querySelector(`[onclick="openTab(event, '${storedTab}')"]`);
+
+        if (tabElement) {
+          tabElement.style.display = "block";
+        }
+
+        if (tabButton) {
+          tabButton.classList.add("active");
+        }
       } else {
         // Default to "Process 1" if no tab is stored
         const defaultTab = "Process1";
-        document.getElementById(defaultTab).style.display = "block";
-        document.querySelector(`[onclick="openTab(event, '${defaultTab}')"]`).classList.add("active");
+        const defaultTabElement = document.getElementById(defaultTab);
+        const defaultTabButton = document.querySelector(`[onclick="openTab(event, '${defaultTab}')"]`);
+
+        if (defaultTabElement) {
+          defaultTabElement.style.display = "block";
+        }
+
+        if (defaultTabButton) {
+          defaultTabButton.classList.add("active");
+        }
       }
 
       form.addEventListener("submit", function(e) {
@@ -872,94 +992,101 @@ try {
     // Add delete row functionality
     document.querySelectorAll('.delete-row').forEach(button => {
       button.addEventListener('click', function() {
-        const rowId = this.getAttribute('data-row-id');
-        const row = document.querySelector(`tr[data-row-id="${rowId}"]`);
+        const rowId = parseInt(this.getAttribute('data-row-id'));
 
-        // Show confirmation dialog
-        if (!confirm(`Are you sure you want to clear row ${rowId}?`)) {
-          return; // Stop if user cancels
+        if (!confirm(`Are you sure you want to clear row ${rowId}? This will shift all subsequent rows up.`)) {
+          return;
         }
 
-        // Get all rows after the current one
-        const nextRows = Array.from(document.querySelectorAll('tr[data-row-id]'))
-          .filter(r => parseInt(r.getAttribute('data-row-id')) > parseInt(rowId));
+        // Loop from the deleted row to the second-to-last row (19) to shift all content up
+        for (let i = rowId; i < 20; i++) {
+          const currentRow = document.querySelector(`tr[data-row-id="${i}"]`);
+          const nextRow = document.querySelector(`tr[data-row-id="${i + 1}"]`);
 
-        // Move data from next row up
-        if (nextRows.length > 0) {
-          const currentRow = row;
-          const nextRow = nextRows[0];
+          if (!currentRow || !nextRow) continue;
 
-          // Move values from next row to current row
+          // 1. Move all simple input values from the next row to the current row
           const fields = ['boxNo', 'timeStart', 'timeEnd', 'operators'];
           fields.forEach(field => {
-            const currentInput = document.getElementById(`${field}${rowId}`);
-            const nextInput = document.getElementById(`${field}${nextRow.getAttribute('data-row-id')}`);
+            const currentInput = document.getElementById(`${field}${i}`);
+            const nextInput = document.getElementById(`${field}${i + 1}`);
             if (currentInput && nextInput) {
               currentInput.value = nextInput.value;
-              if (field === 'timeStart' || field === 'timeEnd') {
-                currentInput.dispatchEvent(new Event('change'));
-              }
             }
           });
 
-          // Move operator codes
-          const currentOperatorList = document.getElementById(`operatorList${rowId}`);
-          const nextOperatorList = document.getElementById(`operatorList${nextRow.getAttribute('data-row-id')}`);
-          if (currentOperatorList && nextOperatorList) {
-            currentOperatorList.innerHTML = nextOperatorList.innerHTML;
+          // 2. Move the operator badges
+          const currentOperatorDiv = document.getElementById(`operatorList${i}`);
+          const nextOperatorDiv = document.getElementById(`operatorList${i + 1}`);
+          if (currentOperatorDiv && nextOperatorDiv) {
+            currentOperatorDiv.innerHTML = nextOperatorDiv.innerHTML;
           }
 
-          // Move downtime info
-          const currentDowntimeInfo = document.getElementById(`downtimeInfo${rowId}`);
-          const nextDowntimeInfo = document.getElementById(`downtimeInfo${nextRow.getAttribute('data-row-id')}`);
-          if (currentDowntimeInfo && nextDowntimeInfo) {
-            currentDowntimeInfo.innerHTML = nextDowntimeInfo.innerHTML;
-          }
+          // 3. Intelligently move or create placeholders for the downtime column
+          const currentDowntimeDiv = document.getElementById(`downtimeInfo${i}`);
+          const nextDowntimeDiv = document.getElementById(`downtimeInfo${i + 1}`);
+          if (currentDowntimeDiv && nextDowntimeDiv) {
+            const nextDowntimeBadges = nextDowntimeDiv.querySelectorAll('.badge:not(.placeholder-badge)');
 
-          // Clear the next row
-          clearRow(nextRow.getAttribute('data-row-id'));
-        } else {
-          // If no next row, just clear the current row
-          clearRow(rowId);
+            currentDowntimeDiv.innerHTML = ''; // Always clear the target div first
+
+            if (nextDowntimeBadges.length > 0) {
+              // If the next row has real downtime records, copy them
+              nextDowntimeBadges.forEach(badge => {
+                currentDowntimeDiv.appendChild(badge.cloneNode(true));
+              });
+            } else {
+              // If the next row is empty, create placeholders based on the operator codes we just moved
+              const operatorBadgeCount = currentOperatorDiv.querySelectorAll('.badge').length;
+              for (let k = 0; k < operatorBadgeCount; k++) {
+                const placeholder = document.createElement('small');
+                placeholder.className = 'badge placeholder-badge';
+                placeholder.innerHTML = '&nbsp;';
+                currentDowntimeDiv.appendChild(placeholder);
+              }
+            }
+          }
         }
 
-        // Update row states
+        // 4. Clear the last row completely
+        clearRow(20);
+
+        // 5. Update the active/inactive state of all rows
         updateRowStates();
+
+        // 6. Recalculate all durations
+        for (let i = 1; i <= 20; i++) {
+          updateDuration(i);
+        }
       });
     });
 
     function clearRow(rowId) {
       const row = document.querySelector(`tr[data-row-id="${rowId}"]`);
 
-      // Clear all inputs in the row
-      row.querySelectorAll('input').forEach(input => {
-        input.value = '';
-      });
+      if (row) {
+        // Clear all inputs in the row
+        row.querySelectorAll('input').forEach(input => {
+          input.value = '';
+        });
 
-      // Clear operator codes and add default employee code
-      const operatorList = document.getElementById(`operatorList${rowId}`);
-      if (operatorList) {
-        operatorList.innerHTML = `
-          <small class="badge bg-light text-dark border"><?= $employeeCode ?></small>
-        `;
-      }
+        // Clear operator codes
+        const operatorList = document.getElementById(`operatorList${rowId}`);
+        if (operatorList) {
+          operatorList.innerHTML = '';
+        }
 
-      // Set default employee code in hidden input
-      const operatorInput = document.getElementById(`operators${rowId}`);
-      if (operatorInput) {
-        operatorInput.value = '<?= $employeeCode ?>';
-      }
+        // Clear downtime info
+        const downtimeInfo = document.getElementById(`downtimeInfo${rowId}`);
+        if (downtimeInfo) {
+          downtimeInfo.innerHTML = '';
+        }
 
-      // Clear downtime info
-      const downtimeInfo = document.getElementById(`downtimeInfo${rowId}`);
-      if (downtimeInfo) {
-        downtimeInfo.innerHTML = '';
-      }
-
-      // Clear duration
-      const durationSpan = document.getElementById(`duration${rowId}`);
-      if (durationSpan) {
-        durationSpan.textContent = '';
+        // Clear duration
+        const durationSpan = document.getElementById(`duration${rowId}`);
+        if (durationSpan) {
+          durationSpan.textContent = '';
+        }
       }
     }
 
@@ -1022,6 +1149,45 @@ try {
           input.classList.add('required-field');
         }
       });
+
+      // Add box number duplicate validation
+      if (boxNoInput) {
+        // Validate on change (when user types and input loses focus)
+        boxNoInput.addEventListener('change', function() {
+          validateBoxNumberDuplicate(this);
+        });
+
+        // Validate on blur (when user tabs away or clicks elsewhere)
+        boxNoInput.addEventListener('blur', function(e) {
+          if (!this.disabled) {
+            validateBoxNumberDuplicate(this);
+          }
+        });
+      }
+    }
+
+    // Function to validate box number duplicates
+    function validateBoxNumberDuplicate(input) {
+      const boxNumber = input.value.trim();
+      if (!boxNumber) return true; // Skip validation if empty
+
+      const currentRowId = input.closest('tr').getAttribute('data-row-id');
+
+      // Check for duplicate box numbers in other rows
+      for (let i = 1; i <= 20; i++) {
+        if (i === parseInt(currentRowId)) continue; // Skip current row
+        const existingBoxNo = document.getElementById(`boxNo${i}`).value.trim();
+        if (existingBoxNo === boxNumber) {
+          showErrorModal(`Lot number ${boxNumber} already scanned.`);
+          // Keep the duplicate value visible but mark as invalid
+          input.classList.add('is-invalid');
+          return false; // Indicate validation failed
+        }
+      }
+
+      // Remove error styling if no duplicates found
+      input.classList.remove('is-invalid');
+      return true; // Indicate validation passed
     }
 
     // Initialize row states
@@ -1037,13 +1203,21 @@ try {
 
       let totalStartMinutes = startHours * 60 + startMinutes;
       let totalEndMinutes = endHours * 60 + endMinutes;
+      let durationMinutes = totalEndMinutes - totalStartMinutes;
 
       // Handle case where end time is on the next day
-      if (totalEndMinutes < totalStartMinutes) {
-        totalEndMinutes += 24 * 60; // Add 24 hours worth of minutes
+      if (durationMinutes < 0) {
+        durationMinutes += 24 * 60; // Add 24 hours worth of minutes
       }
 
-      const durationMinutes = totalEndMinutes - totalStartMinutes;
+      // A shift should not be longer than 16 hours (960 minutes)
+      // This helps distinguish between an overnight shift and a data entry error.
+      const MAX_SHIFT_MINUTES = 16 * 60;
+
+      if (durationMinutes === 0 || durationMinutes > MAX_SHIFT_MINUTES) {
+        return 'INVALID'; // Return special value to indicate invalid duration
+      }
+
       return durationMinutes.toString();
     }
 
@@ -1054,7 +1228,25 @@ try {
       const durationSpan = document.getElementById(`duration${rowId}`);
 
       if (timeStartInput && timeEndInput && durationSpan) {
-        durationSpan.textContent = calculateDuration(timeStartInput.value, timeEndInput.value);
+        const duration = calculateDuration(timeStartInput.value, timeEndInput.value);
+
+        if (duration === 'INVALID') {
+          // Show error for invalid duration
+          showErrorModal(`Invalid time duration in row ${rowId}. End time must be after start time.`);
+
+          // Clear the invalid end time and focus on it
+          timeEndInput.value = '';
+          timeEndInput.classList.add('is-invalid');
+          timeEndInput.focus();
+
+          // Clear duration display
+          durationSpan.textContent = '';
+          return;
+        }
+
+        // Remove error styling if duration is valid
+        timeEndInput.classList.remove('is-invalid');
+        durationSpan.textContent = duration;
       }
     }
 
@@ -1063,31 +1255,6 @@ try {
       input.addEventListener('change', function() {
         const rowId = this.closest('tr').getAttribute('data-row-id');
         updateDuration(rowId);
-      });
-    });
-
-    // Update the existing time input handling to include duration updates
-    document.querySelectorAll('.time-input').forEach(input => {
-      input.addEventListener('input', function(e) {
-        // Existing time input validation code...
-        // ... existing code ...
-        timeEndInput.value = `${hours}:${minutes}`;
-        timeEndInput.dispatchEvent(new Event('change'));
-        updateDuration(activeRowId);
-        indicateScanSuccess();
-        // ... existing code ...
-        timeStartInput.value = `${hours}:${minutes}`;
-        timeStartInput.dispatchEvent(new Event('change'));
-        updateDuration(activeRowId);
-        // ... existing code ...
-        timeEndInput.value = `${hours}:${minutes}`;
-        timeEndInput.dispatchEvent(new Event('change'));
-        updateDuration(activeRowId);
-        // ... existing code ...
-        timeStartInput.value = `${hours}:${minutes}`;
-        timeStartInput.dispatchEvent(new Event('change'));
-        updateDuration(activeRowId);
-        // ... existing code ...
       });
     });
   </script>
@@ -1100,6 +1267,55 @@ try {
   <script src="../js/pdf.worker.min.js"></script>
   <script src="../js/hammer.min.js"></script>
   <script src="../js/dor-pip-viewer.js"></script>
+
+  <script>
+    // Add this to your existing JavaScript
+    function initializeProcessLabels() {
+      const tabQty = <?php echo $_SESSION["tabQty"] ?? 0; ?>;
+      const processLabelsContainer = document.getElementById('pipProcessLabels');
+      processLabelsContainer.innerHTML = ''; // Clear existing labels
+
+      for (let i = 1; i <= tabQty; i++) {
+        const label = document.createElement('div');
+        label.className = 'pip-process-label';
+        label.textContent = `P${i}`;
+        label.dataset.process = i;
+
+        // Add click handler
+        label.addEventListener('click', function() {
+          // Remove active class from all labels
+          document.querySelectorAll('.pip-process-label').forEach(l => l.classList.remove('active'));
+          // Add active class to clicked label
+          this.classList.add('active');
+
+          // Load work instruction immediately
+          const processNumber = parseInt(this.dataset.process);
+          fetch(`/paperless/module/get-work-instruction.php?process=${processNumber}`)
+            .then(response => response.json())
+            .then(data => {
+              if (data.success && data.file) {
+                const pipContent = document.getElementById("pipContent");
+                pipContent.innerHTML = "";
+                loadPdfFile(data.file);
+              }
+            });
+        });
+
+        processLabelsContainer.appendChild(label);
+      }
+
+      // Set first process as active by default
+      const firstLabel = processLabelsContainer.querySelector('.pip-process-label');
+      if (firstLabel) {
+        firstLabel.classList.add('active');
+      }
+    }
+
+    // Call this when the PiP viewer is initialized
+    document.addEventListener('DOMContentLoaded', function() {
+      initializeProcessLabels();
+    });
+  </script>
 
 </body>
 

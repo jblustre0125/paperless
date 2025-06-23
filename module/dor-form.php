@@ -1,5 +1,5 @@
 <?php
-$title = "DOR Item/Jig Condition";
+$title = "Item/Jig Condition";
 session_start();
 ob_start();
 
@@ -64,6 +64,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         if (isset($_POST['btnProceed'])) {
             $recordId = $_SESSION['dorRecordId'] ?? 0;
             if ($recordId > 0) {
+                // Store employee codes in session for use in dor-dor.php
+                for ($i = 1; $i <= 4; $i++) {
+                    if (isset($_POST["userCode{$i}"]) && !empty($_POST["userCode{$i}"])) {
+                        $_SESSION["userCode{$i}"] = $_POST["userCode{$i}"];
+                    }
+                }
+
                 // Get the last userCode from the form
                 $lastUserCode = $_POST['lastUserCode'] ?? '';
 
@@ -83,14 +90,32 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                         $employeeCode = $_POST["userCode{$processIndex}"] ?? '';
 
                         if ($checkpointId && $employeeCode !== '') {
-                            $insSp = "EXEC InsAtoDorCheckpointDefinition @RecordId=?, @ProcessIndex=?, @EmployeeCode=?, @CheckpointId=?, @CheckpointResponse=?";
-                            $db1->execute($insSp, [
-                                $recordId,
-                                $processIndex,
-                                $employeeCode,
-                                $checkpointId,
-                                $value
-                            ]);
+                            // Check if a record for this specific checkpoint already exists
+                            $checkSp = "SELECT COUNT(*) as NumRecords FROM dbo.AtoDorCheckpointDefinition WHERE RecordId = ? AND CheckpointId = ? AND ProcessIndex = ?";
+                            $result = $db1->execute($checkSp, [$recordId, $checkpointId, $processIndex]);
+                            $recordExists = !empty($result) && isset($result[0]['NumRecords']) && $result[0]['NumRecords'] > 0;
+
+                            if ($recordExists) {
+                                // Record exists, so update it
+                                $updateSp = "EXEC UpdAtoDorCheckpointDefinition @RecordId=?, @ProcessIndex=?, @EmployeeCode=?, @CheckpointId=?, @CheckpointResponse=?";
+                                $db1->execute($updateSp, [
+                                    $recordId,
+                                    $processIndex,
+                                    $employeeCode,
+                                    $checkpointId,
+                                    $value
+                                ]);
+                            } else {
+                                // Record doesn't exist, so insert it
+                                $insSp = "EXEC InsAtoDorCheckpointDefinition @RecordId=?, @ProcessIndex=?, @EmployeeCode=?, @CheckpointId=?, @CheckpointResponse=?";
+                                $db1->execute($insSp, [
+                                    $recordId,
+                                    $processIndex,
+                                    $employeeCode,
+                                    $checkpointId,
+                                    $value
+                                ]);
+                            }
                         }
                     }
                 }
@@ -164,7 +189,7 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo htmlspecialchars($title ?? 'Work I Checkpoint'); ?></title>
+    <title><?php echo htmlspecialchars($title ?? 'DOR System'); ?></title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link href="../css/bootstrap-icons.css" rel="stylesheet">
     <link href="../css/dor-form.css" rel="stylesheet">
@@ -508,6 +533,11 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
         });
     </script>
 
+    <script src="../js/pdf.min.js"></script>
+    <script src="../js/pdf.worker.min.js"></script>
+    <script src="../js/hammer.min.js"></script>
+    <script src="../js/dor-pip-viewer.js"></script>
+
     <script>
         let isMinimized = false;
         const workInstructFile = <?php echo json_encode($workInstructFile); ?>;
@@ -839,59 +869,6 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
             });
         }
     </script>
-
-    <script src="../js/pdf.min.js"></script>
-    <script src="../js/pdf.worker.min.js"></script>
-    <script src="../js/hammer.min.js"></script>
-    <script src="../js/dor-pip-viewer.js"></script>
-
-    <style>
-        .pip-process-labels {
-            display: none;
-            gap: 10px;
-            padding: 0 10px;
-        }
-
-        .pip-viewer.maximize-mode .pip-process-labels {
-            display: none;
-        }
-
-        .pip-viewer.maximize-mode .pip-process-labels.show {
-            display: flex;
-        }
-
-        .pip-viewer.minimize-mode .pip-process-labels {
-            display: none !important;
-        }
-
-        .pip-process-label {
-            padding: 4px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: 500;
-            transition: all 0.2s ease;
-            background-color: #ffffff;
-            color: #000;
-            border: 1px solid #dee2e6;
-        }
-
-        .pip-process-label:hover {
-            background-color: #f8f9fa;
-            border-color: #dee2e6;
-        }
-
-        .pip-process-label.active {
-            background-color: #0d6efd;
-            color: white;
-            border-color: #0d6efd;
-        }
-
-        .pip-controls {
-            display: flex;
-            gap: 5px;
-            margin-left: auto;
-        }
-    </style>
 
     <script>
         // Add this to your existing JavaScript

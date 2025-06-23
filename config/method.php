@@ -124,7 +124,6 @@ function getAutocompleteName($query, $departmentId)
     return !empty($res) && $res[0]['Count'] > 0;
 }
 
-
 function getDrawing($dorTypeId, $modelId)
 {
     $db1 = new DbOp(1);
