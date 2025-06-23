@@ -15,13 +15,122 @@ body {
 /* Table styles */
 .table-container {
   overflow-x: auto;
-  padding: 0 10px;
+  padding: 0 5px;
   padding-top: 1px !important;
 }
 
-.table {
-  margin-bottom: 1rem;
+.table-dor {
+  width: 100%;
+  margin: 0;
   table-layout: fixed;
+  border-collapse: collapse;
+}
+
+/* Important: Fixed thead styles */
+.table-dor thead {
+  position: sticky;
+  top: 58px;
+  z-index: 1040;
+  background-color: white;
+}
+
+.table-dor thead.table-light {
+  background-color: white;
+}
+
+.table-dor thead th {
+  position: relative;
+  text-align: center;
+  box-shadow: none !important;
+  border: 1px solid #dee2e6 !important;
+  border-bottom: none !important;
+  padding: 4px !important;
+  vertical-align: middle;
+  font-size: 0.85rem;
+}
+
+/* Column width definitions for table header - EXACT COPY from table content */
+.table-dor thead th:first-child {
+  width: 30px;
+  min-width: 30px;
+  max-width: 30px;
+  text-align: center !important;
+  padding: 4px !important;
+}
+
+.table-dor thead th:nth-child(2) {
+  width: 120px;
+  min-width: 120px;
+  max-width: 120px;
+  text-align: center !important;
+  padding: 4px !important;
+}
+
+.table-dor thead th:nth-child(3) {
+  width: 100px;
+  min-width: 100px;
+  max-width: 100px;
+  text-align: center !important;
+  padding: 4px !important;
+}
+
+.table-dor thead th:nth-child(4) {
+  width: 100px;
+  min-width: 100px;
+  max-width: 100px;
+  text-align: center !important;
+  padding: 4px !important;
+}
+
+.table-dor thead th:nth-child(5) {
+  width: 70px;
+  min-width: 70px;
+  max-width: 70px;
+  text-align: center !important;
+  padding: 4px !important;
+}
+
+.table-dor thead th:nth-child(6) {
+  width: auto;
+  min-width: 150px;
+  text-align: center !important;
+  padding: 4px !important;
+}
+
+.table-dor thead th:nth-child(7) {
+  width: auto;
+  min-width: 150px;
+  text-align: center !important;
+  padding: 4px !important;
+}
+
+.table-dor thead th:last-child {
+  width: 40px;
+  min-width: 40px;
+  max-width: 40px;
+  text-align: center !important;
+  padding: 4px !important;
+}
+
+.table-dor th,
+.table-dor td {
+  border: 1px solid #dee2e6 !important;
+  padding: 4px !important;
+  vertical-align: middle;
+}
+
+/* Table row styles */
+.table-dor thead tr {
+  background: white;
+}
+
+.table-dor tr {
+  display: table-row;
+}
+
+.table-dor td,
+.table-dor th {
+  display: table-cell;
 }
 
 .table th,
@@ -35,81 +144,73 @@ body {
 }
 
 /* Column width adjustments */
-.table th:first-child,
-.table td:first-child {
-  width: 25px;
-  min-width: 25px;
-  max-width: 25px;
+.table-dor th:first-child,
+.table-dor td:first-child {
+  width: 30px;
+  min-width: 30px;
+  max-width: 30px;
   padding-left: 3px !important;
   padding-right: 3px !important;
-  font-size: 0.8rem !important;
 }
 
 /* Box No column */
-.table th:nth-child(2),
-.table td:nth-child(2) {
+.table-dor th:nth-child(2),
+.table-dor td:nth-child(2) {
   width: 120px;
   min-width: 120px;
   max-width: 120px;
 }
 
 /* Time Start column */
-.table th:nth-child(3),
-.table td:nth-child(3) {
+.table-dor th:nth-child(3),
+.table-dor td:nth-child(3) {
   width: 100px;
   min-width: 100px;
   max-width: 100px;
 }
 
 /* Time End column */
-.table th:nth-child(4),
-.table td:nth-child(4) {
+.table-dor th:nth-child(4),
+.table-dor td:nth-child(4) {
   width: 100px;
   min-width: 100px;
   max-width: 100px;
 }
 
 /* Duration column */
-.table th:nth-child(5),
-.table td:nth-child(5) {
-  width: 100px;
-  min-width: 100px;
-  max-width: 100px;
+.table-dor th:nth-child(5),
+.table-dor td:nth-child(5) {
+  width: 70px;
+  min-width: 70px;
+  max-width: 70px;
 }
 
 /* Operator column - auto width */
-.table th:nth-child(6),
-.table td:nth-child(6) {
+.table-dor th:nth-child(6),
+.table-dor td:nth-child(6) {
   width: auto;
   min-width: 150px;
   vertical-align: top;
 }
 
 /* Downtime column - auto width */
-.table th:nth-child(7),
-.table td:nth-child(7) {
+.table-dor th:nth-child(7),
+.table-dor td:nth-child(7) {
   width: auto;
   min-width: 150px;
   vertical-align: top;
 }
 
 /* Action column */
-.table th:last-child,
-.table td:last-child {
-  width: 50px;
-  min-width: 50px;
-  max-width: 50px;
+.table-dor th:last-child,
+.table-dor td:last-child {
+  width: 40px;
+  min-width: 40px;
+  max-width: 40px;
 }
 
-.table input[type="text"] {
+.table-dor input[type="text"] {
   width: 100%;
-}
-
-.table thead {
-  position: sticky;
-  top: 58px;
-  z-index: 1040;
-  background: white;
 }
 
 /* Form control styles */
@@ -162,10 +263,16 @@ body {
   z-index: 1035;
   background: white;
   margin: 0;
-  padding: 0 0 5px 0;
+  padding: 0;
   text-align: left;
   width: 100%;
   border-bottom: none !important;
+}
+
+/* Ensure table body is below header */
+.table-dor tbody {
+  position: relative;
+  z-index: 1030;
 }
 
 /* Modal styles */
@@ -196,8 +303,8 @@ body {
     font-size: 1rem;
   }
 
-  .table th,
-  .table td {
+  .table-dor th,
+  .table-dor td {
     padding: 0.25rem;
   }
 
@@ -223,8 +330,8 @@ body {
     font-size: 1.1rem;
   }
 
-  .table th,
-  .table td {
+  .table-dor th,
+  .table-dor td {
     padding: 0.3rem;
   }
 
@@ -262,29 +369,29 @@ body {
 }
 
 /* Row activation styles - High specificity to override existing styles */
-.table-container .table tbody tr.row-inactive {
+.table-container .table-dor tbody tr.row-inactive {
   background-color: #f8f9fa !important;
   opacity: 0.7 !important;
   pointer-events: none !important;
 }
 
-.table-container .table tbody tr.row-inactive input,
-.table-container .table tbody tr.row-inactive button {
+.table-container .table-dor tbody tr.row-inactive input,
+.table-container .table-dor tbody tr.row-inactive button {
   background-color: #e9ecef !important;
   cursor: not-allowed !important;
 }
 
-.table-container .table tbody tr.row-active {
+.table-container .table-dor tbody tr.row-active {
   background-color: #ffffff !important;
   opacity: 1 !important;
 }
 
 /* Required field styles - High specificity to override existing styles */
-.table-container .table tbody tr td input.required-field {
+.table-container .table-dor tbody tr td input.required-field {
   border-left: 3px solid #dc3545 !important;
 }
 
-.table-container .table tbody tr td input.required-field:disabled {
+.table-container .table-dor tbody tr td input.required-field:disabled {
   border-left: 3px solid #6c757d !important;
 }
 
@@ -452,4 +559,48 @@ body {
   display: flex;
   gap: 5px;
   margin-left: auto;
+}
+
+/* Delete button styles for proper horizontal alignment */
+.delete-row {
+  padding: 0.25rem 0.5rem;
+  font-size: 1.2rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 38px;
+}
+
+.delete-column {
+  text-align: center;
+  vertical-align: middle;
+  padding: 4px !important;
+}
+
+/* DOR Summary styles */
+.dor-summary {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 8px 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.summary-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  border: 1px solid #dee2e6;
+}
+
+.summary-item span {
+  font-weight: 600;
+  color: #0d6efd;
 }

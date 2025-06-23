@@ -146,35 +146,39 @@ try {
     <?php endif; ?>
 
     <div class="sticky-dor-bar">
-      <div class="container-fluid">
+      <div class="container-fluid py-0">
         <div class="sticky-table-header">
-          <!-- Remove the old legend section -->
+          <div class="dor-summary">
+            <span class="summary-item">Total Box Qty: <span id="totalBoxQty">0</span></span>
+            <span class="summary-item">Total Duration: <span id="totalDuration">0 mins</span></span>
+            <span class="summary-item">Total Downtime: <span id="totalDowntime">0</span></span>
+          </div>
         </div>
       </div>
       <!-- Match EXACTLY the same container structure as the body table -->
-      <div class="container-fluid">
+      <div class="container-fluid py-0">
         <div class="table-container">
-          <table class="table table-bordered align-middle"></table>
-          <thead>
-            <tr>
-              <th>No.</th>
-              <th>Box No.</th>
-              <th>Time Start</th>
-              <th>Time End</th>
-              <th>Duration</th>
-              <th>Operator</th>
-              <th>Downtime</th>
-              <th>Action</th>
-            </tr>
-          </thead>
+          <table class="table-dor table table-bordered align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>#</th>
+                <th>Box No.</th>
+                <th>Start Time</th>
+                <th>End Time</th>
+                <th>Duration</th>
+                <th>Operator</th>
+                <th>Downtime</th>
+                <th>*</th>
+              </tr>
+            </thead>
           </table>
         </div>
       </div>
     </div>
 
-    <div class="container-fluid">
+    <div class="container-fluid py-0">
       <div class="table-container">
-        <table class="table table-bordered align-middle">
+        <table class="table-dor table table-bordered align-middle">
           <tbody>
             <?php for ($i = 1; $i <= 20; $i++) { ?>
               <tr data-row-id="<?= $i ?>">
@@ -368,7 +372,7 @@ try {
     <div class="modal-dialog">
       <div class="modal-content border-danger">
         <div class="modal-header bg-danger text-white">
-          <h5 class="modal-title" id="errorModalLabel">Error summary</h5>
+          <h5 class="modal-title" id="errorModalLabel">Error Summary</h5>
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body" id="modalErrorMessage">
@@ -451,31 +455,42 @@ try {
       // Time input validation
       document.querySelectorAll('.time-input').forEach(input => {
         input.addEventListener('input', function(e) {
-          // Remove any non-numeric characters
-          let value = this.value.replace(/[^0-9]/g, '');
+          let value = this.value;
+          const cursorPosition = this.selectionStart;
+
+          // Check if user is trying to delete (backspace or delete key)
+          const isDeleting = e.inputType === 'deleteContentBackward' || e.inputType === 'deleteContentForward';
+
+          if (isDeleting) {
+            // Allow deletion to proceed normally
+            return;
+          }
+
+          // Remove any non-numeric characters (except colon)
+          let cleanValue = value.replace(/[^0-9:]/g, '');
 
           // Format the time as user types
-          if (value.length > 0) {
+          if (cleanValue.length > 0) {
             // If user types 4 digits, format as HH:mm
-            if (value.length >= 4) {
-              let hours = value.slice(0, 2);
-              let minutes = value.slice(2, 4);
+            if (cleanValue.length >= 4 && !cleanValue.includes(':')) {
+              let hours = cleanValue.slice(0, 2);
+              let minutes = cleanValue.slice(2, 4);
 
               // Validate hours and minutes
               if (parseInt(hours) > 23) hours = '23';
               if (parseInt(minutes) > 59) minutes = '59';
 
-              value = hours + ':' + minutes;
+              cleanValue = hours + ':' + minutes;
             }
-            // If user types 2 digits, add colon
-            else if (value.length === 2) {
-              let hours = value;
+            // If user types 2 digits and no colon, add colon
+            else if (cleanValue.length === 2 && !cleanValue.includes(':')) {
+              let hours = cleanValue;
               if (parseInt(hours) > 23) hours = '23';
-              value = hours + ':';
+              cleanValue = hours + ':';
             }
           }
 
-          this.value = value;
+          this.value = cleanValue;
         });
 
         // Validate time on blur (when input loses focus)
@@ -489,7 +504,7 @@ try {
               hours < 0 || hours > 23 ||
               minutes < 0 || minutes > 59) {
               // Show error message
-              showErrorModal('Invalid time format. Please enter time between 00:00 and 23:59');
+              showErrorModal('Incorrect time format. Enter time between 00:00 and 23:59');
               // Clear invalid input
               this.value = '';
               // Add error styling
@@ -508,7 +523,7 @@ try {
 
                 if (duration === 'INVALID') {
                   // Show error for invalid duration
-                  showErrorModal(`Invalid time duration in row ${rowId}. End time must be after start time.`);
+                  showErrorModal(`Incorrect start time and end time in row ${rowId}.`);
 
                   // Clear the invalid time input but don't force focus
                   this.value = '';
@@ -521,7 +536,7 @@ try {
             }
           } else if (value.length > 0) {
             // If input is not empty but not in correct format
-            showErrorModal('Invalid time format. Please enter time in HH:mm format (e.g., 09:30)');
+            showErrorModal('Enter time in HH:mm format (e.g., 09:30)');
             this.value = '';
             this.classList.add('is-invalid');
           }
@@ -994,7 +1009,7 @@ try {
       button.addEventListener('click', function() {
         const rowId = parseInt(this.getAttribute('data-row-id'));
 
-        if (!confirm(`Are you sure you want to clear row ${rowId}? This will shift all subsequent rows up.`)) {
+        if (!confirm(`Are you sure you want to delete row ${rowId}?`)) {
           return;
         }
 
@@ -1058,6 +1073,9 @@ try {
         for (let i = 1; i <= 20; i++) {
           updateDuration(i);
         }
+
+        // 7. Update DOR summary
+        updateDORSummary();
       });
     });
 
@@ -1232,7 +1250,7 @@ try {
 
         if (duration === 'INVALID') {
           // Show error for invalid duration
-          showErrorModal(`Invalid time duration in row ${rowId}. End time must be after start time.`);
+          showErrorModal(`Incorrect start time and end time in row ${rowId}.`);
 
           // Clear the invalid end time and focus on it
           timeEndInput.value = '';
@@ -1255,7 +1273,91 @@ try {
       input.addEventListener('change', function() {
         const rowId = this.closest('tr').getAttribute('data-row-id');
         updateDuration(rowId);
+        updateDORSummary(); // Update summary when duration changes
       });
+    });
+
+    // Function to format duration in readable format
+    function formatDuration(minutes) {
+      if (!minutes || minutes === 0) return '0 mins';
+
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+
+      if (hours === 0) {
+        return `${mins} mins`;
+      } else if (mins === 0) {
+        return `${hours} hours`;
+      } else {
+        return `${hours} hours and ${mins} mins`;
+      }
+    }
+
+    // Function to calculate total box quantity
+    function calculateTotalBoxQty() {
+      let count = 0;
+      for (let i = 1; i <= 20; i++) {
+        const boxNoInput = document.getElementById(`boxNo${i}`);
+        if (boxNoInput && boxNoInput.value.trim() !== '') {
+          count++;
+        }
+      }
+      return count;
+    }
+
+    // Function to calculate total duration
+    function calculateTotalDuration() {
+      let totalMinutes = 0;
+      for (let i = 1; i <= 20; i++) {
+        const durationSpan = document.getElementById(`duration${i}`);
+        if (durationSpan && durationSpan.textContent.trim() !== '') {
+          const duration = parseInt(durationSpan.textContent);
+          if (!isNaN(duration)) {
+            totalMinutes += duration;
+          }
+        }
+      }
+      return totalMinutes;
+    }
+
+    // Function to calculate total downtime records
+    function calculateTotalDowntime() {
+      let count = 0;
+      for (let i = 1; i <= 20; i++) {
+        const downtimeDiv = document.getElementById(`downtimeInfo${i}`);
+        if (downtimeDiv) {
+          // Count only real downtime badges (not placeholder badges)
+          const realDowntimeBadges = downtimeDiv.querySelectorAll('.badge:not(.placeholder-badge)');
+          count += realDowntimeBadges.length;
+        }
+      }
+      return count;
+    }
+
+    // Function to update DOR summary
+    function updateDORSummary() {
+      const totalBoxQty = calculateTotalBoxQty();
+      const totalDuration = calculateTotalDuration();
+      const totalDowntime = calculateTotalDowntime();
+
+      // Update the summary display
+      document.getElementById('totalBoxQty').textContent = totalBoxQty;
+      document.getElementById('totalDuration').textContent = formatDuration(totalDuration);
+      document.getElementById('totalDowntime').textContent = totalDowntime;
+    }
+
+    // Add event listeners to update summary when box numbers change
+    for (let i = 1; i <= 20; i++) {
+      const boxNoInput = document.getElementById(`boxNo${i}`);
+      if (boxNoInput) {
+        boxNoInput.addEventListener('change', updateDORSummary);
+        boxNoInput.addEventListener('input', updateDORSummary);
+      }
+    }
+
+    // Initialize summary on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      updateDORSummary();
     });
   </script>
 
