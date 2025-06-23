@@ -102,10 +102,10 @@ class MainActivity : AppCompatActivity() {
 
 //      webView.loadUrl("https://192.168.22.145:444/paperless/index.php")
         //webView.loadUrl("https://192.168.22.145:444/paperless/index.php")
-           webView.loadUrl("https://192.168.22.145/paperless/leader/module/dor-leader-login.php")
+           webView.loadUrl("https://192.168.1.20/paperless/leader/module/dor-leader-login.php")
     }
 
-    @Suppress("DEPRECATION")
+    @Suppress("DEPRECATION")    
     private fun hideSystemUI() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             try {
