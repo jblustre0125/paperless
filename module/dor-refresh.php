@@ -1,5 +1,5 @@
 <?php
-$title = "WI Refreshment";
+$title = "WI Refresher";
 session_start();
 ob_start();
 
@@ -116,7 +116,7 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title><?php echo htmlspecialchars($title ?? 'Work I Checkpoint'); ?></title>
+    <title><?php echo htmlspecialchars($title ?? 'DOR System'); ?></title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link href="../css/bootstrap-icons.css" rel="stylesheet">
     <link href="../css/dor-refresh.css" rel="stylesheet">

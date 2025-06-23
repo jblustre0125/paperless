@@ -1,5 +1,5 @@
 <?php
-$title = "Homepage";
+$title = "Home";
 ob_start();
 
 require_once __DIR__ . "/../config/dbop.php";
@@ -208,6 +208,16 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
 }
 
 ?>
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?php echo htmlspecialchars($title ?? 'DOR System'); ?></title>
+</head>
+
 
 <form id="myForm" method="post" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" novalidate>
     <div class="container-fluid">

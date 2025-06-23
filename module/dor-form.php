@@ -1,5 +1,5 @@
 <?php
-$title = "DOR Item/Jig Condition";
+$title = "Item/Jig Condition";
 session_start();
 ob_start();
 
@@ -189,7 +189,7 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo htmlspecialchars($title ?? 'Work I Checkpoint'); ?></title>
+    <title><?php echo htmlspecialchars($title ?? 'DOR System'); ?></title>
     <link href="../css/bootstrap.min.css" rel="stylesheet">
     <link href="../css/bootstrap-icons.css" rel="stylesheet">
     <link href="../css/dor-form.css" rel="stylesheet">

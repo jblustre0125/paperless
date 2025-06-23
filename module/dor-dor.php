@@ -405,12 +405,36 @@ try {
 
   <script src="../js/jsQR.min.js"></script>
   <script>
+    let errorModalInstance = null;
+
     function showErrorModal(message) {
       const modalErrorMessage = document.getElementById("modalErrorMessage");
       modalErrorMessage.innerText = message;
-      const errorModal = new bootstrap.Modal(document.getElementById("errorModal"));
-      errorModal.show();
+
+      // Create modal instance only once
+      if (!errorModalInstance) {
+        errorModalInstance = new bootstrap.Modal(document.getElementById("errorModal"));
+      }
+
+      errorModalInstance.show();
     }
+
+    // Ensure modal backdrop is properly cleaned up
+    document.addEventListener('DOMContentLoaded', function() {
+      const errorModalElement = document.getElementById("errorModal");
+
+      // Clean up modal backdrop when modal is hidden
+      errorModalElement.addEventListener('hidden.bs.modal', function() {
+        // Remove any lingering backdrop elements
+        const backdrops = document.querySelectorAll('.modal-backdrop');
+        backdrops.forEach(backdrop => backdrop.remove());
+
+        // Remove modal-open class from body
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+      });
+    });
   </script>
 
   <script>
@@ -473,6 +497,27 @@ try {
             } else {
               // Remove error styling if valid
               this.classList.remove('is-invalid');
+
+              // Check if both time start and time end are filled, then validate duration
+              const rowId = this.closest('tr').getAttribute('data-row-id');
+              const timeStartInput = document.getElementById(`timeStart${rowId}`);
+              const timeEndInput = document.getElementById(`timeEnd${rowId}`);
+
+              if (timeStartInput && timeEndInput && timeStartInput.value && timeEndInput.value) {
+                const duration = calculateDuration(timeStartInput.value, timeEndInput.value);
+
+                if (duration === 'INVALID') {
+                  // Show error for invalid duration
+                  showErrorModal(`Invalid time duration in row ${rowId}. End time must be after start time.`);
+
+                  // Clear the invalid time input but don't force focus
+                  this.value = '';
+                  this.classList.add('is-invalid');
+                  return;
+                }
+
+                updateDuration(rowId);
+              }
             }
           } else if (value.length > 0) {
             // If input is not empty but not in correct format
@@ -760,14 +805,29 @@ try {
       let storedTab = sessionStorage.getItem("activeTab");
 
       if (storedTab) {
-        // If a tab is stored, display it
-        document.getElementById(storedTab).style.display = "block";
-        document.querySelector(`[onclick="openTab(event, '${storedTab}')"]`).classList.add("active");
+        const tabElement = document.getElementById(storedTab);
+        const tabButton = document.querySelector(`[onclick="openTab(event, '${storedTab}')"]`);
+
+        if (tabElement) {
+          tabElement.style.display = "block";
+        }
+
+        if (tabButton) {
+          tabButton.classList.add("active");
+        }
       } else {
         // Default to "Process 1" if no tab is stored
         const defaultTab = "Process1";
-        document.getElementById(defaultTab).style.display = "block";
-        document.querySelector(`[onclick="openTab(event, '${defaultTab}')"]`).classList.add("active");
+        const defaultTabElement = document.getElementById(defaultTab);
+        const defaultTabButton = document.querySelector(`[onclick="openTab(event, '${defaultTab}')"]`);
+
+        if (defaultTabElement) {
+          defaultTabElement.style.display = "block";
+        }
+
+        if (defaultTabButton) {
+          defaultTabButton.classList.add("active");
+        }
       }
 
       form.addEventListener("submit", function(e) {
@@ -1089,25 +1149,50 @@ try {
           input.classList.add('required-field');
         }
       });
+
+      // Add box number duplicate validation
+      if (boxNoInput) {
+        // Validate on change (when user types and input loses focus)
+        boxNoInput.addEventListener('change', function() {
+          validateBoxNumberDuplicate(this);
+        });
+
+        // Validate on blur (when user tabs away or clicks elsewhere)
+        boxNoInput.addEventListener('blur', function(e) {
+          if (!this.disabled) {
+            validateBoxNumberDuplicate(this);
+          }
+        });
+      }
+    }
+
+    // Function to validate box number duplicates
+    function validateBoxNumberDuplicate(input) {
+      const boxNumber = input.value.trim();
+      if (!boxNumber) return true; // Skip validation if empty
+
+      const currentRowId = input.closest('tr').getAttribute('data-row-id');
+
+      // Check for duplicate box numbers in other rows
+      for (let i = 1; i <= 20; i++) {
+        if (i === parseInt(currentRowId)) continue; // Skip current row
+        const existingBoxNo = document.getElementById(`boxNo${i}`).value.trim();
+        if (existingBoxNo === boxNumber) {
+          showErrorModal(`Lot number ${boxNumber} already scanned.`);
+          // Keep the duplicate value visible but mark as invalid
+          input.classList.add('is-invalid');
+          return false; // Indicate validation failed
+        }
+      }
+
+      // Remove error styling if no duplicates found
+      input.classList.remove('is-invalid');
+      return true; // Indicate validation passed
     }
 
     // Initialize row states
     setRowActive(1, true); // First row is always active
     updateRowStates();
-
-    // Debug: Check if employee codes are loaded
-    console.log('Employee codes from session:', <?php
-                                                $codes = [];
-                                                for ($j = 1; $j <= 4; $j++) {
-                                                  if (isset($_SESSION["userCode$j"]) && !empty($_SESSION["userCode$j"])) {
-                                                    $codes[] = $_SESSION["userCode$j"];
-                                                  }
-                                                }
-                                                echo json_encode($codes);
-                                                ?>);
-
-    // Debug: Check all session variables
-    console.log('All session variables:', <?php echo json_encode($_SESSION); ?>);
 
     // Function to calculate duration between two times
     function calculateDuration(timeStart, timeEnd) {
@@ -1118,13 +1203,21 @@ try {
 
       let totalStartMinutes = startHours * 60 + startMinutes;
       let totalEndMinutes = endHours * 60 + endMinutes;
+      let durationMinutes = totalEndMinutes - totalStartMinutes;
 
       // Handle case where end time is on the next day
-      if (totalEndMinutes < totalStartMinutes) {
-        totalEndMinutes += 24 * 60; // Add 24 hours worth of minutes
+      if (durationMinutes < 0) {
+        durationMinutes += 24 * 60; // Add 24 hours worth of minutes
       }
 
-      const durationMinutes = totalEndMinutes - totalStartMinutes;
+      // A shift should not be longer than 16 hours (960 minutes)
+      // This helps distinguish between an overnight shift and a data entry error.
+      const MAX_SHIFT_MINUTES = 16 * 60;
+
+      if (durationMinutes === 0 || durationMinutes > MAX_SHIFT_MINUTES) {
+        return 'INVALID'; // Return special value to indicate invalid duration
+      }
+
       return durationMinutes.toString();
     }
 
@@ -1135,7 +1228,25 @@ try {
       const durationSpan = document.getElementById(`duration${rowId}`);
 
       if (timeStartInput && timeEndInput && durationSpan) {
-        durationSpan.textContent = calculateDuration(timeStartInput.value, timeEndInput.value);
+        const duration = calculateDuration(timeStartInput.value, timeEndInput.value);
+
+        if (duration === 'INVALID') {
+          // Show error for invalid duration
+          showErrorModal(`Invalid time duration in row ${rowId}. End time must be after start time.`);
+
+          // Clear the invalid end time and focus on it
+          timeEndInput.value = '';
+          timeEndInput.classList.add('is-invalid');
+          timeEndInput.focus();
+
+          // Clear duration display
+          durationSpan.textContent = '';
+          return;
+        }
+
+        // Remove error styling if duration is valid
+        timeEndInput.classList.remove('is-invalid');
+        durationSpan.textContent = duration;
       }
     }
 
@@ -1144,31 +1255,6 @@ try {
       input.addEventListener('change', function() {
         const rowId = this.closest('tr').getAttribute('data-row-id');
         updateDuration(rowId);
-      });
-    });
-
-    // Update the existing time input handling to include duration updates
-    document.querySelectorAll('.time-input').forEach(input => {
-      input.addEventListener('input', function(e) {
-        // Existing time input validation code...
-        // ... existing code ...
-        timeEndInput.value = `${hours}:${minutes}`;
-        timeEndInput.dispatchEvent(new Event('change'));
-        updateDuration(activeRowId);
-        indicateScanSuccess();
-        // ... existing code ...
-        timeStartInput.value = `${hours}:${minutes}`;
-        timeStartInput.dispatchEvent(new Event('change'));
-        updateDuration(activeRowId);
-        // ... existing code ...
-        timeEndInput.value = `${hours}:${minutes}`;
-        timeEndInput.dispatchEvent(new Event('change'));
-        updateDuration(activeRowId);
-        // ... existing code ...
-        timeStartInput.value = `${hours}:${minutes}`;
-        timeStartInput.dispatchEvent(new Event('change'));
-        updateDuration(activeRowId);
-        // ... existing code ...
       });
     });
   </script>
