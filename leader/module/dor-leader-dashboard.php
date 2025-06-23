@@ -197,8 +197,8 @@
                         <div class="col-12">
                             <div class="alert alert-info text-center">
                                 <i class="bi bi-info-circle me-2"></i> No other tablets are currently online
+                                </div>
                             </div>
-                        </div>
                     <?php endif; ?>
                 </div>
             </div>

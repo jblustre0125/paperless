@@ -2,6 +2,7 @@
 header('Content-Type: application/json');
 require_once __DIR__ . '/../../config/dbop.php';
 
+
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();
 }
@@ -21,7 +22,6 @@ try {
         throw new Exception('Invalid DOR type specified');
     }
 
-    // You can change this condition (latest record, specific model, date, etc.)
     $recordRow = $db->execute(
         "SELECT TOP 1 RecordId FROM AtoDor ORDER BY CreatedDate DESC"
     );

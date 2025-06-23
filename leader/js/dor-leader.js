@@ -100,7 +100,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
-  function renderInspectionTabs(checkpoints, types, recordId) {
+  function renderInspectionTabs(recordId) {
     const tabList = document.getElementById("modalTab");
     const tabContent = document.getElementById("tabContent");
 
@@ -219,15 +219,6 @@ document.addEventListener("DOMContentLoaded", function () {
             ${createJudgeCells('nakamono', '1')}
             ${createJudgeCells('owarimono', '1')}
         </tr>
-        <tr>
-            ${createJudgeCells('hatsumono', '2')}
-            ${createJudgeCells('nakamono', '2')}
-            ${createJudgeCells('owarimono', '2')}
-        </tr>
-        <tr>
-            ${createJudgeCells('hatsumono', '3')}
-            ${createJudgeCells('nakamono', '3')}
-            ${createJudgeCells('owarimono', '3')}
         </tr>
     `;
     
@@ -243,35 +234,41 @@ document.addEventListener("DOMContentLoaded", function () {
     `;
     
     // Helper function to create judge cells
-    function createJudgeCells(section, num) {
-        return `
-            <td>
-                <div class="d-flex flex-column gap-1">
-                    <div class="form-check">
-                        <input class="form-check-input" type="radio" 
-                               name="dimension_judge_${section}_${num}" 
-                               id="dimension_judge_${section}_${num}_ok" 
-                               value="OK" required>
-                        <label class="form-check-label" for="dimension_judge_${section}_${num}_ok">OK</label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="radio" 
-                               name="dimension_judge_${section}_${num}" 
-                               id="dimension_judge_${section}_${num}_na" 
-                               value="NA">
-                        <label class="form-check-label" for="dimension_judge_${section}_${num}_na">NA</label>
-                    </div>
-                    <div class="form-check">
-                        <input class="form-check-input" type="radio" 
-                               name="dimension_judge_${section}_${num}" 
-                               id="dimension_judge_${section}_${num}_ng" 
-                               value="NG">
-                        <label class="form-check-label" for="dimension_judge_${section}_${num}_ng">NG</label>
-                    </div>
-                </div>
-            </td>
-        `.repeat(3); // Repeat for each of the 3 columns
-    }
+  function createJudgeCells(section, num) {
+  let cells = '';
+  for (let col = 1; col <= 3; col++) {
+    const name = `dimension_judge_${section}_${num}_${col}`;
+    cells += `
+      <td>
+        <div class="d-flex flex-column gap-1">
+          <div class="form-check">
+            <input class="form-check-input" type="radio" 
+                   name="${name}" 
+                   id="${name}_ok" 
+                   value="OK">
+            <label class="form-check-label" for="${name}_ok">OK</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" 
+                   name="${name}" 
+                   id="${name}_na" 
+                   value="NA">
+            <label class="form-check-label" for="${name}_na">NA</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" 
+                   name="${name}" 
+                   id="${name}_ng" 
+                   value="NG">
+            <label class="form-check-label" for="${name}_ng">NG</label>
+          </div>
+        </div>
+      </td>
+    `;
+  }
+  return cells;
+}
+
     
     // Append all sections to the table
     table.appendChild(thead);
@@ -394,76 +391,83 @@ document.addEventListener("DOMContentLoaded", function () {
       form.appendChild(submitDiv);
 
       // Add form submission handler
-      form.addEventListener("submit", async function (e) {
-        e.preventDefault();
-        const submitBtn = this.querySelector('button[type="submit"]');
-        submitBtn.disabled = true;
-        submitBtn.innerHTML =
-          '<span class="spinner-border spinner-border-sm"></span> Processing...';
+ form.addEventListener("submit", async function (e) {
+  e.preventDefault();
+  const submitBtn = this.querySelector('button[type="submit"]');
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processing...';
 
-        try {
-          const formData = new FormData(this);
+  try {
+    const formData = new FormData(this);
+    let isValid = true;
 
-          // Validate all required fields
-          let isValid = true;
-          
-          if (dorType.id === 'dimension') {
-            // Validate dimension check form
-            if (!this.querySelector('input[name="dimension_judge"]:checked')) {
-              isValid = false;
-              this.querySelector('input[name="dimension_judge"]').closest('td').classList.add('border-danger');
-            }
-          } else {
-            // Validate standard inspection form
-            const requiredRadios = [
-              `taping_condition_${dorType.id}`,
-              `folding_type_${dorType.id}`,
-              `connector_condition_${dorType.id}`
-            ];
+    // ✅ Remove existing record_id before appending
+    formData.delete('record_id');
 
-            requiredRadios.forEach((name) => {
-              if (!this.querySelector(`input[name="${name}"]:checked`)) {
-                const input = this.querySelector(`input[name="${name}"]`);
-                input.closest("td")?.classList.add("border-danger");
-                isValid = false;
-              }
-            });
-          }
+    const recordId = document.querySelector('#globalRecordId')?.value;
+    if (!recordId) throw new Error("Missing Record ID");
+    formData.append('record_id', recordId); // ✅ Now it's safe
 
-          if (!isValid) {
-            throw new Error(
-              `Please complete all required fields in ${dorType.name} tab`
-            );
-          }
+    if (dorType.id === 'dimension') {
+      const allJudgeRadios = this.querySelectorAll('input[name^="dimension_judge_"]');
+      let atLeastOneChecked = false;
 
-          const endpoint = dorType.id === 'dimension' 
-            ? "../controller/submit-dimension.php"
-            : "../controller/submit-inspection.php";
-
-          const response = await fetch(endpoint, {
-            method: "POST",
-            body: formData,
-          });
-
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-
-          const result = await response.json();
-
-          if (!result.success) {
-            throw new Error(result.message);
-          }
-
-          alert(`${dorType.name} submitted successfully!`);
-        } catch (error) {
-          console.error("Submission error:", error);
-          alert(`Error: ${error.message}`);
-        } finally {
-          submitBtn.disabled = false;
-          submitBtn.textContent = `Submit ${dorType.name}`;
+      allJudgeRadios.forEach((radio) => {
+        const td = radio.closest("td");
+        if (radio.checked) {
+          atLeastOneChecked = true;
+        } else {
+          td?.classList.add("border-warning");
         }
       });
+
+      if (!atLeastOneChecked) {
+        isValid = false;
+        alert("Please select at least one judge field.");
+      }
+    } else {
+      const requiredRadios = [
+        `taping_condition_${dorType.id}`,
+        `folding_type_${dorType.id}`,
+        `connector_condition_${dorType.id}`
+      ];
+
+      requiredRadios.forEach((name) => {
+        if (!this.querySelector(`input[name="${name}"]:checked`)) {
+          const input = this.querySelector(`input[name="${name}"]`);
+          input.closest("td")?.classList.add("border-danger");
+          isValid = false;
+        }
+      });
+    }
+
+    if (!isValid) {
+      throw new Error(`Please complete required fields in ${dorType.name} tab`);
+    }
+
+    const endpoint = dorType.id === 'dimension'
+      ? "../controller/dor-dimension-check.php"
+      : "../controller/submit-inspection.php";
+
+    const response = await fetch(endpoint, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const result = await response.json();
+    if (!result.success) throw new Error(result.message);
+
+    alert(`${dorType.name} submitted successfully!`);
+  } catch (error) {
+    console.error("Submission error:", error);
+    alert(`Error: ${error.message}`);
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = `Submit ${dorType.name}`;
+  }
+});
+
 
       tabPane.appendChild(form);
       tabContent.appendChild(tabPane);
@@ -482,289 +486,5 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  function renderCheckpointInput(checkpoint, type, dorType) {
-    if (!type || !type.CheckpointControl) {
-      console.warn("Missing input type for checkpoint:", checkpoint);
-      return "N/A";
-    }
 
-    const inputName = `checkpoint_${checkpoint.CheckpointId}_${dorType}`;
-    const currentValue = checkpoint[dorType] || "";
-
-    switch (type.CheckpointControl.toLowerCase()) {
-      case "radio":
-        if (!type.CheckpointTypeName) {
-          console.warn("Missing options for radio input:", checkpoint);
-          return "N/A";
-        }
-
-        const options = type.CheckpointTypeName.split("_");
-        return options
-          .map(
-            (option) => `
-              <div class="form-check form-check-inline">
-                <input type="radio" 
-                  name="${inputName}" 
-                  id="${inputName}_${option}" 
-                  value="${option}" 
-                  class="form-check-input" 
-                  required
-                  ${option === currentValue ? "checked" : ""}>
-                <label class="form-check-label" for="${inputName}_${option}">
-                  ${option}
-                </label>
-              </div>
-            `
-          )
-          .join("");
-
-      case "text":
-        return `<input type="text" 
-                name="${inputName}" 
-                class="form-control form-control-sm" 
-                value="${currentValue}"
-                required>`;
-
-      default:
-        console.warn("Unknown input type:", type.CheckpointControl);
-        return `<input type="text" 
-                name="${inputName}" 
-                class="form-control form-control-sm"
-                value="${currentValue}">`;
-    }
-  }
-
-  // Helper function to create judge rows for each measurement column
-function createJudgeRow(columnNum) {
-    const row = document.createElement("tr");
-    row.innerHTML = `
-        <td class="fw-bold text-start">Judge ${columnNum}</td>
-        <td>
-            <div class="d-flex flex-column gap-1">
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" 
-                           name="dimension_judge_hatsumono_${columnNum}" 
-                           id="dimension_judge_hatsumono_${columnNum}_ok" 
-                           value="OK" required>
-                    <label class="form-check-label" for="dimension_judge_hatsumono_${columnNum}_ok">OK</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" 
-                           name="dimension_judge_hatsumono_${columnNum}" 
-                           id="dimension_judge_hatsumono_${columnNum}_na" 
-                           value="NA">
-                    <label class="form-check-label" for="dimension_judge_hatsumono_${columnNum}_na">NA</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" 
-                           name="dimension_judge_hatsumono_${columnNum}" 
-                           id="dimension_judge_hatsumono_${columnNum}_ng" 
-                           value="NG">
-                    <label class="form-check-label" for="dimension_judge_hatsumono_${columnNum}_ng">NG</label>
-                </div>
-            </div>
-        </td>
-        <td>
-            <div class="d-flex flex-column gap-1">
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" 
-                           name="dimension_judge_hatsumono_${columnNum}" 
-                           id="dimension_judge_hatsumono_${columnNum}_ok" 
-                           value="OK" required>
-                    <label class="form-check-label" for="dimension_judge_hatsumono_${columnNum}_ok">OK</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" 
-                           name="dimension_judge_hatsumono_${columnNum}" 
-                           id="dimension_judge_hatsumono_${columnNum}_na" 
-                           value="NA">
-                    <label class="form-check-label" for="dimension_judge_hatsumono_${columnNum}_na">NA</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" 
-                           name="dimension_judge_hatsumono_${columnNum}" 
-                           id="dimension_judge_hatsumono_${columnNum}_ng" 
-                           value="NG">
-                    <label class="form-check-label" for="dimension_judge_hatsumono_${columnNum}_ng">NG</label>
-                </div>
-            </div>
-        </td>
-        <td>
-            <div class="d-flex flex-column gap-1">
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" 
-                           name="dimension_judge_hatsumono_${columnNum}" 
-                           id="dimension_judge_hatsumono_${columnNum}_ok" 
-                           value="OK" required>
-                    <label class="form-check-label" for="dimension_judge_hatsumono_${columnNum}_ok">OK</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" 
-                           name="dimension_judge_hatsumono_${columnNum}" 
-                           id="dimension_judge_hatsumono_${columnNum}_na" 
-                           value="NA">
-                    <label class="form-check-label" for="dimension_judge_hatsumono_${columnNum}_na">NA</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" 
-                           name="dimension_judge_hatsumono_${columnNum}" 
-                           id="dimension_judge_hatsumono_${columnNum}_ng" 
-                           value="NG">
-                    <label class="form-check-label" for="dimension_judge_hatsumono_${columnNum}_ng">NG</label>
-                </div>
-            </div>
-        </td>
-        <td>
-            <div class="d-flex flex-column gap-1">
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" 
-                           name="dimension_judge_nakamono_${columnNum}" 
-                           id="dimension_judge_nakamono_${columnNum}_ok" 
-                           value="OK" required>
-                    <label class="form-check-label" for="dimension_judge_nakamono_${columnNum}_ok">OK</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" 
-                           name="dimension_judge_nakamono_${columnNum}" 
-                           id="dimension_judge_nakamono_${columnNum}_na" 
-                           value="NA">
-                    <label class="form-check-label" for="dimension_judge_nakamono_${columnNum}_na">NA</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" 
-                           name="dimension_judge_nakamono_${columnNum}" 
-                           id="dimension_judge_nakamono_${columnNum}_ng" 
-                           value="NG">
-                    <label class="form-check-label" for="dimension_judge_nakamono_${columnNum}_ng">NG</label>
-                </div>
-            </div>
-        </td>
-        <td>
-            <div class="d-flex flex-column gap-1">
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" 
-                           name="dimension_judge_nakamono_${columnNum}" 
-                           id="dimension_judge_nakamono_${columnNum}_ok" 
-                           value="OK" required>
-                    <label class="form-check-label" for="dimension_judge_nakamono_${columnNum}_ok">OK</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" 
-                           name="dimension_judge_nakamono_${columnNum}" 
-                           id="dimension_judge_nakamono_${columnNum}_na" 
-                           value="NA">
-                    <label class="form-check-label" for="dimension_judge_nakamono_${columnNum}_na">NA</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" 
-                           name="dimension_judge_nakamono_${columnNum}" 
-                           id="dimension_judge_nakamono_${columnNum}_ng" 
-                           value="NG">
-                    <label class="form-check-label" for="dimension_judge_nakamono_${columnNum}_ng">NG</label>
-                </div>
-            </div>
-        </td>
-        <td>
-            <div class="d-flex flex-column gap-1">
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" 
-                           name="dimension_judge_nakamono_${columnNum}" 
-                           id="dimension_judge_nakamono_${columnNum}_ok" 
-                           value="OK" required>
-                    <label class="form-check-label" for="dimension_judge_nakamono_${columnNum}_ok">OK</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" 
-                           name="dimension_judge_nakamono_${columnNum}" 
-                           id="dimension_judge_nakamono_${columnNum}_na" 
-                           value="NA">
-                    <label class="form-check-label" for="dimension_judge_nakamono_${columnNum}_na">NA</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" 
-                           name="dimension_judge_nakamono_${columnNum}" 
-                           id="dimension_judge_nakamono_${columnNum}_ng" 
-                           value="NG">
-                    <label class="form-check-label" for="dimension_judge_nakamono_${columnNum}_ng">NG</label>
-                </div>
-            </div>
-        </td>
-        <td>
-            <div class="d-flex flex-column gap-1">
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" 
-                           name="dimension_judge_owarimono_${columnNum}" 
-                           id="dimension_judge_owarimono_${columnNum}_ok" 
-                           value="OK" required>
-                    <label class="form-check-label" for="dimension_judge_owarimono_${columnNum}_ok">OK</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" 
-                           name="dimension_judge_owarimono_${columnNum}" 
-                           id="dimension_judge_owarimono_${columnNum}_na" 
-                           value="NA">
-                    <label class="form-check-label" for="dimension_judge_owarimono_${columnNum}_na">NA</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" 
-                           name="dimension_judge_owarimono_${columnNum}" 
-                           id="dimension_judge_owarimono_${columnNum}_ng" 
-                           value="NG">
-                    <label class="form-check-label" for="dimension_judge_owarimono_${columnNum}_ng">NG</label>
-                </div>
-            </div>
-        </td>
-        <td>
-            <div class="d-flex flex-column gap-1">
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" 
-                           name="dimension_judge_owarimono_${columnNum}" 
-                           id="dimension_judge_owarimono_${columnNum}_ok" 
-                           value="OK" required>
-                    <label class="form-check-label" for="dimension_judge_owarimono_${columnNum}_ok">OK</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" 
-                           name="dimension_judge_owarimono_${columnNum}" 
-                           id="dimension_judge_owarimono_${columnNum}_na" 
-                           value="NA">
-                    <label class="form-check-label" for="dimension_judge_owarimono_${columnNum}_na">NA</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" 
-                           name="dimension_judge_owarimono_${columnNum}" 
-                           id="dimension_judge_owarimono_${columnNum}_ng" 
-                           value="NG">
-                    <label class="form-check-label" for="dimension_judge_owarimono_${columnNum}_ng">NG</label>
-                </div>
-            </div>
-        </td>
-        <td>
-            <div class="d-flex flex-column gap-1">
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" 
-                           name="dimension_judge_owarimono_${columnNum}" 
-                           id="dimension_judge_owarimono_${columnNum}_ok" 
-                           value="OK" required>
-                    <label class="form-check-label" for="dimension_judge_owarimono_${columnNum}_ok">OK</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" 
-                           name="dimension_judge_owarimono_${columnNum}" 
-                           id="dimension_judge_owarimono_${columnNum}_na" 
-                           value="NA">
-                    <label class="form-check-label" for="dimension_judge_owarimono_${columnNum}_na">NA</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="radio" 
-                           name="dimension_judge_owarimono_${columnNum}" 
-                           id="dimension_judge_owarimono_${columnNum}_ng" 
-                           value="NG">
-                    <label class="form-check-label" for="dimension_judge_owarimono_${columnNum}_ng">NG</label>
-                </div>
-            </div>
-        </td>
-    `;
-    return row;
-}
 }); 

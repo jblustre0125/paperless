@@ -1,93 +1,97 @@
 <?php
 require_once '../../config/dbop.php';
-$db = new dbOp(1);
+session_start();
 
-$recordId = $_POST['record_id'] ?? null;
+$db = new DbOp(1);
+$employeeCode = $_SESSION['employee_code'] ?? 'unknown';
+$hostnameId = gethostname();
 
-if (!$recordId) {
-    die("Missing RecordId.");
+// ✅ Get latest RecordId from AtoDor
+$recordRow = $db->execute("SELECT TOP 1 RecordId FROM AtoDor ORDER BY CreatedDate DESC");
+if (empty($recordRow)) {
+    echo json_encode(['success' => false, 'message' => 'No RecordId found in AtoDor']);
+    exit;
 }
+$recordId = $recordRow[0]['RecordId'];
 
-// --- Insert Dimension Values to AtoDimensionCheck (up to 20 rows)
-for ($i = 1; $i <= 20; $i++) {
-    $hasValue = false;
+$sections = ['Hatsumono', 'Nakamono', 'Owarimono'];
+$updateFields = [];
 
-    $h1 = $_POST["dimension_hatsumono_{$i}_1"] ?? null;
-    $h2 = $_POST["dimension_hatsumono_{$i}_2"] ?? null;
-    $h3 = $_POST["dimension_hatsumono_{$i}_3"] ?? null;
+// ✅ Always set all judge fields, even if null
+foreach ($sections as $section) {
+  for ($i = 1; $i <= 3; $i++) {
+    $postKey = "dimension_judge_" . strtolower($section) . "_$i";
+    $value = $_POST[$postKey] ?? null;
 
-    $n1 = $_POST["dimension_nakamono_{$i}_1"] ?? null;
-    $n2 = $_POST["dimension_nakamono_{$i}_2"] ?? null;
-    $n3 = $_POST["dimension_nakamono_{$i}_3"] ?? null;
+    $judgeCol = "{$section}{$i}Judge";
+    $checkByCol = "{$section}{$i}CheckBy";
 
-    $o1 = $_POST["dimension_owarimono_{$i}_1"] ?? null;
-    $o2 = $_POST["dimension_owarimono_{$i}_2"] ?? null;
-    $o3 = $_POST["dimension_owarimono_{$i}_3"] ?? null;
-
-    // Check if any field is filled
-    if ($h1 || $h2 || $h3 || $n1 || $n2 || $n3 || $o1 || $o2 || $o3) {
-        $sql = "
-            INSERT INTO AtoDimensionCheck (
-                RecordId, Hatsumono1, Hatsumono2, Hatsumono3,
-                Nakamono1, Nakamono2, Nakamono3,
-                Owarimono1, Owarimono2, Owarimono3
-            ) VALUES (
-                '$recordId',
-                " . ($h1 === null ? "NULL" : "'$h1'") . ",
-                " . ($h2 === null ? "NULL" : "'$h2'") . ",
-                " . ($h3 === null ? "NULL" : "'$h3'") . ",
-                " . ($n1 === null ? "NULL" : "'$n1'") . ",
-                " . ($n2 === null ? "NULL" : "'$n2'") . ",
-                " . ($n3 === null ? "NULL" : "'$n3'") . ",
-                " . ($o1 === null ? "NULL" : "'$o1'") . ",
-                " . ($o2 === null ? "NULL" : "'$o2'") . ",
-                " . ($o3 === null ? "NULL" : "'$o3'") . "
-            )
-        ";
-        $db->execute($sql);
-    }
-}
-
-// --- Prepare AtoDor update data (judge & checkedBy)
-$fields = [];
-
-foreach (['hatsumono', 'nakamono', 'owarimono'] as $section) {
-    for ($i = 1; $i <= 3; $i++) {
-        $judge = $_POST["dimension_judge_{$section}_{$i}"] ?? null;
-        if ($judge !== null) {
-            $fields[] = ucfirst($section) . $i . "Judge = '$judge'";
-        }
-
-        $checkedBy = $_POST["dimension_checked_by_{$section}"] ?? null;
-        if ($checkedBy !== null) {
-            $fields[] = ucfirst($section) . $i . "CheckBy = '$checkedBy'";
-        }
-    }
-}
-
-// --- Insert or update AtoDor
-if (!empty($fields)) {
-    // Check if record exists
-    $exists = $db->execute("SELECT RecordId FROM AtoDor WHERE RecordId = '$recordId'");
-    
-    if (count($exists) > 0) {
-        $updateFields = implode(", ", $fields);
-        $db->execute("UPDATE AtoDor SET $updateFields WHERE RecordId = '$recordId'");
+    if ($value !== null && $value !== '') {
+      $safeVal = str_replace("'", "''", $value); // escape quotes
+      $updateFields[] = "$judgeCol = '$safeVal'";
+      $updateFields[] = "$checkByCol = '$employeeCode'";
     } else {
-        $columns = ['RecordId'];
-        $values = ["'$recordId'"];
-        
-        foreach ($fields as $field) {
-            [$col, $val] = explode(" = ", $field);
-            $columns[] = $col;
-            $values[] = $val;
-        }
-
-        $colStr = implode(",", $columns);
-        $valStr = implode(",", $values);
-        $db->execute("INSERT INTO AtoDor ($colStr) VALUES ($valStr)");
+      $updateFields[] = "$judgeCol = NULL";
+      $updateFields[] = "$checkByCol = NULL";
     }
+  }
 }
 
-echo "Partial form saved.";
+// ✅ Mandatory audit fields
+$updateFields[] = "NotedBy = '$employeeCode'";
+$updateFields[] = "HostnameId = '$hostnameId'";
+$updateFields[] = "ModifiedBy = '$employeeCode'";
+$updateFields[] = "ModifiedDate = GETDATE()";
+
+// ✅ Build and log SQL
+$updateSql = "
+  UPDATE AtoDor SET
+    " . implode(",\n    ", $updateFields) . "
+  WHERE RecordId = '$recordId'
+";
+error_log("UPDATE AtoDor SQL: $updateSql");
+
+$db->execute($updateSql);
+
+// ✅ Clear old rows from AtoDimensionCheck
+$db->execute("DELETE FROM AtoDimensionCheck WHERE RecordId = '$recordId'");
+
+// ✅ Insert up to 20 dimension rows
+error_log("=== Starting dimension insert for RecordId: $recordId ===");
+
+for ($i = 1; $i <= 20; $i++) {
+  $rowValues = [];
+  $hasAnyValue = false;
+
+  foreach ($sections as $section) {
+    for ($j = 1; $j <= 3; $j++) {
+      $postKey = "dimension_" . strtolower($section) . "_{$i}_{$j}";
+      $val = $_POST[$postKey] ?? '';
+      if ($val !== '') $hasAnyValue = true;
+      $rowValues[] = ($val !== '') ? "'" . str_replace("'", "''", $val) . "'" : "NULL";
+    }
+  }
+
+  if ($hasAnyValue) {
+    $insertSql = "
+      INSERT INTO AtoDimensionCheck (
+        RecordId,
+        Hatsumono1, Hatsumono2, Hatsumono3,
+        Nakamono1, Nakamono2, Nakamono3,
+        Owarimono1, Owarimono2, Owarimono3
+      ) VALUES (
+        '$recordId',
+        " . implode(", ", $rowValues) . "
+      )
+    ";
+    error_log("Inserted row $i: $insertSql");
+    $db->execute($insertSql);
+  } else {
+    error_log("Skipped row $i (no dimension values)");
+  }
+}
+
+error_log("=== Finished dimension insert for RecordId: $recordId ===");
+
+echo json_encode(['success' => true]);
 ?>
