@@ -43,23 +43,44 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $leaderToOperator = $_POST['leaderToOperator'] ?? 'NA';
                 $operatorToLeader = $_POST['operatorToLeader'] ?? 'NA';
 
+                // Get changes field value (only for dorTypeId 4)
+                $changes = null;
+                if (isset($_SESSION['dorTypeId']) && $_SESSION['dorTypeId'] == 4) {
+                    $changesValue = trim($_POST['changes'] ?? '');
+                    $changes = !empty($changesValue) ? $changesValue : null;
+                }
+
                 // First check if record exists
                 $checkSp = "EXEC RdAtoDorCheckpointRefreshRecordId @RecordId=?";
                 $existingRecord = $db1->execute($checkSp, [$recordId], 1);
 
                 if (!$existingRecord || empty($existingRecord)) {
                     // Execute stored procedure to save new responses
+                    if (isset($_SESSION['dorTypeId']) && $_SESSION['dorTypeId'] == 4) {
+                        $insSp = "EXEC InsAtoDorCheckpointRefresh 
+                            @RecordId=?, 
+                            @OpLeaderResponse=?,
+                            @OpOperatorResponse=?,
+                            @Changes=?";
 
-                    $insSp = "EXEC InsAtoDorCheckpointRefresh 
-                        @RecordId=?, 
-                        @OpLeaderResponse=?,
-                        @OpOperatorResponse=?";
+                        $result = $db1->execute($insSp, [
+                            $recordId,
+                            $leaderToOperator,
+                            $operatorToLeader,
+                            $changes
+                        ]);
+                    } else {
+                        $insSp = "EXEC InsAtoDorCheckpointRefresh 
+                            @RecordId=?, 
+                            @OpLeaderResponse=?,
+                            @OpOperatorResponse=?";
 
-                    $result = $db1->execute($insSp, [
-                        $recordId,
-                        $leaderToOperator,
-                        $operatorToLeader
-                    ]);
+                        $result = $db1->execute($insSp, [
+                            $recordId,
+                            $leaderToOperator,
+                            $operatorToLeader
+                        ]);
+                    }
 
                     if ($result !== false) {
                         $response['success'] = true;
@@ -70,16 +91,31 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     }
                 } else {
                     // Record exists, update it
-                    $updSp = "EXEC UpdAtoDorCheckpointRefreshRecordId 
-                        @RecordId=?,
-                        @OpLeaderResponse=?,
-                        @OpOperatorResponse=?";
+                    if (isset($_SESSION['dorTypeId']) && $_SESSION['dorTypeId'] == 4) {
+                        $updSp = "EXEC UpdAtoDorCheckpointRefreshRecordId 
+                            @RecordId=?,
+                            @OpLeaderResponse=?,
+                            @OpOperatorResponse=?,
+                            @Changes=?";
 
-                    $result = $db1->execute($updSp, [
-                        $recordId,
-                        $leaderToOperator,
-                        $operatorToLeader
-                    ]);
+                        $result = $db1->execute($updSp, [
+                            $recordId,
+                            $leaderToOperator,
+                            $operatorToLeader,
+                            $changes
+                        ]);
+                    } else {
+                        $updSp = "EXEC UpdAtoDorCheckpointRefreshRecordId 
+                            @RecordId=?,
+                            @OpLeaderResponse=?,
+                            @OpOperatorResponse=?";
+
+                        $result = $db1->execute($updSp, [
+                            $recordId,
+                            $leaderToOperator,
+                            $operatorToLeader
+                        ]);
+                    }
 
                     if ($result !== false) {
                         $response['success'] = true;
@@ -185,6 +221,14 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                         </div>
                     </td>
                 </tr>
+                <?php if (isset($_SESSION['dorTypeId']) && $_SESSION['dorTypeId'] == 4): ?>
+                    <tr>
+                        <td>Changes</td>
+                        <td>
+                            <input type="text" name="changes" placeholder="Enter changes" class="form-control">
+                        </td>
+                    </tr>
+                <?php endif; ?>
             </tbody>
             <tfoot>
                 <tr>
@@ -200,7 +244,7 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                         <div>
                             <strong>Note:</strong>
                             <div class="ms-3 mt-1">
-                                Record the details at next page on detected problem/abnormality during jigs and tools checking.
+                                Record the details to the next page on detected problem/abnormality during jigs and tools checking.
                             </div>
                         </div>
                     </td>
@@ -286,6 +330,7 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
             const workInstructFile = <?php echo json_encode($workInstructFile); ?>;
             const preCardFile = <?php echo json_encode($preCardFile); ?>;
             const drawingFile = <?php echo json_encode($drawingFile); ?>;
+            const dorTypeId = <?php echo $_SESSION['dorTypeId'] ?? 0; ?>;
 
             // Attach event listeners to buttons
             document.getElementById("btnDrawing").addEventListener("click", function() {
@@ -314,6 +359,14 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                 formData.append('btnProceed', '1');
                 formData.append('leaderToOperator', document.querySelector('input[name="leaderToOperator"]:checked').value);
                 formData.append('operatorToLeader', document.querySelector('input[name="operatorToLeader"]:checked').value);
+
+                // Add changes field if dorTypeId is 4
+                if (dorTypeId === 4) {
+                    const changesInput = document.querySelector('input[name="changes"]');
+                    if (changesInput) {
+                        formData.append('changes', changesInput.value);
+                    }
+                }
 
                 // Send AJAX request
                 fetch(window.location.href, {
