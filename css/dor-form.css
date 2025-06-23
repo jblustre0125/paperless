@@ -577,3 +577,72 @@ input[id^="userCode"].is-invalid {
   gap: 5px;
   margin-left: auto;
 }
+
+/* Autosuggest wrapper for Jig field - make input fit cell exactly */
+.autosuggest-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  position: relative;
+  min-width: 0;
+  width: 100%;
+}
+
+.autosuggest-wrapper input[type="text"] {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+#jigId {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  letter-spacing: 1px;
+  font-size: inherit;
+  font-family: inherit;
+}
+
+/* Add numeric keyboard indicator */
+#jigId::placeholder {
+  color: #6c757d;
+  font-size: inherit;
+  font-family: inherit;
+}
+
+/* Style for when numeric input is active */
+#jigId:focus {
+  background-color: #f8f9fa;
+  border-color: #007bff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+#jigSuggestions {
+  position: absolute !important;
+  top: 100% !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 1050 !important;
+  max-height: 200px !important;
+  overflow-y: auto !important;
+  border: 1px solid #ced4da !important;
+  border-radius: 0.375rem !important;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+  background: #fff !important;
+  display: none;
+  margin-top: -1px !important;
+  pointer-events: auto !important;
+}
+.suggestion-item {
+  cursor: pointer;
+  background-color: #f8f9fa;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid #e9ecef;
+  transition: background 0.2s;
+}
+.suggestion-item:last-child {
+  border-bottom: none;
+}
+.suggestion-item:hover {
+  background-color: #e9ecef !important;
+}

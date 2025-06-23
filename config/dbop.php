@@ -14,6 +14,7 @@ class DbOp
         $password = "Nbc12#";
         $db1 = "Paperless";
         $db2 = "Brightkeeper";
+        $db3 = "MachineMonitoring";
 
         // Selecting database
         switch ($dbConnection) {
@@ -22,6 +23,9 @@ class DbOp
                 break;
             case 2:
                 $database = $db2;
+                break;
+            case 3:
+                $database = $db3;
                 break;
             default:
                 $database = $db1;
@@ -87,5 +91,3 @@ class DbOp
         sqlsrv_close($this->conn);
     }
 }
-
-?>
