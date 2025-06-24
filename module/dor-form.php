@@ -375,11 +375,11 @@ foreach ($tabData as $checkpointName => $rows) {
                                 <?php if ($showJigField): ?>
                                     <th class="checkpoint-cell">Checkpoint</th>
                                     <th colspan="<?php echo $criteriaColspan; ?>" class="criteria-cell">Criteria</th>
-                                    <th class="selection-cell">Error Summary</th>
+                                    <th class="selection-cell">Please complete the following</th>
                                 <?php else: ?>
                                     <th class="checkpoint-cell">Checkpoint</th>
                                     <th colspan="<?php echo $criteriaColspan; ?>" class="criteria-cell">Criteria</th>
-                                    <th class="selection-cell">Error Summary</th>
+                                    <th class="selection-cell">Please complete the following</th>
                                 <?php endif; ?>
                             </tr>
                         </thead>

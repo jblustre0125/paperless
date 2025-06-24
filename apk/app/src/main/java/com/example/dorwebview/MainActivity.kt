@@ -29,7 +29,8 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA)
-            != PackageManager.PERMISSION_GRANTED) {
+            != PackageManager.PERMISSION_GRANTED
+        ) {
 
             ActivityCompat.requestPermissions(
                 this,
@@ -51,12 +52,13 @@ class MainActivity : AppCompatActivity() {
 
         val layout = FrameLayout(this)
         layout.addView(webView)
-        layout.addView(refreshButton, FrameLayout.LayoutParams(
-            120, 120, Gravity.BOTTOM or Gravity.END
-        ).apply {
-            bottomMargin = 40
-            rightMargin = 40
-        })
+        layout.addView(
+            refreshButton, FrameLayout.LayoutParams(
+                120, 120, Gravity.BOTTOM or Gravity.END
+            ).apply {
+                bottomMargin = 40
+                rightMargin = 40
+            })
 
         setContentView(layout)
 
@@ -102,12 +104,10 @@ class MainActivity : AppCompatActivity() {
 
         webView.addJavascriptInterface(WebAppInterface(), "AndroidApp")
 
-        webView.loadUrl("https://192.168.247.161:444/paperless/index.php")
-        //webView.loadUrl("https://192.168.22.145:444/paperless/index.php")
+        //webView.loadUrl("https://192.168.247.161:444/paperless/index.php")
+        webView.loadUrl("https://192.168.21.144:444/paperless/index.php")
         //webView.loadUrl("https://192.168.1.20/paperless/leader/module/dor-leader-login.php")
     }
-
-
 
     @Suppress("DEPRECATION")    
     private fun hideSystemUI() {

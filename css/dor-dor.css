@@ -601,6 +601,144 @@ body {
 }
 
 .summary-item span {
+  font-weight: bold;
+  color: #007bff;
+}
+
+/* Operator Management Modal Styles */
+#operatorModal .modal-dialog {
+  max-width: 800px;
+}
+
+#operatorModal .modal-content {
+  border-radius: 8px;
+}
+
+#operatorModal .modal-header {
+  border-bottom: 2px solid #007bff;
+}
+
+#operatorModal .modal-title {
   font-weight: 600;
-  color: #0d6efd;
+}
+
+/* Autosuggest styles for operator search */
+#operatorSearch {
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+}
+
+#operatorSearch:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+#operatorSuggestions {
+  position: absolute;
+  z-index: 1050;
+  width: 100%;
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #ced4da;
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  background-color: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.suggestion-item {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f8f9fa;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.suggestion-item:hover {
+  background-color: #e9ecef !important;
+}
+
+.suggestion-item:last-child {
+  border-bottom: none;
+}
+
+/* Operator cards in modal */
+#currentOperators .card {
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  transition: box-shadow 0.2s;
+}
+
+#currentOperators .card:hover {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+#currentOperators .card-body {
+  padding: 8px 12px;
+}
+
+#currentOperators .btn-outline-danger {
+  border-width: 1px;
+  padding: 2px 6px;
+  font-size: 0.75rem;
+}
+
+#currentOperators .btn-outline-danger:hover {
+  background-color: #dc3545;
+  border-color: #dc3545;
+  color: white;
+}
+
+/* Validation message styles */
+.validation-message {
+  font-size: 0.875rem;
+  margin-top: 4px;
+}
+
+.validation-message .text-success {
+  color: #28a745 !important;
+}
+
+.validation-message .text-danger {
+  color: #dc3545 !important;
+}
+
+/* Autosuggest wrapper positioning */
+.autosuggest-wrapper {
+  position: relative;
+}
+
+/* Responsive adjustments for operator modal */
+@media (max-width: 768px) {
+  #operatorModal .modal-dialog {
+    margin: 10px;
+    max-width: calc(100% - 20px);
+  }
+
+  #operatorModal .modal-body {
+    padding: 10px;
+  }
+
+  #currentOperators .col-md-6 {
+    margin-bottom: 10px;
+  }
+
+  #operatorSearch {
+    font-size: 16px; /* Prevent zoom on iOS */
+  }
+}
+
+/* Button states */
+#addOperatorBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+#addOperatorBtn:not(:disabled):hover {
+  background-color: #0056b3;
+  border-color: #0056b3;
+}
+
+/* Loading state for operator names */
+#currentOperators .text-muted {
+  font-style: italic;
 }

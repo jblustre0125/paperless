@@ -16,6 +16,53 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
   $response = ['success' => false, 'errors' => []];
 
+  // Handle operator validation request
+  if (isset($_POST['action']) && $_POST['action'] === 'validate_operator') {
+    $employeeCode = trim($_POST['employeeCode'] ?? '');
+
+    if (empty($employeeCode)) {
+      $response['valid'] = false;
+      $response['message'] = 'Employee ID is required.';
+    } else {
+      $spRd1 = "EXEC RdGenEmployeeAll @EmployeeCode=?, @IsActive=1, @IsLoggedIn=0";
+      $res1 = $db1->execute($spRd1, [$employeeCode], 1);
+
+      if (!empty($res1)) {
+        $response['valid'] = true;
+        $response['message'] = 'Employee ID is valid.';
+        $response['employeeName'] = $res1[0]['EmployeeName'] ?? '';
+      } else {
+        $response['valid'] = false;
+        $response['message'] = 'Invalid employee ID.';
+      }
+    }
+
+    echo json_encode($response);
+    exit;
+  }
+
+  // Handle operator autosuggest request
+  if (isset($_POST['action']) && $_POST['action'] === 'suggest_operator') {
+    $searchTerm = trim($_POST['searchTerm'] ?? '');
+
+    if (!empty($searchTerm)) {
+      // Query for employee suggestions
+      $suggestQuery = "SELECT EmployeeCode, EmployeeName 
+                      FROM GenEmployeeAll 
+                      WHERE IsActive = 1 AND IsLoggedIn = 0 
+                      AND (EmployeeCode LIKE ? OR EmployeeName LIKE ?)
+                      ORDER BY EmployeeName";
+      $res = $db1->execute($suggestQuery, ['%' . $searchTerm . '%', '%' . $searchTerm . '%']);
+
+      $response['suggestions'] = $res ?: [];
+    } else {
+      $response['suggestions'] = [];
+    }
+
+    echo json_encode($response);
+    exit;
+  }
+
   // Regular form submit handler (btnProceed)
   if (empty($response['errors'])) {
     if (isset($_POST['btnProceed'])) {
@@ -380,6 +427,61 @@ try {
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-danger" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Operator Management Modal -->
+  <div class="modal fade" id="operatorModal" tabindex="-1" aria-labelledby="operatorModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 700px;">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white py-3">
+          <div class="d-flex justify-content-between align-items-center w-100">
+            <h5 class="modal-title mb-0" id="operatorModalLabel">Manage Operators - Row <span id="operatorRowNumber"></span></h5>
+            <div class="d-flex align-items-center">
+              <span class="text-white me-3">Lot Number: <span id="modalLotNumber" class="fw-bold"></span></span>
+              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+          </div>
+        </div>
+        <div class="modal-body p-4">
+          <div class="row g-3 mb-4">
+            <div class="col-12 col-md-8">
+              <div class="autosuggest-wrapper">
+                <label for="operatorSearch" class="form-label mb-2">Add Operator</label>
+                <div class="position-relative">
+                  <input type="text"
+                    class="form-control"
+                    id="operatorSearch"
+                    placeholder="Search by Employee ID or Name"
+                    autocomplete="off"
+                    style="height: 45px; font-size: 16px;">
+                  <div id="operatorValidationMessage" class="position-absolute" style="top: -20px; right: 0; font-size: 12px;"></div>
+                </div>
+                <div id="operatorSuggestions" class="bg-white border rounded mt-1" style="max-height: 150px; overflow-y: auto; display: none;"></div>
+              </div>
+            </div>
+            <div class="col-12 col-md-4 d-flex align-items-end">
+              <button type="button" class="btn btn-primary w-100" id="addOperatorBtn" disabled
+                style="height: 45px; font-size: 16px;">
+                <i class="bi bi-plus-circle"></i> Add
+              </button>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-12">
+              <h6 class="mb-3">Current Operators</h6>
+              <div id="currentOperators" class="border rounded p-3" style="min-height: 80px; max-height: 200px; overflow-y: auto;">
+                <p class="text-muted text-center mb-0">No operators assigned yet.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer py-3">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="height: 45px; font-size: 16px;">Close</button>
+          <button type="button" class="btn btn-primary" id="saveOperatorsBtn" style="height: 45px; font-size: 16px;">Save Changes</button>
         </div>
       </div>
     </div>
@@ -1359,6 +1461,383 @@ try {
     document.addEventListener('DOMContentLoaded', function() {
       updateDORSummary();
     });
+  </script>
+
+  <script>
+    // Operator Management Modal Functionality
+    let operatorModalInstance = null;
+    let currentRowId = null;
+    let selectedOperator = null;
+    let operatorSuggestionsTimeout = null;
+    let currentOperators = {};
+
+    // Initialize operator modal
+    document.addEventListener('DOMContentLoaded', function() {
+      operatorModalInstance = new bootstrap.Modal(document.getElementById("operatorModal"));
+      initializeOperatorAutosuggest();
+
+      // Add event listeners to operator management buttons
+      document.querySelectorAll('.btn-operator').forEach(button => {
+        button.addEventListener('click', function() {
+          const rowId = this.closest('tr').getAttribute('data-row-id');
+          openOperatorModal(rowId);
+        });
+      });
+
+      // Add event listeners for modal buttons
+      document.getElementById('addOperatorBtn').addEventListener('click', addOperator);
+      document.getElementById('saveOperatorsBtn').addEventListener('click', saveOperators);
+    });
+
+    function openOperatorModal(rowId) {
+      currentRowId = rowId;
+      document.getElementById('operatorRowNumber').textContent = rowId;
+
+      // Get lot number from the box number input
+      const boxNoInput = document.getElementById(`boxNo${rowId}`);
+      const lotNumber = boxNoInput ? boxNoInput.value.trim() : '';
+      document.getElementById('modalLotNumber').textContent = lotNumber || 'N/A';
+
+      // Load current operators for this row
+      loadCurrentOperators(rowId);
+
+      // Clear search field
+      document.getElementById('operatorSearch').value = '';
+      document.getElementById('operatorSuggestions').style.display = 'none';
+      document.getElementById('operatorValidationMessage').innerHTML = '';
+      document.getElementById('addOperatorBtn').disabled = true;
+      selectedOperator = null;
+
+      operatorModalInstance.show();
+    }
+
+    function loadCurrentOperators(rowId) {
+      const operatorsInput = document.getElementById(`operators${rowId}`);
+      const operatorsDiv = document.getElementById('currentOperators');
+
+      if (operatorsInput && operatorsInput.value.trim()) {
+        const operatorCodes = operatorsInput.value.split(',');
+        currentOperators = {};
+
+        let html = '<div class="row g-2">';
+        operatorCodes.forEach((code, index) => {
+          if (code.trim()) {
+            currentOperators[code.trim()] = {
+              code: code.trim(),
+              name: 'Loading...'
+            };
+            html += `
+              <div class="col-12 col-md-6 mb-2">
+                <div class="card border-0 bg-light">
+                  <div class="card-body p-2">
+                    <div class="d-flex align-items-center">
+                      <div class="flex-grow-1">
+                        <div class="fw-bold">${code.trim()}</div>
+                        <div class="text-muted" id="operatorName_${code.trim()}">Loading...</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            `;
+          }
+        });
+        html += '</div>';
+
+        operatorsDiv.innerHTML = html;
+
+        // Load employee names for existing operators
+        Object.keys(currentOperators).forEach(code => {
+          loadOperatorName(code);
+        });
+      } else {
+        currentOperators = {};
+        operatorsDiv.innerHTML = '<p class="text-muted text-center mb-0">No operators assigned yet.</p>';
+      }
+    }
+
+    function loadOperatorName(employeeCode) {
+      fetch(window.location.href, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: `action=validate_operator&employeeCode=${encodeURIComponent(employeeCode)}`
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.valid && data.employeeName) {
+            const nameElement = document.getElementById(`operatorName_${employeeCode}`);
+            if (nameElement) {
+              nameElement.textContent = data.employeeName;
+            }
+            if (currentOperators[employeeCode]) {
+              currentOperators[employeeCode].name = data.employeeName;
+            }
+          }
+        })
+        .catch(error => {
+          console.error('Error loading operator name:', error);
+        });
+    }
+
+    function initializeOperatorAutosuggest() {
+      const searchInput = document.getElementById('operatorSearch');
+      const suggestionsDiv = document.getElementById('operatorSuggestions');
+      const validationDiv = document.getElementById('operatorValidationMessage');
+      const addBtn = document.getElementById('addOperatorBtn');
+
+      if (!searchInput) return;
+
+      // Handle input for autosuggest
+      searchInput.addEventListener('input', function() {
+        const searchTerm = this.value.trim();
+        selectedOperator = null;
+
+        // Clear previous timeout
+        if (operatorSuggestionsTimeout) {
+          clearTimeout(operatorSuggestionsTimeout);
+        }
+
+        // Hide suggestions if input is empty
+        if (searchTerm.length === 0) {
+          suggestionsDiv.style.display = 'none';
+          validationDiv.innerHTML = '';
+          addBtn.disabled = true;
+          return;
+        }
+
+        // Show suggestions after 300ms delay
+        operatorSuggestionsTimeout = setTimeout(() => {
+          fetchOperatorSuggestions(searchTerm);
+        }, 300);
+      });
+
+      // Handle suggestion selection
+      suggestionsDiv.addEventListener('click', function(e) {
+        if (e.target.classList.contains('suggestion-item')) {
+          const employeeCode = e.target.dataset.employeeCode;
+          const employeeName = e.target.dataset.employeeName;
+
+          searchInput.value = `${employeeCode} - ${employeeName}`;
+          selectedOperator = {
+            code: employeeCode,
+            name: employeeName
+          };
+          suggestionsDiv.style.display = 'none';
+          addBtn.disabled = false;
+          validationDiv.innerHTML = `<div class="text-success">${employeeName}</div>`;
+        }
+      });
+
+      // Hide suggestions when clicking outside
+      document.addEventListener('click', function(e) {
+        if (!searchInput.contains(e.target) && !suggestionsDiv.contains(e.target)) {
+          suggestionsDiv.style.display = 'none';
+        }
+      });
+
+      // Handle blur event for validation
+      searchInput.addEventListener('blur', function() {
+        setTimeout(() => {
+          if (this.value.trim() && !selectedOperator) {
+            validateOperator(this.value.trim());
+          }
+        }, 200);
+      });
+    }
+
+    function fetchOperatorSuggestions(searchTerm) {
+      fetch(window.location.href, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: `action=suggest_operator&searchTerm=${encodeURIComponent(searchTerm)}`
+        })
+        .then(res => res.json())
+        .then(data => {
+          displayOperatorSuggestions(data.suggestions);
+        })
+        .catch(error => {
+          console.error('Error fetching operator suggestions:', error);
+        });
+    }
+
+    function displayOperatorSuggestions(suggestions) {
+      const suggestionsDiv = document.getElementById('operatorSuggestions');
+
+      if (!suggestions || suggestions.length === 0) {
+        suggestionsDiv.style.display = 'none';
+        return;
+      }
+
+      let html = '';
+      suggestions.forEach(operator => {
+        html += `<div class="suggestion-item p-2 border-bottom" 
+                      data-employee-code="${operator.EmployeeCode}" 
+                      data-employee-name="${operator.EmployeeName}" 
+                      style="cursor: pointer; background-color: #f8f9fa;">
+                  <div class="fw-bold">${operator.EmployeeCode}</div>
+                  <div class="text-muted">${operator.EmployeeName}</div>
+                </div>`;
+      });
+
+      suggestionsDiv.innerHTML = html;
+      suggestionsDiv.style.display = 'block';
+    }
+
+    function validateOperator(employeeCode) {
+      fetch(window.location.href, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: `action=validate_operator&employeeCode=${encodeURIComponent(employeeCode)}`
+        })
+        .then(res => res.json())
+        .then(data => {
+          const searchInput = document.getElementById('operatorSearch');
+          const validationDiv = document.getElementById('operatorValidationMessage');
+          const addBtn = document.getElementById('addOperatorBtn');
+
+          if (data.valid) {
+            searchInput.classList.remove('is-invalid');
+            searchInput.classList.add('is-valid');
+            validationDiv.innerHTML = `<div class="text-success">${data.message}</div>`;
+            selectedOperator = {
+              code: employeeCode,
+              name: data.employeeName
+            };
+            addBtn.disabled = false;
+          } else {
+            searchInput.classList.remove('is-valid');
+            searchInput.classList.add('is-invalid');
+            validationDiv.innerHTML = `<div class="text-danger">${data.message}</div>`;
+            selectedOperator = null;
+            addBtn.disabled = true;
+          }
+        })
+        .catch(error => {
+          console.error('Error validating operator:', error);
+        });
+    }
+
+    function addOperator() {
+      if (!selectedOperator || !currentRowId) return;
+
+      const employeeCode = selectedOperator.code;
+
+      // Check if operator already exists
+      if (currentOperators[employeeCode]) {
+        showErrorModal(`Operator ${employeeCode} is already assigned to this row.`);
+        return;
+      }
+
+      // Check if maximum operators limit reached (4 operators max)
+      if (Object.keys(currentOperators).length >= 4) {
+        const validationDiv = document.getElementById('operatorValidationMessage');
+        validationDiv.innerHTML = `<div class="text-danger">Maximum of 4 operators allowed per row.</div>`;
+        return;
+      }
+
+      // Add to current operators
+      currentOperators[employeeCode] = selectedOperator;
+
+      // Update display
+      updateCurrentOperatorsDisplay();
+
+      // Clear search
+      document.getElementById('operatorSearch').value = '';
+      document.getElementById('operatorSuggestions').style.display = 'none';
+      document.getElementById('operatorValidationMessage').innerHTML = '';
+      document.getElementById('addOperatorBtn').disabled = true;
+      selectedOperator = null;
+    }
+
+    function updateCurrentOperatorsDisplay() {
+      const operatorsDiv = document.getElementById('currentOperators');
+
+      if (Object.keys(currentOperators).length === 0) {
+        operatorsDiv.innerHTML = '<p class="text-muted text-center mb-0">No operators assigned yet.</p>';
+        return;
+      }
+
+      let html = '<div class="row g-2">';
+      Object.values(currentOperators).forEach(operator => {
+        html += `
+          <div class="col-12 col-md-6 mb-2">
+            <div class="card border-0 bg-light">
+              <div class="card-body p-2">
+                <div class="d-flex align-items-center">
+                  <div class="flex-grow-1">
+                    <div class="fw-bold">${operator.code}</div>
+                    <div class="text-muted">${operator.name}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+      html += '</div>';
+
+      operatorsDiv.innerHTML = html;
+    }
+
+    function saveOperators() {
+      if (!currentRowId) return;
+
+      // Update the hidden input field
+      const operatorsInput = document.getElementById(`operators${currentRowId}`);
+      const operatorCodes = Object.keys(currentOperators);
+
+      if (operatorsInput) {
+        operatorsInput.value = operatorCodes.join(',');
+      }
+
+      // Update the display in the main table
+      const operatorListDiv = document.getElementById(`operatorList${currentRowId}`);
+      if (operatorListDiv) {
+        operatorListDiv.innerHTML = '';
+
+        if (operatorCodes.length > 0) {
+          operatorCodes.forEach(code => {
+            const operator = currentOperators[code];
+            const badge = document.createElement('small');
+            badge.className = 'badge bg-light text-dark border me-1 mb-1';
+            badge.textContent = operator.name || code;
+            operatorListDiv.appendChild(badge);
+          });
+        }
+      }
+
+      // Update downtime placeholders to match operator count
+      updateDowntimePlaceholders(currentRowId, operatorCodes.length);
+
+      // Close modal
+      operatorModalInstance.hide();
+
+      // Update DOR summary
+      updateDORSummary();
+    }
+
+    function updateDowntimePlaceholders(rowId, operatorCount) {
+      const downtimeDiv = document.getElementById(`downtimeInfo${rowId}`);
+      if (downtimeDiv) {
+        // Remove existing placeholders
+        const existingPlaceholders = downtimeDiv.querySelectorAll('.placeholder-badge');
+        existingPlaceholders.forEach(placeholder => placeholder.remove());
+
+        // Add new placeholders to match operator count
+        for (let i = 0; i < operatorCount; i++) {
+          const placeholder = document.createElement('small');
+          placeholder.className = 'badge placeholder-badge';
+          placeholder.innerHTML = '&nbsp;';
+          downtimeDiv.appendChild(placeholder);
+        }
+      }
+    }
   </script>
 
   <form id="deleteDorForm" method="POST" action="dor-form.php">
