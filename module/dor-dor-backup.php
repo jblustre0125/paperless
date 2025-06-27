@@ -75,10 +75,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
           $rowsToProcess = [];
 
           // First pass: validate and collect data
-          function isValidTime($val)
-          {
-            return !empty($val) && $val !== 'HH:mm';
-          }
           for ($i = 1; $i <= 20; $i++) {
             $boxNo = trim($_POST["boxNo{$i}"] ?? '');
             $timeStart = trim($_POST["timeStart{$i}"] ?? '');
@@ -87,7 +83,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             // Check if any field has a value
             $hasAnyValue = !empty($boxNo) || !empty($timeStart) || !empty($timeEnd);
-            $hasAllValues = !empty($boxNo) && isValidTime($timeStart) && isValidTime($timeEnd);
+            $hasAllValues = !empty($boxNo) && !empty($timeStart) && !empty($timeEnd);
 
             if ($hasAnyValue) {
               if ($hasAllValues) {
@@ -1202,8 +1198,7 @@ try {
 
             // Check if any field has a value
             const hasAnyValue = boxNo || timeStart || timeEnd;
-            const isValidTime = (val) => val && val !== 'HH:mm';
-            const hasAllValues = boxNo && isValidTime(timeStart) && isValidTime(timeEnd);
+            const hasAllValues = boxNo && timeStart && timeEnd;
 
             if (hasAnyValue) {
               totalRowsWithData++;
@@ -1301,6 +1296,39 @@ try {
           form.dispatchEvent(new Event('submit'));
         }
       });
+    });
+
+    // Form submit event handler
+    form.addEventListener("submit", function(e) {
+      e.preventDefault();
+
+      if (!clickedButton || clickedButton.name !== "btnProceed") {
+        return;
+      }
+
+      const formData = new FormData(form);
+      formData.append('btnProceed', '1');
+
+      fetch(form.action, {
+          method: "POST",
+          body: formData
+        })
+        .then(response => response.json())
+        .then((data) => {
+          if (data.success) {
+            if (clickedButton.name === "btnProceed") {
+              window.location.href = data.redirectUrl;
+              return;
+            }
+          } else {
+            // Use the proper showErrorModal function instead of direct modal manipulation
+            showErrorModal(data.errors.join('\n'));
+          }
+        })
+        .catch(error => {
+          console.error("Error:", error);
+          showErrorModal('An error occurred while processing your request.');
+        });
     });
 
     // Add delete row functionality

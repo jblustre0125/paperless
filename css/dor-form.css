@@ -218,10 +218,25 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  font-size: 1.2rem;
+  font-weight: 500;
 }
 
 .process-radio input {
   transform: scale(1.5);
+}
+
+/* Process text input styles - increase font size without changing input size */
+.selection-cell input[type="text"].form-control {
+  font-size: 1.2rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+/* Ensure the input maintains its original padding and height */
+.selection-cell input[type="text"].form-control {
+  padding: 0.375rem 0.75rem;
+  min-height: calc(1.5em + 0.75rem + calc(var(--bs-border-width) * 2));
 }
 
 /* Form and container resets */
@@ -236,6 +251,11 @@ form {
 /* Employee ID input styles */
 input[id^="userCode"] {
   width: 130px;
+  font-size: 1.2rem;
+  font-weight: 500;
+  line-height: 1.4;
+  padding: 0.375rem 0.75rem;
+  min-height: calc(1.5em + 0.75rem + calc(var(--bs-border-width) * 2));
 }
 
 /* Process button alignment */
@@ -599,7 +619,9 @@ input[id^="userCode"].is-invalid {
   z-index: 2;
   text-align: center;
   letter-spacing: 1px;
-  font-size: inherit;
+  font-size: 1.2rem;
+  font-weight: 500;
+  line-height: 1.4;
   font-family: inherit;
 }
 

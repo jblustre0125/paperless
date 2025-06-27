@@ -167,23 +167,25 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
                             if ($recordExists) {
                                 // Record exists, so update it
-                                $updateSp = "EXEC UpdAtoDorCheckpointDefinition @RecordId=?, @ProcessIndex=?, @EmployeeCode=?, @CheckpointId=?, @CheckpointResponse=?";
+                                $updateSp = "EXEC UpdAtoDorCheckpointDefinition @RecordId=?, @ProcessIndex=?, @EmployeeCode=?, @CheckpointId=?, @CheckpointResponse=?, @IsLeader";
                                 $db1->execute($updateSp, [
                                     $recordId,
                                     $processIndex,
                                     $employeeCode,
                                     $checkpointId,
-                                    $value
+                                    $value,
+                                    0
                                 ]);
                             } else {
                                 // Record doesn't exist, so insert it
-                                $insSp = "EXEC InsAtoDorCheckpointDefinition @RecordId=?, @ProcessIndex=?, @EmployeeCode=?, @CheckpointId=?, @CheckpointResponse=?";
+                                $insSp = "EXEC InsAtoDorCheckpointDefinition @RecordId=?, @ProcessIndex=?, @EmployeeCode=?, @CheckpointId=?, @CheckpointResponse=?, @IsLeader=?";
                                 $db1->execute($insSp, [
                                     $recordId,
                                     $processIndex,
                                     $employeeCode,
                                     $checkpointId,
-                                    $value
+                                    $value,
+                                    0
                                 ]);
                             }
                         }
@@ -375,11 +377,11 @@ foreach ($tabData as $checkpointName => $rows) {
                                 <?php if ($showJigField): ?>
                                     <th class="checkpoint-cell">Checkpoint</th>
                                     <th colspan="<?php echo $criteriaColspan; ?>" class="criteria-cell">Criteria</th>
-                                    <th class="selection-cell">Please complete the following</th>
+                                    <th class="selection-cell">Assessment</th>
                                 <?php else: ?>
                                     <th class="checkpoint-cell">Checkpoint</th>
                                     <th colspan="<?php echo $criteriaColspan; ?>" class="criteria-cell">Criteria</th>
-                                    <th class="selection-cell">Please complete the following</th>
+                                    <th class="selection-cell">Assessment</th>
                                 <?php endif; ?>
                             </tr>
                         </thead>

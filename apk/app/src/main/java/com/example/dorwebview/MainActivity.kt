@@ -92,7 +92,7 @@ class MainActivity : AppCompatActivity() {
                 view: WebView?,
                 handler: SslErrorHandler?,
                 error: SslError?
-            ) {
+            ) {z
                 handler?.proceed()
             }
 
@@ -104,6 +104,7 @@ class MainActivity : AppCompatActivity() {
 
         webView.addJavascriptInterface(WebAppInterface(), "AndroidApp")
 
+        
         //webView.loadUrl("https://192.168.247.161:444/paperless/index.php")
         webView.loadUrl("https://192.168.21.144:444/paperless/index.php")
         //webView.loadUrl("https://192.168.1.20/paperless/leader/module/dor-leader-login.php")
