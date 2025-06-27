@@ -1,7 +1,7 @@
 <?php
-$errorPrompt = "";
-
-require_once "../controller/login.php";
+session_start();
+$errorPrompt = $_SESSION['login_error'] ?? '';
+unset($_SESSION['login_error']); // Clear after showing
 ?>
 
 <!DOCTYPE html>
@@ -10,7 +10,7 @@ require_once "../controller/login.php";
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Login</title>
+    <title>DOR Leader Login</title>
     <link rel="icon" type="image/png" href="../img/dor-1024.png">
     <link rel="stylesheet" href="../../css/bootstrap.min.css" />
     <link rel="stylesheet" href="../../css/index.css" />
@@ -27,12 +27,10 @@ require_once "../controller/login.php";
                 <h2 class="mb-0 text-white">DOR System</h2>
             </div>
             <div class="card-body">
-                <form id="myForm" method="POST">
+                <form id="myForm" method="POST" action="../controller/dor-leader-login.php">
                     <div class="mb-4">
-                        <!-- <label for="productionCode" class="form-label">Employee ID</label>
-                        <input type="text" class="form-control form-control-lg" id="productionCode" name="txtProductionCode"  required data-scan placeholder="Tap to scan ID"  value="2410-016">1 -->
                         <label for="codeInput" class="form-label">Employee ID</label>
-                        <input type="text" name="employee_code" id="codeInput" class="form-control py-2 mb-3" placeholder="Enter manually your employee ID">
+                        <input type="text" name="employee_code" id="codeInput" class="form-control py-2 mb-3" placeholder="Enter your Employee ID">
                         <button type="button" class="btn btn-outline-secondary" id="scanToggleBtn">Scan ID</button>
                     </div>
                     <div class="d-grid gap-2">
@@ -40,9 +38,9 @@ require_once "../controller/login.php";
                     </div>
                 </form>
 
-                <?php if ($errorPrompt) : ?>
+                <?php if (!empty($errorPrompt)) : ?>
                     <div class="alert alert-danger mt-3" role="alert">
-                        <?php echo $errorPrompt; ?>
+                        <?= htmlspecialchars($errorPrompt) ?>
                     </div>
                 <?php endif; ?>
             </div>
@@ -51,6 +49,7 @@ require_once "../controller/login.php";
 
     <?php require_once '../../config/footer.php'; ?>
     <script src="../../js/bootstrap.bundle.min.js"></script>
+    <script src="../../js/jsQR.min.js"></script>
 
     <!-- QR Code Scanner Modal -->
     <div class="modal fade" id="qrScannerModal" tabindex="-1" aria-labelledby="qrScannerLabel" aria-hidden="true">
@@ -61,7 +60,7 @@ require_once "../controller/login.php";
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body text-center">
-                    <video id="qr-video" style="width: 100%; height: auto;" autoplay muted playsinline></video>
+                    <video id="qr-video" style="width: 100%;" autoplay muted playsinline></video>
                     <p class="text-muted mt-2">Align the QR code within the frame.</p>
                 </div>
                 <div class="modal-footer d-flex justify-content-between">
@@ -72,57 +71,27 @@ require_once "../controller/login.php";
         </div>
     </div>
 
-    <script src="../../../js/jsQR.min.js"></script>
     <script>
-        document.addEventListener("DOMContentLoaded", function() {
+        document.addEventListener("DOMContentLoaded", () => {
             const scannerModal = new bootstrap.Modal(document.getElementById("qrScannerModal"));
             const video = document.getElementById("qr-video");
             const canvas = document.createElement("canvas");
-            const ctx = canvas.getContext("2d", {
-                willReadFrequently: true
-            });
+            const ctx = canvas.getContext("2d", { willReadFrequently: true });
             let scanning = false;
             let activeInput = null;
 
-            navigator.permissions.query({
-                name: "camera"
-            }).then((result) => {
-                console.log("Camera permission:", result.state);
-            });
-
-            const idInput = document.getElementById("txtProductionCode");
-
             function getCameraConstraints() {
-                return {
-                    video: {
-                        facingMode: {
-                            ideal: "environment"
-                        }
-                    }
-                };
+                return { video: { facingMode: { ideal: "environment" } } };
             }
 
             function startScanning() {
                 scannerModal.show();
-                const constraints = getCameraConstraints();
-
-                navigator.mediaDevices.getUserMedia(constraints)
+                navigator.mediaDevices.getUserMedia(getCameraConstraints())
                     .then(setupVideoStream)
-                    .catch((err1) => {
-                        console.error("Back camera failed", err1);
-
-                        navigator.mediaDevices.getUserMedia({
-                                video: {
-                                    facingMode: "user"
-                                }
-                            })
+                    .catch(() => {
+                        navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
                             .then(setupVideoStream)
-                            .catch((err2) => {
-                                console.error("Front camera failed", err2);
-                                if (!video.srcObject) {
-                                    alert("Camera access is blocked or not available on this tablet.");
-                                }
-                            });
+                            .catch(() => alert("Camera access denied or not available."));
                     });
             }
 
@@ -146,21 +115,16 @@ require_once "../controller/login.php";
 
                     if (qrCodeData) {
                         const scannedText = qrCodeData.data.trim();
-                        const parts = scannedText.split(" ");
-                        if (parts.length > 0) {
-                            const codeOnly = parts[0];
-                            if (activeInput) {
-                                activeInput = document.getElementById("codeInput");
+                        const code = scannedText.split(" ")[0];
 
+                        if (code && activeInput) {
+                            activeInput.value = code;
+                            stopScanning();
 
-                                stopScanning();
-
-                                // Trigger submit after a tiny delay to allow DOM update
-                                setTimeout(() => {
-                                    const loginBtn = document.getElementById("btnLogin");
-                                    if (loginBtn) loginBtn.click();
-                                }, 100); // Delay ensures input is registered before submit
-                            }
+                            // Trigger login
+                            setTimeout(() => {
+                                document.getElementById("btnLogin").click();
+                            }, 100);
                         }
                     }
                 }
@@ -174,54 +138,30 @@ require_once "../controller/login.php";
                 scannerModal.hide();
             }
 
-            const scanToggleBtn = document.getElementById("scanToggleBtn");
+            document.getElementById("scanToggleBtn").addEventListener("click", async () => {
+                const granted = await navigator.mediaDevices.getUserMedia({ video: true })
+                    .then(stream => {
+                        stream.getTracks().forEach(track => track.stop());
+                        return true;
+                    })
+                    .catch(() => false);
 
-            scanToggleBtn.addEventListener("click", async function(){
-                const accessGranted = await navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
-                    stream.getTracks().forEach(track => track.stop());
-                    return true;
-                })
-
-                .catch(() => false);
-
-                if(accessGranted) {
+                if (granted) {
                     activeInput = document.getElementById("codeInput");
                     startScanning();
-                }
-                else{
-                    alert("Camera access denied.")
+                } else {
+                    alert("Camera access is denied.");
                 }
             });
 
-            // document.querySelectorAll("input[data-scan]").forEach(input => {
-            //     input.addEventListener("click", async function() {
-            //         const accessGranted = await navigator.mediaDevices.getUserMedia({
-            //             video: true
-            //         }).then(stream => {
-            //             stream.getTracks().forEach(track => track.stop());
-            //             return true;
-            //         }).catch(() => false);
-
-            //         if (accessGranted) {
-            //             activeInput = this;
-            //             startScanning();
-            //         } else {
-            //             alert("Camera access denied.");
-            //         }
-            //     });
-            // });
-
             document.getElementById("enterManually").addEventListener("click", () => {
                 stopScanning();
-                setTimeout(() => {
-                    if (activeInput) activeInput.focus();
-                }, 300);
+                setTimeout(() => document.getElementById("codeInput").focus(), 300);
             });
 
             document.getElementById("qrScannerModal").addEventListener("hidden.bs.modal", stopScanning);
         });
     </script>
-
 </body>
 
 </html>
