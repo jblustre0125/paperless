@@ -1,4 +1,5 @@
     <?php
+    ob_start();
     header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
     header("Cache-Control: post-check=0, pre-check=0", false);
     header("Pragma: no-cache");
@@ -27,10 +28,9 @@
 
     require_once __DIR__ . "/../../config/header.php";
     require_once __DIR__ . "/../../config/dbop.php";
-    require_once "../controller/method.php";
+    require_once "../controller/dor-leader-method.php";
 
-    // At the top of your PHP file
-    ob_start();
+
 
     $title = "Leader Dashboard";
     $method = new Method(1);
@@ -40,58 +40,14 @@
 
         $hostnames = $method->getOnlineTablets($currentTabletId);
 
+         $employeeCode = $_SESSION['employee_code'] ?? null;
 
-        
-    // function displayLogoutPage() {
-    //     echo '<!DOCTYPE html>
-    //     <html>
-    //     <head>
-    //         <title>Closing Application</title>
-    //         <style>
-    //             body {
-    //                 display: flex;
-    //                 justify-content: center;
-    //                 align-items: center;
-    //                 height: 100vh;
-    //                 margin: 0;
-    //                 background-color: #f8f9fa;
-    //                 font-family: Arial, sans-serif;
-    //             }
-    //             .message {
-    //                 text-align: center;
-    //                 padding: 20px;
-    //                 background: white;
-    //                 border-radius: 8px;
-    //                 box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    //             }
-    //         </style>
-    //     </head>
-    //     <body>
-    //         <div class="message">
-    //             <h2>Application Closed</h2>
-    //             <p>Please close this window manually.</p>
-    //         </div>
-    //         <script>
-    //             // Try to close the window
-    //             if (window.opener) {
-    //                 window.opener.focus();
-    //                 window.close();
-    //             } else {
-    //                 // For modern browsers
-    //                 window.location.href = "about:blank";
-    //                 setTimeout(function() {
-    //                     window.close();
-    //                 }, 100);
-                    
-    //                 // Fallback message
-    //                 setTimeout(function() {
-    //                     document.querySelector(".message p").textContent = "Please close this window manually.";
-    //                 }, 500);
-    //             }
-    //         </script>
-    //     </body>
-    //     </html>';
-    // }
+    
+if (empty($_SESSION['user_id']) || empty($_SESSION['employee_code'])) {
+    header('Location: dor-leader-login.php');
+    exit;
+}
+
     ?>
     <!DOCTYPE html>
     <html lang="en">
@@ -135,7 +91,7 @@
                             </span>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item text-danger fw-bold" href="#" onclick="confirmLogout(event)">
+                            <li><a class="dropdown-item text-danger fw-bold" href="dor-leader-login.php" onclick="confirmLogout(event)">
                                 <i class="bi bi-box-arrow-right"></i> Exit Application
                             </a></li>
                         </ul>
@@ -175,13 +131,13 @@
                 <!-- Other Online Tablets -->
                 <h4 class="mb-3">Operator Tablets</h4>
                 <div class="row row-cols-2 row-cols-md-4 row-cols-lg-6 g-3">
-                    <?php if(!empty($hostnames)): ?>
-                        <?php foreach($hostnames as $row): ?>
+                    <?php if (!empty($hostnames)): ?>
+                        <?php foreach ($hostnames as $row): ?>
                             <div class="col">
                                 <div class="card text-center shadow-sm border-success">
                                     <div class="card-body py-3 cursor-pointer"
-                                        data-bs-toggle="modal" 
-                                        data-bs-target="#hostnameModal"
+                                        onclick="window.location.href='dor-tablet.php?hostname_id=<?= $row['HostnameId'] ?>'"
+                                        data-bs-toggle="tooltip" data-bs-placement="top"
                                         data-hostname="<?= htmlspecialchars($row['Hostname']) ?>"
                                         data-record-id="<?= $row['RecordId'] ?? 'new' ?>">
                                         <i class="bi bi-tablet text-success fs-3 mb-2"></i>
@@ -197,32 +153,10 @@
                         <div class="col-12">
                             <div class="alert alert-info text-center">
                                 <i class="bi bi-info-circle me-2"></i> No other tablets are currently online
-                                </div>
                             </div>
+                        </div>
                     <?php endif; ?>
                 </div>
-            </div>
 
-            <!-- modal that handles the visual inspection checklist -->
-            <div class="modal fade" id="hostnameModal" tabindex="-1" aria-labelledby="hostnameModalLabel" aria-hidden="true">
-                <div class="modal-dialog modal-dialog-centered" style="max-width: 90%;">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="hostnameModalLabel"></h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body p-0" id="hostnameModalBody">
-                            <!-- Tabs -->
-                            <ul class="nav nav-tabs mb-0" id="modalTab" role="tablist"></ul>
-
-                            <!-- Tab content -->
-                            <div class="tab-content p-3" id="tabContent"></div>
-                        </div>
-                        <div class="modal-footer">
-                            <input type="hidden" id="globalRecordId" name="record_id" value="1">
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
-        <script src="../js/dor-leader.js"></script>

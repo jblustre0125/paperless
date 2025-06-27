@@ -1,0 +1,153 @@
+
+body {
+  font-size: 0.95rem;
+  overflow-x: hidden;
+}
+
+.navbar .btn {
+  font-size: 0.9rem;
+  padding: 0.4rem 0.8rem;
+}
+
+.main-content {
+  padding-top: 100px;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+  /* Enables scroll ONLY IF absolutely needed */
+  -webkit-overflow-scrolling: touch;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+thead, th {
+  border-bottom:  2px solid #dee2e6;
+  background-color: #f8f9fa;
+}
+
+th,
+td {
+  padding: 0.4rem;
+  font-size: 0.85rem;
+  vertical-align: middle;
+  word-break: break-word;
+}
+
+.form-check {
+  margin-bottom: 0.25rem;
+}
+
+.form-check-label {
+  font-size: 1rem;
+}
+
+thead.table-light {
+  position: sticky;
+  top: 0;
+  z-index: 1020;
+  background-color: #f8f9fa;
+  border-bottom: 2px solid #dee2e6; /* Important for visible border */
+  box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.1); /* Optional: subtle shadow for better separation */
+}
+
+
+@media (max-width: 1024px) {
+  th,
+  td {
+    font-size: 1rem;
+    padding: 0.3rem;
+  }
+
+  .navbar .btn {
+    font-size: 1rem;
+    padding: 0.3rem 0.6rem;
+  }
+
+  .form-check-label {
+    white-space: nowrap;
+    margin-left: 0.3rem;
+  }
+
+  .nav-btn-group {
+    flex: 1 1 45%;
+  }
+
+  .form-check-input {
+    margin: 0;
+  }
+}
+.tab-pane {
+  padding: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 0.5rem;
+}
+.tab-pane {
+  display: none;
+}
+.tab-pane.show.active {
+  display: block;
+}
+
+tab-pane.d-none {
+  display: none;
+}
+th.operator-header {
+  min-width: 200px; /* adjust as needed */
+  max-width: 200px;
+  text-align: center;
+}
+
+td.operator-cell {
+  min-width: 50px; /* adjust to match the expected total */
+  max-width: 50px;
+}
+.btn-nav-fixed {
+  flex: 0 0 110px !important;
+  max-width: 110px !important;
+  min-width: 110px !important;
+  padding: 0.35rem 0.5rem !important;
+  font-size: 0.875rem !important; /* Smaller font */
+  text-align: center !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+}
+@media screen and (orientation: landscape) and (min-width: 1024px) {
+  .btn-nav-fixed {
+    flex: 0 0 auto !important;         /* allow flexible width */
+    min-width: auto !important;        /* remove fixed width */
+    max-width: none !important;
+    width: auto !important;
+    padding: 0.4rem 0.8rem !important;
+    font-size: 0.5rem !important;
+    white-space: nowrap;
+  }
+
+  .navbar .d-flex.gap-2.flex-wrap {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .navbar .d-flex.gap-2.flex-wrap::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .navbar .d-flex.gap-2.flex-wrap::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+  }
+  
+}
+#dorTabContent {
+    display: none;
+}
+
+
