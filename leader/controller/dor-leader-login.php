@@ -30,9 +30,10 @@ function getUserIP()
 
 // Ensure POST method
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_POST['btnLogin'])) {
-    http_response_code(405);
-    exit('Method Not Allowed');
+    header('Location: ../module/dor-leader-login.php');
+    exit;
 }
+
 
 $db = new DbOp(1);
 $ip = getUserIP();

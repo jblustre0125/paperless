@@ -91,7 +91,7 @@ if (empty($_SESSION['user_id']) || empty($_SESSION['employee_code'])) {
                             </span>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item text-danger fw-bold" href="dor-leader-login.php" onclick="confirmLogout(event)">
+                            <li><a class="dropdown-item text-danger fw-bold" href="dor-leader-login.php">
                                 <i class="bi bi-box-arrow-right"></i> Exit Application
                             </a></li>
                         </ul>
