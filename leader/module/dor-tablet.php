@@ -77,7 +77,7 @@ foreach ($dimChecks as $row) {
             <!-- CheckpointA -->
             <div class="tab-content fixed-top" style="margin-top: 50px; display:none;" id="dorTabContent">
                 <div class="tab-pane fade show active" id="tab-0" role="tabpanel">
-                    <div class="table-wrapper" style="max-height: 950px; margin-top: 10px; overflow-y:auto;">
+                    <div class="table-responsive" style="max-height: 90vh; margin-top: 10px; overflow: auto;">
                         <table class=" table table-bordered text-center align-middle w-100 h-100">
                             <thead class="table-light">
                                 <tr>
@@ -290,14 +290,14 @@ foreach ($dimChecks as $row) {
                 </div>
 
                 <div class="tab-pane fade" id="tab-2" role="tabpanel">
-                    <div class="table-wrapper" style="max-height: 950px; margin-top: 10px; overflow-y:auto;">
+                    <div class="table-wrapper" style="max-height: 90vh; margin-top: 10px; overflow:auto;">
                         <table class="table table-bordered text-center align-middle">
                             <thead class="table-light">
                                 <tr>
                                     <th colspan="10">C. Dimension Check</th>
                                 </tr>
                                 <tr>
-                                    <th rowspan="2" style="min-width: 62px;">No.</th>
+                                    <th rowspan="2" style="min-width: 50px;">No.</th>
                                     <?php foreach (['Hatsumono', 'Nakamono', 'Owarimono'] as $section): ?>
                                         <th colspan="3"><?= $section ?></th>
                                     <?php endforeach; ?>
@@ -312,13 +312,13 @@ foreach ($dimChecks as $row) {
                                 <?php for ($i = 1; $i <= 20; $i++): ?>
                                     <?php $row = $indexedDimChecks[$i] ?? []; ?>
                                     <tr>
-                                        <td><?= $i ?></td>
+                                        <td style="min-width: 100px;"><?= $i ?></td>
 
                                         <input type="hidden" name="dim_check_id[<?= $i ?>]" value="<?= $row['DimCheckId'] ?? '' ?>">
 
                                         <?php foreach (['hatsumono', 'nakamono', 'owarimono'] as $section): ?>
                                             <?php for ($j = 1; $j <= 3; $j++): ?>
-                                                <td>
+                                                <td class="text-center">
                                                     <?php
                                                     $key = ucfirst($section) . $j;
                                                     $value = $row[$key] ?? ($_POST["{$section}_value_{$j}"][$i] ?? '');
@@ -334,14 +334,14 @@ foreach ($dimChecks as $row) {
 
                                 <!-- Judge row (same as your previous logic) -->
                                 <tr>
-                                    <td class="fw-bold text-start">Judge</td>
+                                    <td class="fw-bold text-center">Judge</td>
                                     <?php foreach (['hatsumono', 'nakamono', 'owarimono'] as $section): ?>
                                         <?php for ($i = 1; $i <= 3; $i++): ?>
                                             <td>
-                                                <div class="d-flex justify-content-center gap-1 flex-wrap">
+                                                <div class="d-flex flex-column align-items-center gap-1">
                                                     <?php foreach (['OK', 'NA', 'NG'] as $opt): ?>
-                                                        <label class="form-check-label small">
-                                                            <input type="radio" class="form-check-input"
+                                                        <label class="form-check-label small w-100 text-center">
+                                                            <input type="radio" class="form-check-input me-1"
                                                                 name="judge_<?= $section ?>_<?= $i ?>"
                                                                 value="<?= $opt ?>"
                                                                 <?= (($_POST["judge_{$section}_{$i}"] ?? '') === $opt) ? 'checked' : '' ?>>
@@ -352,6 +352,7 @@ foreach ($dimChecks as $row) {
                                                 <input type="hidden" name="checkby_<?= $section . $i ?>"
                                                     value="<?= htmlspecialchars($_SESSION['employee_code'] ?? '') ?>">
                                             </td>
+
                                         <?php endfor; ?>
                                     <?php endforeach; ?>
                                 </tr>
@@ -446,7 +447,7 @@ foreach ($dimChecks as $row) {
                     });
 
                     tabData.append('tab', '0');
-                    tabData.append('btnVisual', '1'); 
+                    tabData.append('btnVisual', '1');
                     tabData.append('record_id', form.querySelector('input[name="record_id"]').value);
                     tabData.append('current_tab_index', currentTabIndex);
 
