@@ -7,6 +7,7 @@ require_once "../config/dbop.php";
 require_once "../config/method.php";
 
 $db1 = new DbOp(1);
+$db3 = new DbOp(3);
 
 $errorPrompt = '';
 
@@ -35,6 +36,62 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $response['valid'] = false;
                 $response['message'] = 'Invalid employee ID for P' . $processIndex . '.';
             }
+        }
+
+        echo json_encode($response);
+        exit;
+    }
+
+    // Handle Jig validation request
+    if (isset($_POST['action']) && $_POST['action'] === 'validate_jig') {
+        $jigName = trim($_POST['jigName'] ?? '');
+
+        if (empty($jigName)) {
+            $response['valid'] = false;
+            $response['message'] = 'Jig name is required.';
+        } else {
+            // Query the MachineMonitoring database for Jig validation
+            $jigQuery = "SELECT JigId, TRIM(JigName) AS JigName 
+                        FROM MachineMonitoring.dbo.MntJig 
+                        WHERE JigTypeId = 1 AND IsActive = 1 
+                        AND TRIM(JigName) = ?";
+            $res = $db3->execute($jigQuery, [$jigName]);
+
+            if (!empty($res)) {
+                $response['valid'] = true;
+                $response['message'] = 'Jig is valid.';
+                $response['jigId'] = $res[0]['JigId'];
+            } else {
+                $response['valid'] = false;
+                $response['message'] = 'Invalid Jig name.';
+            }
+        }
+
+        echo json_encode($response);
+        exit;
+    }
+
+    // Handle Jig autosuggest request
+    if (isset($_POST['action']) && $_POST['action'] === 'suggest_jig') {
+        $searchTerm = trim($_POST['searchTerm'] ?? '');
+
+        if (!empty($searchTerm)) {
+            // Query for Jig suggestions starting with 'Taping'
+            $suggestQuery = "SELECT JigId, TRIM(JigName) AS JigName 
+                           FROM MachineMonitoring.dbo.MntJig 
+                           WHERE JigTypeId = 1 AND IsActive = 1 
+                           AND TRIM(JigName) LIKE 'Taping%'
+                           AND TRIM(JigName) LIKE ?
+                           ORDER BY JigName";
+            $res = $db3->execute($suggestQuery, ['%' . $searchTerm . '%']);
+
+            // Debug logging
+            error_log("Jig autosuggest - Search term: " . $searchTerm);
+            error_log("Jig autosuggest - Results: " . print_r($res, true));
+
+            $response['suggestions'] = $res ?: [];
+        } else {
+            $response['suggestions'] = [];
         }
 
         echo json_encode($response);
@@ -74,10 +131,23 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 // Get the last userCode from the form
                 $lastUserCode = $_POST['lastUserCode'] ?? '';
 
-                // Update the creator in AtoDor table
-                if (!empty($lastUserCode)) {
-                    $updateSp = "EXEC UpdAtoDor @RecordId=?, @CreatedBy=?";
-                    $db1->execute($updateSp, [$recordId, $lastUserCode]);
+                // Process Jig No. if provided
+                $jigId = null;
+                if (isset($_POST['jigId']) && !empty($_POST['jigId'])) {
+                    $jigId = trim($_POST['jigId']);
+                }
+
+                // Update AtoDor table with both CreatedBy and JigId in a single call
+                if (!empty($lastUserCode) || $jigId !== null) {
+                    if ($jigId !== null) {
+                        // Update both CreatedBy and JigId
+                        $updateSp = "EXEC UpdAtoDor @RecordId=?, @CreatedBy=?, @JigId=?";
+                        $db1->execute($updateSp, [$recordId, $lastUserCode, $jigId], 2);
+                    } else {
+                        // Update only CreatedBy
+                        $updateSp = "EXEC UpdAtoDor @RecordId=?, @CreatedBy=?";
+                        $db1->execute($updateSp, [$recordId, $lastUserCode], 2);
+                    }
                 }
 
                 foreach ($_POST as $key => $value) {
@@ -97,23 +167,25 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
                             if ($recordExists) {
                                 // Record exists, so update it
-                                $updateSp = "EXEC UpdAtoDorCheckpointDefinition @RecordId=?, @ProcessIndex=?, @EmployeeCode=?, @CheckpointId=?, @CheckpointResponse=?";
+                                $updateSp = "EXEC UpdAtoDorCheckpointDefinition @RecordId=?, @ProcessIndex=?, @EmployeeCode=?, @CheckpointId=?, @CheckpointResponse=?, @IsLeader";
                                 $db1->execute($updateSp, [
                                     $recordId,
                                     $processIndex,
                                     $employeeCode,
                                     $checkpointId,
-                                    $value
+                                    $value,
+                                    0
                                 ]);
                             } else {
                                 // Record doesn't exist, so insert it
-                                $insSp = "EXEC InsAtoDorCheckpointDefinition @RecordId=?, @ProcessIndex=?, @EmployeeCode=?, @CheckpointId=?, @CheckpointResponse=?";
+                                $insSp = "EXEC InsAtoDorCheckpointDefinition @RecordId=?, @ProcessIndex=?, @EmployeeCode=?, @CheckpointId=?, @CheckpointResponse=?, @IsLeader=?";
                                 $db1->execute($insSp, [
                                     $recordId,
                                     $processIndex,
                                     $employeeCode,
                                     $checkpointId,
-                                    $value
+                                    $value,
+                                    0
                                 ]);
                             }
                         }
@@ -181,6 +253,21 @@ $activeProcess = isset($_SESSION['activeProcess']) ? $_SESSION['activeProcess'] 
 $workInstructFile = getWorkInstruction($_SESSION["dorTypeId"], $_SESSION['dorModelId'], $activeProcess) ?? '';
 $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
 
+// Define DOR Type ID and Jig field visibility before HTML
+$dorTypeId = $_SESSION['dorTypeId'] ?? 0;
+$showJigField = in_array($dorTypeId, [2, 4]);
+
+// Determine if any checkpoint has both Good and Not Good criteria
+$criteriaColspan = 1;
+foreach ($tabData as $checkpointName => $rows) {
+    foreach ($rows as $row) {
+        if (!empty($row['CriteriaNotGood'])) {
+            $criteriaColspan = 2;
+            break 2;
+        }
+    }
+}
+
 ?>
 
 <!DOCTYPE html>
@@ -195,6 +282,7 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
     <link href="../css/dor-form.css" rel="stylesheet">
     <link href="../css/dor-navbar.css" rel="stylesheet">
     <link href="../css/dor-pip-viewer.css" rel="stylesheet">
+    <!-- Autosuggest styles are now in dor-form.css -->
 </head>
 
 <body>
@@ -264,10 +352,37 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                 <div class="table-container">
                     <table class="table-checkpointA table table-bordered align-middle">
                         <thead class="table-light">
+                            <?php if ($showJigField): ?>
+                                <tr>
+                                    <th checkpoint-cell>Jig Number</th>
+                                    <th colspan="<?php echo $criteriaColspan; ?>" class="criteria-cell">
+                                        <div class="autosuggest-wrapper">
+                                            <input type="text"
+                                                class="form-control form-control-md"
+                                                id="jigId"
+                                                name="jigId"
+                                                placeholder="Enter jig number"
+                                                autocomplete="off"
+                                                pattern="[0-9]*"
+                                                inputmode="numeric"
+                                                required>
+                                            <div id="jigSuggestions" class="bg-white"></div>
+                                            <div id="jigValidationMessage" class="validation-message mt-1"></div>
+                                        </div>
+                                    </th>
+                                    <th class="selection-cell"></th>
+                                </tr>
+                            <?php endif; ?>
                             <tr>
-                                <th class="checkpoint-cell">Checkpoint</th>
-                                <th colspan="2" class="criteria-cell">Criteria</th>
-                                <th class="selection-cell">Please complete all checkpoints</th>
+                                <?php if ($showJigField): ?>
+                                    <th class="checkpoint-cell">Checkpoint</th>
+                                    <th colspan="<?php echo $criteriaColspan; ?>" class="criteria-cell">Criteria</th>
+                                    <th class="selection-cell">Assessment</th>
+                                <?php else: ?>
+                                    <th class="checkpoint-cell">Checkpoint</th>
+                                    <th colspan="<?php echo $criteriaColspan; ?>" class="criteria-cell">Criteria</th>
+                                    <th class="selection-cell">Assessment</th>
+                                <?php endif; ?>
                             </tr>
                         </thead>
                     </table>
@@ -361,7 +476,7 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
             <div class="modal-dialog">
                 <div class="modal-content border-danger">
                     <div class="modal-header bg-danger text-white">
-                        <h5 class="modal-title" id="errorModalLabel">Please complete all checkpoints</h5>
+                        <h5 class="modal-title" id="errorModalLabel">Error Summary</h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body" id="modalErrorMessage">
@@ -433,6 +548,9 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                 willReadFrequently: true
             });
             let scanning = false;
+
+            // Initialize Jig autosuggest functionality
+            initializeJigAutosuggest();
 
             function getCameraConstraints() {
                 return {
@@ -610,6 +728,26 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                 const userCodeValues = [];
                 let hasInvalidInputs = false;
 
+                // Validate Jig No. field if visible and required
+                const jigIdInput = document.getElementById('jigId');
+                if (jigIdInput && jigIdInput.style.display !== 'none' && jigIdInput.hasAttribute('required')) {
+                    const jigIdValue = jigIdInput.value.trim();
+                    if (!jigIdValue) {
+                        jigIdInput.classList.remove('is-valid');
+                        jigIdInput.classList.add('is-invalid');
+                        showErrorModal("Enter jig number or select from the list.");
+                        return;
+                    } else if (!selectedJigId) {
+                        jigIdInput.classList.remove('is-valid');
+                        jigIdInput.classList.add('is-invalid');
+                        showErrorModal("Invalid jig number.");
+                        return;
+                    } else {
+                        jigIdInput.classList.remove('is-invalid');
+                        jigIdInput.classList.add('is-valid');
+                    }
+                }
+
                 // Loop through up to 4 tabs
                 for (let i = 1; i <= 4; i++) {
                     const input = form.querySelector(`#userCode${i}`);
@@ -751,6 +889,11 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                     const lastUserCode = Object.values(userCodes).pop();
                     formData.append('lastUserCode', lastUserCode);
 
+                    // Add the selected JigId if available
+                    if (selectedJigId) {
+                        formData.append('jigId', selectedJigId);
+                    }
+
                     fetch(form.action, {
                             method: "POST",
                             body: formData
@@ -817,7 +960,7 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
 
             // If at least one input is filled, show a confirmation dialog
             if (isFilled) {
-                const confirmLeave = confirm("Are you sure you want to delete this record?");
+                const confirmLeave = confirm("Are you sure you want to delete this DOR record?");
                 if (!confirmLeave) {
                     return; // Stop navigation if the user cancels
                 }
@@ -862,11 +1005,169 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                 }
             }
 
+            // Set Jig No. test value if field is visible
+            const jigIdInput = document.getElementById('jigId');
+            if (jigIdInput && jigIdInput.style.display !== 'none') {
+                jigIdInput.value = 'Taping-123';
+            }
+
             document.querySelectorAll('input[type="text"][name^="Process"]').forEach(input => {
                 // Generate random number between 1 and 10
                 const randomNum = Math.floor(Math.random() * 10) + 1;
                 input.value = randomNum;
             });
+        }
+
+        // Jig autosuggest and validation functions
+        let jigSuggestionsTimeout = null;
+        let selectedJigId = null;
+
+        function initializeJigAutosuggest() {
+            const jigInput = document.getElementById('jigId');
+            const suggestionsDiv = document.getElementById('jigSuggestions');
+            const validationDiv = document.getElementById('jigValidationMessage');
+
+            if (!jigInput) return;
+
+            // Add keyboard input restriction for numbers only
+            jigInput.addEventListener('keydown', function(e) {
+                // Allow: backspace, delete, tab, escape, enter, and navigation keys
+                if ([8, 9, 27, 13, 46, 37, 38, 39, 40].indexOf(e.keyCode) !== -1 ||
+                    // Allow Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+                    (e.keyCode === 65 && e.ctrlKey === true) ||
+                    (e.keyCode === 67 && e.ctrlKey === true) ||
+                    (e.keyCode === 86 && e.ctrlKey === true) ||
+                    (e.keyCode === 88 && e.ctrlKey === true)) {
+                    return;
+                }
+
+                // Allow numbers 0-9
+                if ((e.keyCode >= 48 && e.keyCode <= 57) || (e.keyCode >= 96 && e.keyCode <= 105)) {
+                    return;
+                }
+
+                // Prevent all other keys
+                e.preventDefault();
+            });
+
+            // Handle input for autosuggest
+            jigInput.addEventListener('input', function() {
+                const searchTerm = this.value.trim();
+                selectedJigId = null; // Reset selected JigId
+
+                // Clear previous timeout
+                if (jigSuggestionsTimeout) {
+                    clearTimeout(jigSuggestionsTimeout);
+                }
+
+                // Hide suggestions if input is empty
+                if (searchTerm.length === 0) {
+                    suggestionsDiv.style.display = 'none';
+                    validationDiv.innerHTML = '';
+                    this.classList.remove('is-valid', 'is-invalid');
+                    return;
+                }
+
+                // Show suggestions after 300ms delay
+                jigSuggestionsTimeout = setTimeout(() => {
+                    fetchSuggestions(searchTerm);
+                }, 300);
+            });
+
+            // Handle suggestion selection
+            suggestionsDiv.addEventListener('click', function(e) {
+                if (e.target.classList.contains('suggestion-item')) {
+                    const jigName = e.target.textContent;
+                    const jigId = e.target.dataset.jigId;
+
+                    jigInput.value = jigName;
+                    selectedJigId = jigId;
+                    suggestionsDiv.style.display = 'none';
+
+                    // Validate the selected Jig
+                    validateJig(jigName);
+                }
+            });
+
+            // Hide suggestions when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!jigInput.contains(e.target) && !suggestionsDiv.contains(e.target)) {
+                    suggestionsDiv.style.display = 'none';
+                }
+            });
+
+            // Handle blur event for validation
+            jigInput.addEventListener('blur', function() {
+                setTimeout(() => {
+                    if (this.value.trim() && !selectedJigId) {
+                        validateJig(this.value.trim());
+                    }
+                }, 200);
+            });
+        }
+
+        function fetchSuggestions(searchTerm) {
+            fetch(window.location.href, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `action=suggest_jig&searchTerm=${encodeURIComponent(searchTerm)}`
+                })
+                .then(res => res.json())
+                .then(data => {
+                    displaySuggestions(data.suggestions);
+                })
+                .catch(error => {
+                    console.error('Error fetching suggestions:', error);
+                });
+        }
+
+        function displaySuggestions(suggestions) {
+            const suggestionsDiv = document.getElementById('jigSuggestions');
+
+            if (!suggestions || suggestions.length === 0) {
+                suggestionsDiv.style.display = 'none';
+                return;
+            }
+
+            let html = '';
+            suggestions.forEach(jig => {
+                html += `<div class="suggestion-item p-2 border-bottom" data-jig-id="${jig.JigId}" style="cursor: pointer; background-color: #f8f9fa;">${jig.JigName}</div>`;
+            });
+
+            suggestionsDiv.innerHTML = html;
+            suggestionsDiv.style.display = 'block';
+        }
+
+        function validateJig(jigName) {
+            fetch(window.location.href, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `action=validate_jig&jigName=${encodeURIComponent(jigName)}`
+                })
+                .then(res => res.json())
+                .then(data => {
+                    const jigInput = document.getElementById('jigId');
+                    const validationDiv = document.getElementById('jigValidationMessage');
+
+                    if (data.valid) {
+                        jigInput.classList.remove('is-invalid');
+                        jigInput.classList.add('is-valid');
+                        validationDiv.innerHTML = `<small class="text-success">${data.message}</small>`;
+                        selectedJigId = data.jigId;
+                    } else {
+                        jigInput.classList.remove('is-valid');
+                        jigInput.classList.add('is-invalid');
+                        validationDiv.innerHTML = `<small class="text-danger">${data.message}</small>`;
+                        selectedJigId = null;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error validating Jig:', error);
+                });
         }
     </script>
 

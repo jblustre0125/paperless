@@ -42,9 +42,12 @@ if (isset($_GET['logOut'])) {
         </div>
         <script>
             try {
-                window.close();
+                if (window.AndroidApp && AndroidApp.exitApp) {
+                    AndroidApp.exitApp(); // This will call the Android code
+                } else {
+                    alert("Please close this window manually.");
+                }
             } catch (e) {
-                // If window.close() fails, show a message
                 alert("Please close this window manually.");
             }
         </script>
