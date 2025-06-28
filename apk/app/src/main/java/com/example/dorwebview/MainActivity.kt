@@ -29,7 +29,8 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA)
-            != PackageManager.PERMISSION_GRANTED) {
+            != PackageManager.PERMISSION_GRANTED
+        ) {
 
             ActivityCompat.requestPermissions(
                 this,
@@ -51,12 +52,13 @@ class MainActivity : AppCompatActivity() {
 
         val layout = FrameLayout(this)
         layout.addView(webView)
-        layout.addView(refreshButton, FrameLayout.LayoutParams(
-            120, 120, Gravity.TOP or Gravity.END
-        ).apply {
-            topMargin = 40
-            rightMargin = 40
-        })
+        layout.addView(
+            refreshButton, FrameLayout.LayoutParams(
+                120, 120, Gravity.BOTTOM or Gravity.END
+            ).apply {
+                bottomMargin = 40
+                rightMargin = 40
+            })
 
         setContentView(layout)
 
@@ -90,7 +92,7 @@ class MainActivity : AppCompatActivity() {
                 view: WebView?,
                 handler: SslErrorHandler?,
                 error: SslError?
-            ) {
+            ) {z
                 handler?.proceed()
             }
 
@@ -132,7 +134,6 @@ class MainActivity : AppCompatActivity() {
                 )
     }
 
-
     @Deprecated("Back button intentionally disabled")
     @Suppress("MissingSuperCall")
     override fun onRequestPermissionsResult(
@@ -142,8 +143,20 @@ class MainActivity : AppCompatActivity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == 100 && grantResults.isNotEmpty() &&
-            grantResults[0] != PackageManager.PERMISSION_GRANTED) {
-            Toast.makeText(this, "Camera permission is required for QR scanning", Toast.LENGTH_LONG).show()
+            grantResults[0] != PackageManager.PERMISSION_GRANTED
+        ) {
+            Toast.makeText(this, "Camera permission is required for QR scanning", Toast.LENGTH_LONG)
+                .show()
+        }
+    }
+
+    inner class WebAppInterface {
+        @android.webkit.JavascriptInterface
+        fun exitApp() {
+            runOnUiThread {
+                finishAffinity() // Closes all activities
+            }
         }
     }
 }
+
