@@ -1,6 +1,6 @@
 
 body {
-  font-size: 0.95rem;
+  font-size: 5rem;
   overflow-x: hidden;
 }
 
@@ -47,7 +47,6 @@ td {
 thead.table-light {
   position: sticky;
   top: 0;
-  z-index: 1020;
   background-color: #f8f9fa;
   border-bottom: 2px solid #dee2e6; /* Important for visible border */
   box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.1); /* Optional: subtle shadow for better separation */
@@ -149,5 +148,6 @@ td.operator-cell {
 #dorTabContent {
     display: none;
 }
+
 
 

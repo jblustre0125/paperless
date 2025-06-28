@@ -5,7 +5,9 @@ $title = "DOR Dashboard";
 require_once '../controller/dor-checkpoint-definition.php';
 require_once '../controller/dor-visual-checkpoint.php';
 require_once '../controller/dor-dimension-checkpoint.php';
+require_once '../controller/dor-dor.php';
 require_once '../controller/dor-leader-method.php';
+
 
 
 $isSubmitted = isset($_GET['submitted']) && $_GET['submitted'] == 1;
@@ -32,15 +34,15 @@ foreach ($dimChecks as $row) {
     <link href="../css/leader-dashboard.css" rel="stylesheet">
     <link href="../../css/dor-navbar.css" rel="stylesheet">
     <link rel="stylesheet" href="../css/dor-tablet.css">
-    <!-- <link rel="stylesheet" href="../../css/dor-form.css"> -->
+
 
 
 </head>
 
-<body>
+<body class="fs-6" style="margin-left: 0; margin-right: 0; padding: 0;">
     <form method="POST">
         <nav class="navbar navbar-expand navbar-light bg-light shadow-sm fixed-top">
-            <div class="container-fluid px-2 py-2">
+            <div class="container-fluid py-2">
                 <div class="d-flex justify-content-between align-items-center flex-wrap w-100">
                     <!-- Left-aligned group -->
                     <div class="d-flex gap-2 flex-wrap">
@@ -73,21 +75,21 @@ foreach ($dimChecks as $row) {
                 </div>
             </div>
         </nav>
-        <div class="container-fluid">
+        <div class="container-fluid py-0 m-0">
             <!-- CheckpointA -->
             <div class="tab-content fixed-top" style="margin-top: 50px; display:none;" id="dorTabContent">
                 <div class="tab-pane fade show active" id="tab-0" role="tabpanel">
-                    <div class="table-responsive" style="max-height: 90vh; margin-top: 10px; overflow: auto;">
+                    <div class="table-responsive" style="max-height:90vh; margin-top: 10px; overflow: auto;">
                         <table class=" table table-bordered text-center align-middle w-100 h-100">
                             <thead class="table-light">
                                 <tr>
-                                    <th colspan="6">A. Required Item and Jig Condition VS Work Instruction</th>
+                                    <th class="fs-6" colspan="6">A. Required Item and Jig Condition VS Work Instruction</th>
                                 </tr>
                                 <tr>
-                                    <th rowspan="2">Checkpoints</th>
-                                    <th colspan="2" rowspan="2">Criteria</th>
-                                    <th colspan="<?= count($processIndexes) ?>">Operator</th>
-                                    <th rowspan="2">Leader</th>
+                                    <th class="fs-6" rowspan="2">Checkpoints</th>
+                                    <th class="fs-6" colspan="2" rowspan="2">Criteria</th>
+                                    <th class="fs-6" colspan="<?= count($processIndexes) ?>">Operator</th>
+                                    <th class="fs-6" rowspan="2">Leader</th>
                                 </tr>
                                 <tr>
                                     <?php foreach ($processIndexes as $index): ?>
@@ -112,25 +114,25 @@ foreach ($dimChecks as $row) {
                                 ?>
                                         <tr>
                                             <?php if ($index === 0): ?>
-                                                <td class="text-start" rowspan="<?= count($group) ?>">
+                                                <td class="text-start fs-6" rowspan="<?= count($group) ?>">
                                                     <?= $cp['SequenceId']; ?>. <?= htmlspecialchars($cp['CheckpointName']); ?>
                                                 </td>
                                             <?php endif; ?>
 
-                                            <td colspan="<?= $colspanGood; ?>"><?= htmlspecialchars($good); ?></td>
+                                            <td class="fs-6" colspan="<?= $colspanGood; ?>"><?= htmlspecialchars($good); ?></td>
                                             <?php if (!empty($notGood)): ?>
-                                                <td><?= htmlspecialchars($notGood); ?></td>
+                                                <td class="fs-6"><?= htmlspecialchars($notGood); ?></td>
                                             <?php endif; ?>
 
                                             <?php if (!empty($processIndexes)): ?>
                                                 <?php foreach ($processIndexes as $procIdx): ?>
-                                                    <td class="operator-cell"><?= htmlspecialchars($operatorResponses[$checkpointId][$procIdx] ?? '-') ?></td>
+                                                    <td class="fs-6"><?= htmlspecialchars($operatorResponses[$checkpointId][$procIdx] ?? '-') ?></td>
                                                 <?php endforeach; ?>
                                             <?php else: ?>
-                                                <td>No operator data available</td>
+                                                <td class="fs-6">No operator data available</td>
                                             <?php endif; ?>
 
-                                            <td class="py-2 px-3" style="min-width: 150px; max-width: 200px;">
+                                            <td class="py-2 px-3 fs-6" style="min-width: 150px; max-width: 200px;">
                                                 <?php
                                                 $radioName = "leader[$checkpointId]";
                                                 $hasResponse = isset($leaderResponses[$checkpointId]);
@@ -211,15 +213,15 @@ foreach ($dimChecks as $row) {
                                     <input type="hidden" name="record_id" value="<?= htmlspecialchars($recordId) ?>">
                                     <input type="hidden" name="employee_code" value="<?= htmlspecialchars($_SESSION['employee_code']) ?>">
                                     <div class="table-wrapper mt-3">
-                                        <table class="table table-bordered text-center align-middle" style="min-width: 250px;">
+                                        <table class="table table-bordered text-center align-middle">
                                             <thead class="table-light">
                                                 <tr>
-                                                    <th colspan="4">B. Visual Inspection Checkpoint</th>
+                                                    <th colspan="4" class="fs-6">B. Visual Inspection Checkpoint</th>
                                                 </tr>
                                                 <tr>
-                                                    <th>Checkpoints</th>
-                                                    <th colspan="2">Criteria</th>
-                                                    <th><?= $tab ?></th>
+                                                    <th class="fs-6">Checkpoints</th>
+                                                    <th class="fs-6" colspan="2">Criteria</th>
+                                                    <th class="fs-6"><?= $tab ?></th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -239,22 +241,21 @@ foreach ($dimChecks as $row) {
                                                 ?>
                                                         <tr>
                                                             <?php if ($index === 0): ?>
-                                                                <td class="text-start" rowspan="<?= count($group) ?>" style="min-width: 100px;">
+                                                                <td class="text-start fs-6" rowspan="<?= count($group) ?>" style="min-width: 110px;">
                                                                     <?= $v['SequenceId'] ?>. <?= htmlspecialchars($v['CheckpointName']) ?>
                                                                 </td>
                                                             <?php endif; ?>
 
-                                                            <td colspan="<?= empty($v['CriteriaNotGood']) ? 2 : 1 ?>" style="min-width: 100px;">
+                                                            <td class="fs-6" colspan="<?= empty($v['CriteriaNotGood']) ? 2 : 1 ?>" style="min-width: 100px;">
                                                                 <?= htmlspecialchars($v['CriteriaGood']) ?>
                                                             </td>
 
                                                             <?php if (!empty($v['CriteriaNotGood'])): ?>
-                                                                <td style="min-width: 100px;">
+                                                                <td class="fs-6" style="min-width: 100px;">
                                                                     <?= htmlspecialchars($v['CriteriaNotGood']) ?>
                                                                 </td>
                                                             <?php endif; ?>
-
-                                                            <td style="min-width: 250px;">
+                                                            <td class="fs-6" style="min-width: 220px;">
                                                                 <?php $name = "visual[$checkpointId][$tab]"; ?>
                                                                 <?php if ($isRadio): ?>
                                                                     <div class="d-flex flex-wrap gap-2 justify-content-center">
@@ -294,17 +295,17 @@ foreach ($dimChecks as $row) {
                         <table class="table table-bordered text-center align-middle">
                             <thead class="table-light">
                                 <tr>
-                                    <th colspan="10">C. Dimension Check</th>
+                                    <th class="fs-6" colspan="10">C. Dimension Check</th>
                                 </tr>
                                 <tr>
                                     <th rowspan="2" style="min-width: 50px;">No.</th>
                                     <?php foreach (['Hatsumono', 'Nakamono', 'Owarimono'] as $section): ?>
-                                        <th colspan="3"><?= $section ?></th>
+                                        <th class="fs-6" colspan="3"><?= $section ?></th>
                                     <?php endforeach; ?>
                                 </tr>
                                 <tr>
                                     <?php for ($i = 1; $i <= 9; $i++): ?>
-                                        <th><?= (($i - 1) % 3) + 1 ?></th>
+                                        <th class="fs-6"><?= (($i - 1) % 3) + 1 ?></th>
                                     <?php endfor; ?>
                                 </tr>
                             </thead>
@@ -312,13 +313,13 @@ foreach ($dimChecks as $row) {
                                 <?php for ($i = 1; $i <= 20; $i++): ?>
                                     <?php $row = $indexedDimChecks[$i] ?? []; ?>
                                     <tr>
-                                        <td style="min-width: 100px;"><?= $i ?></td>
+                                        <td class="fs-6" style="min-width: 100px;"><?= $i ?></td>
 
                                         <input type="hidden" name="dim_check_id[<?= $i ?>]" value="<?= $row['DimCheckId'] ?? '' ?>">
 
                                         <?php foreach (['hatsumono', 'nakamono', 'owarimono'] as $section): ?>
                                             <?php for ($j = 1; $j <= 3; $j++): ?>
-                                                <td class="text-center">
+                                                <td class="text-center fs-6">
                                                     <?php
                                                     $key = ucfirst($section) . $j;
                                                     $value = $row[$key] ?? ($_POST["{$section}_value_{$j}"][$i] ?? '');
@@ -334,10 +335,10 @@ foreach ($dimChecks as $row) {
 
                                 <!-- Judge row (same as your previous logic) -->
                                 <tr>
-                                    <td class="fw-bold text-center">Judge</td>
+                                    <td class="fw-bold text-center fs-6">Judge</td>
                                     <?php foreach (['hatsumono', 'nakamono', 'owarimono'] as $section): ?>
                                         <?php for ($i = 1; $i <= 3; $i++): ?>
-                                            <td>
+                                            <td class="fs-6">
                                                 <div class="d-flex flex-column align-items-center gap-1">
                                                     <?php foreach (['OK', 'NA', 'NG'] as $opt): ?>
                                                         <label class="form-check-label small w-100 text-center">
@@ -363,11 +364,168 @@ foreach ($dimChecks as $row) {
                         <button type="submit" name="btnSubmit" id="hiddenSubmit" style="display: none;">Submit</button>
                     </div>
                 </div>
+                <!-- Tab Pane -->
+                <div class="tab-pane fade" id="tab-3" role="tabpanel">
+                    <!-- Responsive Container -->
+                    <div class="container-fluid py-2">
+                        <!-- Scrollable Wrapper -->
+                        <div class="table-wrapper" style="margin-top:10px; max-height: 90vh; overflow: auto;">
+                            <table class="table table-bordered table-dor align-middle text-nowrap w-100">
+                                <thead class="table-light position-sticky top-0 text-center" style="z-index: 1;">
+                                    <tr>
+                                        <th colspan="8">Daily Operation Record</th>
+                                    </tr>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Box No.</th>
+                                        <th>Start Time</th>
+                                        <th>End Time</th>
+                                        <th>Duration</th>
+                                        <th>Operator</th>
+                                        <th>Downtime</th>
+                                        <th>*</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php for ($i = 1; $i <= 20; $i++) { ?>
+                                        <tr data-row-id="<?= $i ?>">
+                                            <td class="text-center align-middle">
+                                                <?= $i ?> <i class="bi bi-qr-code-scan ms-1"></i>
+                                            </td>
+                                            <td>
+                                                <input type="text" class="form-control text-center scan-box-no" id="boxNo<?= $i ?>" name="boxNo<?= $i ?>" disabled>
+                                                <input type="hidden" id="modelName<?= $i ?>" name="modelName<?= $i ?>">
+                                                <input type="hidden" id="lotNumber<?= $i ?>" name="lotNumber<?= $i ?>">
+                                            </td>
+                                            <td>
+                                                <input type="text" class="form-control text-center time-input" id="timeStart<?= $i ?>" name="timeStart<?= $i ?>" placeholder="HH:mm" maxlength="5" pattern="[0-9]{2}:[0-9]{2}" disabled>
+                                            </td>
+                                            <td>
+                                                <input type="text" class="form-control text-center time-input" id="timeEnd<?= $i ?>" name="timeEnd<?= $i ?>" placeholder="HH:mm" maxlength="5" pattern="[0-9]{2}:[0-9]{2}" disabled>
+                                            </td>
+                                            <td class="text-center align-middle">
+                                                <span id="duration<?= $i ?>" class="duration-value"></span>
+                                            </td>
+
+                                            <!-- Operator Column -->
+                                            <td class="text-center align-middle">
+                                                <div class="d-flex flex-column align-items-center">
+                                                    <button type="button" class="btn btn-outline-primary btn-sm btn-operator mb-1" data-bs-toggle="modal" data-bs-target="#operatorModal" id="operator<?= $i ?>">
+                                                        <i class="bi bi-person-plus"></i> View Operators
+                                                    </button>
+                                                    <div class="operator-codes d-flex flex-wrap justify-content-center" id="operatorList<?= $i ?>">
+                                                        <?php
+                                                        $employeeCodes = [];
+                                                        for ($j = 1; $j <= 4; $j++) {
+                                                            if (isset($_SESSION["userCode$j"]) && !empty($_SESSION["userCode$j"])) {
+                                                                $employeeCodes[] = $_SESSION["userCode$j"];
+                                                            }
+                                                        }
+                                                        if (empty($employeeCodes)) {
+                                                            $employeeCodes[] = $employeeCode ?? '';
+                                                        }
+                                                        foreach ($employeeCodes as $code) {
+                                                            echo "<small class='badge bg-light text-dark border me-1 mb-1'>" . htmlspecialchars($code) . "</small>";
+                                                        }
+                                                        ?>
+                                                    </div>
+                                                </div>
+                                                <input type="hidden" id="operators<?= $i ?>" name="operators<?= $i ?>" value="<?= implode(',', $employeeCodes) ?>">
+                                            </td>
+
+                                            <!-- Downtime Column -->
+                                            <td class="text-center align-middle">
+                                                <div class="d-flex flex-column align-items-center mt-md-4">
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm mb-1" data-bs-target="#downtimeModal" data-bs-toggle="modal" id="downtime<?= $i ?>">
+                                                        <i class="bi bi-clock-history"></i> View Downtime
+                                                    </button>
+                                                    <div class="downtime-info d-flex flex-wrap justify-content-center" id="downtimeInfo<?= $i ?>">
+                                                        <?php
+                                                        $downtimeRecords = [];
+                                                        if (empty($downtimeRecords)) {
+                                                            for ($k = 0; $k < count($employeeCodes); $k++) {
+                                                                echo "<small class='badge placeholder-badge me-1 mb-1'>&nbsp;</small>";
+                                                            }
+                                                        }
+                                                        ?>
+                                                    </div>
+                                                </div>
+                                            </td>
+
+                                            <!-- Delete Button -->
+                                            <td class="text-center align-middle">
+                                                <button type="button" class="btn btn-outline-danger btn-sm delete-row" data-row-id="<?= $i ?>" title="Delete Row">
+                                                    <span style="font-size: 1.2rem; font-weight: bold;">×</span>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    <?php } ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
 
+        <!-- operator modal -->
+        <div class="modal fade" id="operatorModal" tabindex="-1" aria-labelledby="operatorModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header bg-primary text-white">
+                        <h5 class="modal-title">Manage Operators</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <input type="text" name="" id="operatorSearch" class="form-control" placeholder="Search employee...">
+                        </div>
+                        <div class="mb-3" id="operatorSearchResults"></div>
+                        <div class="d-flex flex-wrap" id="selectedOperators"></div>
+                        <input type="hidden" name="" id="operatorTargetRow">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" id="saveOperators">Save Operators</button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
+        <!-- downtime modal -->
+        <div class="modal fade" id="downtimeModal" tabindex="-1" aria-labelledby="downtimeModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">Manage Downtime</h5>
+                        <button type="button" class="btn-close text-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <select name="" id="downtimeSelect" class="form-select mb-3">
+                            <option value="">Select Downtime Reason</option>
+
+                            <!-- populate with PHP -->
+                             <?php foreach ($downtimeOptions as $downtime) { ?>
+                                <option value="<?=$downtime['DowntimeId']?><?=$downtime['DowntimeCode']?> - <?=$downtime['DowntimeName']?>"></option>
+                                <?php }?>
+                        </select>
+
+                        <select name="" id="actionTakenSelect" class="form-select mb-3">
+                            <option value="">Select Action Taken</option>
+
+                            <?php foreach($actionTakenOptions as $option) {?>
+                                <option value="<?= $option['ActionTakenId']?> <?=$option['ActionTakenName']?>"></option>
+                            <?php } ?>
+                        </select>
+
+                        <input type="hidden" name="" id="downtimeTargetRow">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-danger" id="saveDowntime">Save Downtime</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </form>
     <script src="../../js/bootstrap.bundle.min.js"></script>
     <script>
@@ -460,7 +618,7 @@ foreach ($dimChecks as $row) {
                             return response.text();
                         })
                         .then(data => {
-                            console.log("✅ Tab 0 saved:", data);
+                            console.log("Tab 0 saved:", data);
                             currentTabIndex++;
                             showTab(currentTabIndex);
                             tabInput.value = currentTabIndex;
@@ -473,13 +631,13 @@ foreach ($dimChecks as $row) {
                     return;
                 }
 
-                // ✅ Normal next tab for Tab 1, 2
+                //Normal next tab for Tab 1, 2
                 if (currentTabIndex < tabPanes.length - 1) {
                     currentTabIndex++;
                     showTab(currentTabIndex);
                     tabInput.value = currentTabIndex;
                 } else {
-                    // ✅ Final full submission
+                    //Final full submission
                     if (form) {
                         this.disabled = true;
                         this.innerHTML = 'Submitting...';
@@ -493,8 +651,6 @@ foreach ($dimChecks as $row) {
                     }
                 }
             });
-
-
 
             // Back button
             document.getElementById('btnBack').addEventListener('click', function(e) {
