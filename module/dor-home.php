@@ -320,6 +320,9 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
 
 <script>
     document.addEventListener("DOMContentLoaded", function() {
+        // Restore form data from session storage
+        restoreFormData();
+
         const scannerModal = new bootstrap.Modal(document.getElementById("qrScannerModal"));
         const errorModal = new bootstrap.Modal(document.getElementById("errorModal"));
         const errorModalElement = document.getElementById("errorModal");
@@ -338,6 +341,11 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
         let scanning = false;
         let activeInput = null;
         let clickedButton = null;
+
+        // Save form data when user navigates away
+        window.addEventListener('beforeunload', function() {
+            saveFormData();
+        });
 
         errorModalElement.addEventListener('hidden.bs.modal', () => {
             const active = document.activeElement;
@@ -520,6 +528,8 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
                 .then(response => response.json())
                 .then((data) => {
                     if (data.success) {
+                        // Clear form data from session storage when creating new DOR
+                        clearFormData();
                         window.location.href = data.redirectUrl;
                     } else {
                         modalErrorMessage.innerHTML = "<ul><li>" + data.errors.join("</li><li>") + "</li></ul>";
@@ -529,12 +539,99 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
                 .catch(error => console.error("Error:", error));
         });
 
+        // Function to save form data to session storage
+        function saveFormData() {
+            const formData = {};
+
+            // Save all form inputs
+            const dateInput = document.getElementById('dtpDate');
+            const lineInput = document.getElementById('txtLineNumber');
+            const modelInput = document.getElementById('txtModelName');
+            const qtyInput = document.getElementById('txtQty');
+            const dorTypeSelect = document.getElementById('cmbDorType');
+
+            if (dateInput) {
+                formData['dtpDate'] = dateInput.value;
+            }
+            if (lineInput) {
+                formData['txtLineNumber'] = lineInput.value;
+            }
+            if (modelInput) {
+                formData['txtModelName'] = modelInput.value;
+            }
+            if (qtyInput) {
+                formData['txtQty'] = qtyInput.value;
+            }
+            if (dorTypeSelect) {
+                formData['cmbDorType'] = dorTypeSelect.value;
+            }
+
+            // Save radio button values
+            const shiftRadios = document.querySelectorAll('input[name="rdShift"]');
+            shiftRadios.forEach(radio => {
+                if (radio.checked) {
+                    formData['rdShift'] = radio.value;
+                }
+            });
+
+            sessionStorage.setItem('dorHomeData', JSON.stringify(formData));
+        }
+
+        // Function to restore form data from session storage
+        function restoreFormData() {
+            const savedData = sessionStorage.getItem('dorHomeData');
+            if (!savedData) return;
+
+            try {
+                const formData = JSON.parse(savedData);
+
+                // Restore form inputs
+                const dateInput = document.getElementById('dtpDate');
+                const lineInput = document.getElementById('txtLineNumber');
+                const modelInput = document.getElementById('txtModelName');
+                const qtyInput = document.getElementById('txtQty');
+                const dorTypeSelect = document.getElementById('cmbDorType');
+
+                if (dateInput && formData['dtpDate']) {
+                    dateInput.value = formData['dtpDate'];
+                }
+                if (lineInput && formData['txtLineNumber']) {
+                    lineInput.value = formData['txtLineNumber'];
+                }
+                if (modelInput && formData['txtModelName']) {
+                    modelInput.value = formData['txtModelName'];
+                }
+                if (qtyInput && formData['txtQty']) {
+                    qtyInput.value = formData['txtQty'];
+                }
+                if (dorTypeSelect && formData['cmbDorType']) {
+                    dorTypeSelect.value = formData['cmbDorType'];
+                }
+
+                // Restore radio button values
+                if (formData['rdShift']) {
+                    const radio = document.querySelector(`input[name="rdShift"][value="${formData['rdShift']}"]`);
+                    if (radio) {
+                        radio.checked = true;
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error restoring form data:', error);
+            }
+        }
+
+        // Function to clear form data from session storage
+        function clearFormData() {
+            sessionStorage.removeItem('dorHomeData');
+        }
+
         // Add test values function
         function setTestValues() {
             document.getElementById("txtLineNumber").value = "1";
             // document.getElementById("txtModelName").value = "7M0656-7020";
             document.getElementById("txtModelName").value = "7L0113-7021C";
-            document.getElementById("cmbDorType").value = "3";
+            document.getElementById("cmbDorType").value = "2";
             document.getElementById("txtQty").value = "100";
         }
 

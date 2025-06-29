@@ -19,22 +19,22 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     // Handle employee validation request
     if (isset($_POST['action']) && $_POST['action'] === 'validate_employee') {
-        $employeeCode = trim($_POST['employeeCode'] ?? '');
+        $productionCode = trim($_POST['employeeCode'] ?? '');
         $processIndex = trim($_POST['processIndex'] ?? '');
 
-        if (empty($employeeCode)) {
+        if (empty($productionCode)) {
             $response['valid'] = false;
-            $response['message'] = 'Employee ID is required for P' . $processIndex . '.';
+            $response['message'] = 'SA code is required for P' . $processIndex . '.';
         } else {
-            $spRd1 = "EXEC RdGenEmployeeAll @EmployeeCode=?, @IsActive=1, @IsLoggedIn=0";
-            $res1 = $db1->execute($spRd1, [$employeeCode], 1);
+            $spRd1 = "EXEC RdGenOperator @ProductionCode=?, @IsActive=1, @IsLoggedIn=0";
+            $res1 = $db1->execute($spRd1, [$productionCode], 1);
 
             if (!empty($res1)) {
                 $response['valid'] = true;
-                $response['message'] = 'Employee ID is valid for P' . $processIndex . '.';
+                $response['message'] = 'SA code is valid for P' . $processIndex . '.';
             } else {
                 $response['valid'] = false;
-                $response['message'] = 'Invalid employee ID for P' . $processIndex . '.';
+                $response['message'] = 'Invalid SA code for P' . $processIndex . '.';
             }
         }
 
@@ -48,7 +48,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         if (empty($jigName)) {
             $response['valid'] = false;
-            $response['message'] = 'Jig name is required.';
+            $response['message'] = 'Jig number is required.';
         } else {
             // Query the MachineMonitoring database for Jig validation
             $jigQuery = "SELECT JigId, TRIM(JigName) AS JigName 
@@ -59,7 +59,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             if (!empty($res)) {
                 $response['valid'] = true;
-                $response['message'] = 'Jig is valid.';
+                $response['message'] = 'Jig number is valid.';
                 $response['jigId'] = $res[0]['JigId'];
             } else {
                 $response['valid'] = false;
@@ -157,9 +157,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
                         $meta = $_POST['meta'][$key] ?? [];
                         $checkpointId = $meta['checkpointId'] ?? null;
-                        $employeeCode = $_POST["userCode{$processIndex}"] ?? '';
+                        $productionCode = $_POST["userCode{$processIndex}"] ?? '';
 
-                        if ($checkpointId && $employeeCode !== '') {
+                        if ($checkpointId && $productionCode !== '') {
                             // Check if a record for this specific checkpoint already exists
                             $checkSp = "SELECT COUNT(*) as NumRecords FROM dbo.AtoDorCheckpointDefinition WHERE RecordId = ? AND CheckpointId = ? AND ProcessIndex = ?";
                             $result = $db1->execute($checkSp, [$recordId, $checkpointId, $processIndex]);
@@ -171,7 +171,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                 $db1->execute($updateSp, [
                                     $recordId,
                                     $processIndex,
-                                    $employeeCode,
+                                    $productionCode,
                                     $checkpointId,
                                     $value,
                                     0
@@ -182,7 +182,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                                 $db1->execute($insSp, [
                                     $recordId,
                                     $processIndex,
-                                    $employeeCode,
+                                    $productionCode,
                                     $checkpointId,
                                     $value,
                                     0
@@ -304,6 +304,7 @@ foreach ($tabData as $checkpointName => $rows) {
 
                 <!-- Right-aligned group -->
                 <div class="d-flex gap-2 flex-wrap">
+                    <button type="button" class="btn btn-secondary btn-lg nav-btn-group" onclick="setAllTestValues(event)">Set Test Values</button>
                     <button type="button" class="btn btn-secondary btn-lg nav-btn-group" onclick="goBack()">Back</button>
                     <button type="submit" class="btn btn-primary btn-lg nav-btn-group" id="btnProceed" name="btnProceed">
                         <span class="short-label">Next</span>
@@ -335,16 +336,13 @@ foreach ($tabData as $checkpointName => $rows) {
                                     onclick="openTab(event, 'Process<?php echo $i; ?>')">Process <?php echo $i; ?></button>
                                 <div class="employee-validation">
                                     <input type="text" class="form-control form-control-md" id="userCode<?php echo $i; ?>"
-                                        name="userCode<?php echo $i; ?>" placeholder="Employee ID">
+                                        name="userCode<?php echo $i; ?>" placeholder="SA Code">
                                     <button type="button" class="btn btn-secondary btn-sm scan-btn" onclick="startScanning(<?php echo $i; ?>)">Scan ID</button>
                                     <div id="validationMessage<?php echo $i; ?>" class="validation-message mt-1"></div>
                                 </div>
                             </div>
                         <?php endfor; ?>
                     </div>
-                </div>
-                <div class="d-grid" style="margin-bottom: 10px; background-color: #f0f0f0;">
-                    <button type="button" class="btn btn-secondary btn-lg" onclick="setAllTestValues(event)">Set Test Values</button>
                 </div>
             </div>
             <!-- Match EXACTLY the same container structure as the body table -->
@@ -663,6 +661,9 @@ foreach ($tabData as $checkpointName => $rows) {
         const drawingFile = <?php echo json_encode($drawingFile); ?>;
 
         document.addEventListener("DOMContentLoaded", function() {
+            // Restore form data from session storage
+            restoreFormData();
+
             // Attach event listeners to buttons
             document.getElementById("btnDrawing").addEventListener("click", function() {
                 if (drawingFile !== "") {
@@ -694,6 +695,16 @@ foreach ($tabData as $checkpointName => $rows) {
                 document.getElementById(defaultTab).style.display = "block";
                 document.querySelector(`[onclick="openTab(event, '${defaultTab}')"]`).classList.add("active");
             }
+
+            // Save form data when user navigates away
+            window.addEventListener('beforeunload', function() {
+                saveFormData();
+            });
+
+            // Save form data when user clicks back button
+            document.querySelector('button[onclick="goBack()"]').addEventListener('click', function() {
+                saveFormData();
+            });
 
             // Form submission handling
             const form = document.querySelector("#myForm");
@@ -735,12 +746,12 @@ foreach ($tabData as $checkpointName => $rows) {
                     if (!jigIdValue) {
                         jigIdInput.classList.remove('is-valid');
                         jigIdInput.classList.add('is-invalid');
-                        showErrorModal("Enter jig number or select from the list.");
+                        showErrorModal("<ul><li>Enter jig number or select from the list.</li></ul>");
                         return;
                     } else if (!selectedJigId) {
                         jigIdInput.classList.remove('is-valid');
                         jigIdInput.classList.add('is-invalid');
-                        showErrorModal("Invalid jig number.");
+                        showErrorModal("<ul><li>Invalid jig number.</li></ul>");
                         return;
                     } else {
                         jigIdInput.classList.remove('is-invalid');
@@ -770,7 +781,7 @@ foreach ($tabData as $checkpointName => $rows) {
                 }
 
                 if (hasInvalidInputs) {
-                    showErrorModal("Enter valid employee IDs for all processes.");
+                    showErrorModal("<ul><li>Enter valid SA codes for all processes.</li></ul>");
                     return;
                 }
 
@@ -812,7 +823,7 @@ foreach ($tabData as $checkpointName => $rows) {
                     });
 
                     if (hasInvalidValidation) {
-                        showErrorModal(`Invalid Employee ID(s):<br>${invalidCodes.join('<br>')}`);
+                        showErrorModal(`<ul><li>${invalidCodes.join('</li><li>')}</li></ul>`);
                         return;
                     }
 
@@ -860,21 +871,20 @@ foreach ($tabData as $checkpointName => $rows) {
                     // Show modal if errors exist
                     const operatorList = Object.keys(errorsByOperator);
                     if (operatorList.length > 0) {
-                        let html = ``;
+                        let html = `<ul>`;
                         operatorList.forEach(op => {
-                            html += `<div class="mb-2"><strong>Employee ${op}</strong><ul class="mb-2">`;
                             errorsByOperator[op].forEach(cp => {
                                 // Extract checkpoint number from the checkpoint name
                                 const checkpointMatch = cp.match(/^(\d+)\.\s*(.*)/);
                                 if (checkpointMatch) {
                                     const [, number, name] = checkpointMatch;
-                                    html += `<li>Checkpoint ${number}: ${name}</li>`;
+                                    html += `<li>${op} - Checkpoint ${number}: ${name}</li>`;
                                 } else {
-                                    html += `<li>${cp}</li>`;
+                                    html += `<li>${op} - ${cp}</li>`;
                                 }
                             });
-                            html += `</ul></div>`;
                         });
+                        html += `</ul>`;
                         showErrorModal(html);
                         return;
                     }
@@ -902,6 +912,8 @@ foreach ($tabData as $checkpointName => $rows) {
                         .then((data) => {
                             if (data.success) {
                                 if (clickedButton.name === "btnProceed") {
+                                    // Clear form data from session storage when proceeding to next page
+                                    clearFormData();
                                     window.location.href = data.redirectUrl;
                                     return;
                                 }
@@ -911,11 +923,135 @@ foreach ($tabData as $checkpointName => $rows) {
                         });
                 } catch (error) {
                     console.error('Error:', error);
-                    showErrorModal("Error validating employee IDs.");
+                    showErrorModal("<ul><li>Error validating employee IDs.</li></ul>");
                 }
             });
 
         });
+
+        // Function to save form data to session storage
+        function saveFormData() {
+            const formData = {};
+
+            // Save employee codes
+            for (let i = 1; i <= 4; i++) {
+                const input = document.getElementById(`userCode${i}`);
+                if (input) {
+                    formData[`userCode${i}`] = input.value;
+                }
+            }
+
+            // Save Jig ID if visible
+            const jigIdInput = document.getElementById('jigId');
+            if (jigIdInput && jigIdInput.style.display !== 'none') {
+                formData['jigId'] = jigIdInput.value;
+                formData['selectedJigId'] = selectedJigId;
+            }
+
+            // Save all Process inputs (radio buttons and text inputs)
+            document.querySelectorAll("input[name^='Process']").forEach(input => {
+                if (input.type === 'radio') {
+                    if (input.checked) {
+                        formData[input.name] = input.value;
+                    }
+                } else if (input.type === 'text') {
+                    formData[input.name] = input.value;
+                }
+            });
+
+            // Save active tab
+            formData['activeTab'] = sessionStorage.getItem("activeTab") || "Process1";
+
+            sessionStorage.setItem('dorFormData', JSON.stringify(formData));
+        }
+
+        // Function to restore form data from session storage
+        function restoreFormData() {
+            const savedData = sessionStorage.getItem('dorFormData');
+            if (!savedData) return;
+
+            try {
+                const formData = JSON.parse(savedData);
+
+                // Restore employee codes
+                for (let i = 1; i <= 4; i++) {
+                    const input = document.getElementById(`userCode${i}`);
+                    if (input && formData[`userCode${i}`]) {
+                        input.value = formData[`userCode${i}`];
+                    }
+                }
+
+                // Restore Jig ID
+                const jigIdInput = document.getElementById('jigId');
+                if (jigIdInput && formData['jigId']) {
+                    jigIdInput.value = formData['jigId'];
+                    if (formData['selectedJigId']) {
+                        selectedJigId = formData['selectedJigId'];
+                        jigIdInput.classList.add('is-valid');
+                    }
+                }
+
+                // Restore Process inputs
+                Object.keys(formData).forEach(key => {
+                    if (key.startsWith('Process')) {
+                        const input = document.querySelector(`input[name="${key}"]`);
+                        if (input) {
+                            if (input.type === 'radio') {
+                                input.checked = input.value === formData[key];
+                            } else if (input.type === 'text') {
+                                input.value = formData[key];
+                            }
+                        }
+                    }
+                });
+
+                // Restore active tab
+                if (formData['activeTab']) {
+                    sessionStorage.setItem("activeTab", formData['activeTab']);
+                }
+
+            } catch (error) {
+                console.error('Error restoring form data:', error);
+            }
+        }
+
+        // Function to clear form data from session storage
+        function clearFormData() {
+            sessionStorage.removeItem('dorFormData');
+        }
+
+        // Add this new function for setting all test values
+        function setAllTestValues(e) {
+            // Prevent form submission
+            e.preventDefault();
+
+            const testCodes = {
+                1: 'SA1346',
+                2: 'SA161',
+                3: 'SA883',
+                4: 'SA1346'
+            };
+
+            // Set all employee codes
+            for (let i = 1; i <= 4; i++) {
+                const input = document.getElementById(`userCode${i}`);
+                if (input && testCodes[i]) {
+                    input.value = testCodes[i];
+                }
+            }
+
+            // Set Jig No. test value if field is visible
+            const jigIdInput = document.getElementById('jigId');
+            if (jigIdInput && jigIdInput.style.display !== 'none') {
+                jigIdInput.value = 'Taping-123';
+            }
+
+            document.querySelectorAll('input[type="text"][name^="Process"]').forEach(input => {
+                // Generate random number between 1 and 10
+                const randomNum = Math.floor(Math.random() * 10) + 1;
+                input.value = randomNum;
+            });
+        }
 
         // Modify the existing openTab function to remove table disabling
         function openTab(event, tabName) {
@@ -978,44 +1114,13 @@ foreach ($tabData as $checkpointName => $rows) {
                 .then(res => res.json())
                 .then(data => {
                     if (data.success && data.redirectUrl) {
+                        // Clear form data when deleting DOR
+                        clearFormData();
                         window.location.href = data.redirectUrl;
                     } else {
                         alert(data.errors?.[0] || "Failed to delete DOR record.");
                     }
                 });
-        }
-
-        // Add this new function for setting all test values
-        function setAllTestValues(e) {
-            // Prevent form submission
-            e.preventDefault();
-
-            const testCodes = {
-                1: '2503-005',
-                2: '2503-004',
-                3: 'FMB-0826',
-                4: 'FMB-0570'
-            };
-
-            // Set all employee codes
-            for (let i = 1; i <= 4; i++) {
-                const input = document.getElementById(`userCode${i}`);
-                if (input && testCodes[i]) {
-                    input.value = testCodes[i];
-                }
-            }
-
-            // Set Jig No. test value if field is visible
-            const jigIdInput = document.getElementById('jigId');
-            if (jigIdInput && jigIdInput.style.display !== 'none') {
-                jigIdInput.value = 'Taping-123';
-            }
-
-            document.querySelectorAll('input[type="text"][name^="Process"]').forEach(input => {
-                // Generate random number between 1 and 10
-                const randomNum = Math.floor(Math.random() * 10) + 1;
-                input.value = randomNum;
-            });
         }
 
         // Jig autosuggest and validation functions

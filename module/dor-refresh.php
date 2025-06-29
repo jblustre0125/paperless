@@ -326,6 +326,9 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
 
         // Add event handler for btnProceed
         document.addEventListener("DOMContentLoaded", function() {
+            // Restore form data from session storage
+            restoreFormData();
+
             // Variables for file paths
             const workInstructFile = <?php echo json_encode($workInstructFile); ?>;
             const preCardFile = <?php echo json_encode($preCardFile); ?>;
@@ -349,6 +352,16 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                 if (preCardFile !== "") {
                     openPiPViewer(preCardFile, 'pdf');
                 }
+            });
+
+            // Save form data when user navigates away
+            window.addEventListener('beforeunload', function() {
+                saveFormData();
+            });
+
+            // Save form data when user clicks back button
+            document.querySelector('button[onclick="goBack()"]').addEventListener('click', function() {
+                saveFormData();
             });
 
             document.getElementById("btnProceed").addEventListener("click", function(e) {
@@ -376,6 +389,8 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
+                            // Clear form data from session storage when proceeding to next page
+                            clearFormData();
                             window.location.href = data.redirectUrl;
                         } else {
                             showErrorModal(data.errors.join('\n'));
@@ -386,6 +401,71 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                     });
             });
         });
+
+        // Function to save form data to session storage
+        function saveFormData() {
+            const formData = {};
+
+            // Save radio button values
+            const leaderToOperator = document.querySelector('input[name="leaderToOperator"]:checked');
+            if (leaderToOperator) {
+                formData['leaderToOperator'] = leaderToOperator.value;
+            }
+
+            const operatorToLeader = document.querySelector('input[name="operatorToLeader"]:checked');
+            if (operatorToLeader) {
+                formData['operatorToLeader'] = operatorToLeader.value;
+            }
+
+            // Save changes field if it exists
+            const changesInput = document.querySelector('input[name="changes"]');
+            if (changesInput) {
+                formData['changes'] = changesInput.value;
+            }
+
+            sessionStorage.setItem('dorRefreshData', JSON.stringify(formData));
+        }
+
+        // Function to restore form data from session storage
+        function restoreFormData() {
+            const savedData = sessionStorage.getItem('dorRefreshData');
+            if (!savedData) return;
+
+            try {
+                const formData = JSON.parse(savedData);
+
+                // Restore radio button values
+                if (formData['leaderToOperator']) {
+                    const radio = document.querySelector(`input[name="leaderToOperator"][value="${formData['leaderToOperator']}"]`);
+                    if (radio) {
+                        radio.checked = true;
+                    }
+                }
+
+                if (formData['operatorToLeader']) {
+                    const radio = document.querySelector(`input[name="operatorToLeader"][value="${formData['operatorToLeader']}"]`);
+                    if (radio) {
+                        radio.checked = true;
+                    }
+                }
+
+                // Restore changes field
+                if (formData['changes']) {
+                    const changesInput = document.querySelector('input[name="changes"]');
+                    if (changesInput) {
+                        changesInput.value = formData['changes'];
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error restoring form data:', error);
+            }
+        }
+
+        // Function to clear form data from session storage
+        function clearFormData() {
+            sessionStorage.removeItem('dorRefreshData');
+        }
     </script>
 
     <script src="../js/pdf.min.js"></script>
