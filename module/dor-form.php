@@ -104,7 +104,22 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         if ($recordId) {
             $db1->execute("DELETE FROM AtoDor WHERE RecordId = ?", [$recordId]);
+
+            // Clear all DOR-related session variables
             unset($_SESSION['dorRecordId']);
+            unset($_SESSION['dorDate']);
+            unset($_SESSION['dorShift']);
+            unset($_SESSION['dorLineId']);
+            unset($_SESSION['dorQty']);
+            unset($_SESSION['dorModelId']);
+            unset($_SESSION['dorModelName']);
+            unset($_SESSION['dorTypeId']);
+            unset($_SESSION['tabQty']);
+
+            // Clear user codes
+            for ($i = 1; $i <= 4; $i++) {
+                unset($_SESSION["userCode{$i}"]);
+            }
 
             $response['success'] = true;
             $response['redirectUrl'] = 'dor-home.php';
@@ -539,6 +554,17 @@ foreach ($tabData as $checkpointName => $rows) {
 
     <script>
         document.addEventListener("DOMContentLoaded", function() {
+            // Clear any existing DOR form data if no DOR session is active
+            if (!<?php echo isset($_SESSION['dorRecordId']) ? 'true' : 'false'; ?>) {
+                sessionStorage.removeItem('dorFormData');
+                // Redirect to home page if no DOR session
+                window.location.href = 'dor-home.php';
+                return;
+            }
+
+            // Restore form data from session storage
+            restoreFormData();
+
             const scannerModal = new bootstrap.Modal(document.getElementById("qrScannerModal"));
             const video = document.getElementById("qr-video");
             let canvas = document.createElement("canvas");
