@@ -258,6 +258,13 @@ input[id^="userCode"] {
   min-height: calc(1.5em + 0.75rem + calc(var(--bs-border-width) * 2));
 }
 
+/* Placeholder text styling for userCode inputs */
+input[id^="userCode"]::placeholder {
+  font-size: 0.9rem;
+  color: #6c757d;
+  opacity: 0.8;
+}
+
 /* Process button alignment */
 .tab-button {
   width: 130px;

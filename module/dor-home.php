@@ -193,10 +193,45 @@ function handleCreateDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
 //TODO: Populate the DOR form with the selected DOR details
 function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty, &$response)
 {
+    global $db1;
+
     try {
         if (isExistDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId)) {
-            $response['success'] = true;
-            $response['redirectUrl'] = "dor-form.php";
+            // Get the existing DOR record details
+            $selQry = "SELECT RecordId, Quantity FROM AtoDor WHERE DorDate = ? AND ShiftId = ? AND LineId = ? AND ModelId = ? AND DorTypeId = ?";
+            $res = $db1->execute($selQry, [$dorDate, $shiftId, $lineId, $modelId, $dorTypeId], 1);
+
+            if ($res !== false && !empty($res)) {
+                $record = $res[0];
+
+                // Fetch the tabQty from the database for the model
+                $selProcessTab = "SELECT ISNULL(MP, 0) AS 'MP' FROM dbo.GenModel WHERE MODEL_ID = ?";
+                $tabRes = $db1->execute($selProcessTab, [$modelId], 1);
+
+                if ($tabRes !== false) {
+                    foreach ($tabRes as $row) {
+                        $_SESSION["tabQty"] = $row['MP'];
+                    }
+                } else {
+                    $_SESSION["tabQty"] = 0;
+                }
+
+                // Set up session variables for the existing DOR
+                $_SESSION["dorDate"] = $dorDate;
+                $_SESSION["dorShift"] = $shiftId;
+                $_SESSION["dorLineId"] = $lineId;
+                $_SESSION["dorQty"] = $record['Quantity'];
+                $_SESSION["dorModelId"] = $modelId;
+                $_SESSION["dorModelName"] = testInput($_POST["txtModelName"]);
+                $_SESSION["dorTypeId"] = $dorTypeId;
+                $_SESSION["dorRecordId"] = $record['RecordId'];
+
+                $response['success'] = true;
+                $response['redirectUrl'] = "dor-form.php";
+            } else {
+                $response['success'] = false;
+                $response['errors'][] = "DOR record not found in database.";
+            }
         } else {
             $response['success'] = false;
             $response['errors'][] = "No DOR found for the selected criteria.";
@@ -272,6 +307,7 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
         <div class="d-grid gap-2">
             <button type="submit" class="btn btn-primary btn-lg" name="btnCreateDor">Create DOR</button>
             <button type="submit" class="btn btn-secondary btn-lg" name="btnSearchDor">Search DOR</button>
+            <button type="button" class="btn btn-secondary btn-lg" id="btnClearForm">Clear Form</button>
             <button type="submit" class="btn btn-secondary btn-lg" name="btnSetValues">Set Test Values</button>
         </div>
     </div>
@@ -320,6 +356,14 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
 
 <script>
     document.addEventListener("DOMContentLoaded", function() {
+        // Clear any existing DOR form data if no DOR session is active
+        if (!<?php echo isset($_SESSION['dorRecordId']) ? 'true' : 'false'; ?>) {
+            sessionStorage.removeItem('dorFormData');
+        }
+
+        // Restore form data from session storage
+        restoreFormData();
+
         const scannerModal = new bootstrap.Modal(document.getElementById("qrScannerModal"));
         const errorModal = new bootstrap.Modal(document.getElementById("errorModal"));
         const errorModalElement = document.getElementById("errorModal");
@@ -338,6 +382,11 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
         let scanning = false;
         let activeInput = null;
         let clickedButton = null;
+
+        // Save form data when user navigates away
+        window.addEventListener('beforeunload', function() {
+            saveFormData();
+        });
 
         errorModalElement.addEventListener('hidden.bs.modal', () => {
             const active = document.activeElement;
@@ -508,6 +557,9 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
                 return;
             }
 
+            // Clear any existing DOR form data from session storage before creating/searching
+            sessionStorage.removeItem('dorFormData');
+
             const formData = new FormData(form);
             if (clickedButton) {
                 formData.append(clickedButton.name, clickedButton.value || "1");
@@ -520,6 +572,8 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
                 .then(response => response.json())
                 .then((data) => {
                     if (data.success) {
+                        // Clear form data from session storage when creating new DOR
+                        clearFormData();
                         window.location.href = data.redirectUrl;
                     } else {
                         modalErrorMessage.innerHTML = "<ul><li>" + data.errors.join("</li><li>") + "</li></ul>";
@@ -529,14 +583,135 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
                 .catch(error => console.error("Error:", error));
         });
 
+        // Function to save form data to session storage
+        function saveFormData() {
+            const formData = {};
+
+            // Save all form inputs
+            const dateInput = document.getElementById('dtpDate');
+            const lineInput = document.getElementById('txtLineNumber');
+            const modelInput = document.getElementById('txtModelName');
+            const qtyInput = document.getElementById('txtQty');
+            const dorTypeSelect = document.getElementById('cmbDorType');
+
+            if (dateInput) {
+                formData['dtpDate'] = dateInput.value;
+            }
+            if (lineInput) {
+                formData['txtLineNumber'] = lineInput.value;
+            }
+            if (modelInput) {
+                formData['txtModelName'] = modelInput.value;
+            }
+            if (qtyInput) {
+                formData['txtQty'] = qtyInput.value;
+            }
+            if (dorTypeSelect) {
+                formData['cmbDorType'] = dorTypeSelect.value;
+            }
+
+            // Save radio button values
+            const shiftRadios = document.querySelectorAll('input[name="rdShift"]');
+            shiftRadios.forEach(radio => {
+                if (radio.checked) {
+                    formData['rdShift'] = radio.value;
+                }
+            });
+
+            sessionStorage.setItem('dorHomeData', JSON.stringify(formData));
+        }
+
+        // Function to restore form data from session storage
+        function restoreFormData() {
+            const savedData = sessionStorage.getItem('dorHomeData');
+            if (!savedData) return;
+
+            try {
+                const formData = JSON.parse(savedData);
+
+                // Restore form inputs
+                const dateInput = document.getElementById('dtpDate');
+                const lineInput = document.getElementById('txtLineNumber');
+                const modelInput = document.getElementById('txtModelName');
+                const qtyInput = document.getElementById('txtQty');
+                const dorTypeSelect = document.getElementById('cmbDorType');
+
+                if (dateInput && formData['dtpDate']) {
+                    dateInput.value = formData['dtpDate'];
+                }
+                if (lineInput && formData['txtLineNumber']) {
+                    lineInput.value = formData['txtLineNumber'];
+                }
+                if (modelInput && formData['txtModelName']) {
+                    modelInput.value = formData['txtModelName'];
+                }
+                if (qtyInput && formData['txtQty']) {
+                    qtyInput.value = formData['txtQty'];
+                }
+                if (dorTypeSelect && formData['cmbDorType']) {
+                    dorTypeSelect.value = formData['cmbDorType'];
+                }
+
+                // Restore radio button values
+                if (formData['rdShift']) {
+                    const radio = document.querySelector(`input[name="rdShift"][value="${formData['rdShift']}"]`);
+                    if (radio) {
+                        radio.checked = true;
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error restoring form data:', error);
+            }
+        }
+
+        // Function to clear form data from session storage
+        function clearFormData() {
+            sessionStorage.removeItem('dorHomeData');
+        }
+
         // Add test values function
         function setTestValues() {
             document.getElementById("txtLineNumber").value = "1";
             // document.getElementById("txtModelName").value = "7M0656-7020";
             document.getElementById("txtModelName").value = "7L0113-7021C";
-            document.getElementById("cmbDorType").value = "3";
+            document.getElementById("cmbDorType").value = "2";
             document.getElementById("txtQty").value = "100";
         }
+
+        // Add clear form function
+        function clearForm() {
+            // Reset date to today
+            document.getElementById("dtpDate").value = "<?php echo $today; ?>";
+
+            // Reset line number
+            document.getElementById("txtLineNumber").value = "";
+
+            // Reset model name
+            document.getElementById("txtModelName").value = "";
+
+            // Reset DOR type to default
+            document.getElementById("cmbDorType").value = "0";
+
+            // Reset quantity
+            document.getElementById("txtQty").value = "";
+
+            // Reset shift to current shift
+            const currentShift = "<?php echo $selectedShift; ?>";
+            const shiftRadios = document.querySelectorAll('input[name="rdShift"]');
+            shiftRadios.forEach(radio => {
+                radio.checked = (radio.value === currentShift);
+            });
+
+            // Clear form data from session storage
+            clearFormData();
+        }
+
+        // Add event listener for Clear Form button
+        document.getElementById('btnClearForm').addEventListener('click', function(e) {
+            e.preventDefault(); // Prevent form submission
+            clearForm();
+        });
 
         // Add event listener for Set Test Values button
         document.querySelector('button[name="btnSetValues"]').addEventListener('click', function(e) {
