@@ -523,51 +523,51 @@ foreach ($dimChecks as $row) {
                                             </td>
 
 
-                                          <!-- Downtime -->
-<td class="text-center align-middle">
-    <?php $recordHeaderId = $header['RecordHeaderId'] ?? null; ?>
+                                            <!-- Downtime -->
+                                            <td class="text-center align-middle">
+                                                <?php $recordHeaderId = $header['RecordHeaderId'] ?? null; ?>
 
-    <div class="d-flex flex-column align-items-center mt-md-4">
-        <!-- View Downtime Button -->
-        <button type="button"
-                class="btn btn-outline-secondary btn-sm mb-1 downtime-trigger"
-                data-bs-toggle="modal"
-                data-bs-target="#downtimeModal"
-                data-record-id="<?= htmlspecialchars($recordHeaderId) ?>">
-            <i class="bi bi-clock-history"></i> View Downtime
-        </button>
+                                                <div class="d-flex flex-column align-items-center mt-md-4">
+                                                    <!-- View Downtime Button -->
+                                                    <button type="button"
+                                                        class="btn btn-outline-secondary btn-sm mb-1 downtime-trigger"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#downtimeModal<?= htmlspecialchars($recordHeaderId) ?>"
+                                                        data-record-id="<?= htmlspecialchars($recordHeaderId) ?>">
+                                                        <i class="bi bi-clock-history"></i> View Downtime
+                                                    </button>
 
-        <!-- Downtime Info Badges -->
-        <div class="downtime-info d-flex flex-wrap justify-content-center"
-             id="downtimeInfo<?= htmlspecialchars($recordHeaderId) ?>">
-            <?php if (!empty($details[$recordHeaderId]) && is_array($details[$recordHeaderId])): ?>
-                <?php foreach ($details[$recordHeaderId] as $detail): ?>
-                    <?php
-                        $downtimeId = $detail['DowntimeId'] ?? null;
-                        $actionTakenId = $detail['ActionTakenId'] ?? null;
+                                                    <!-- Downtime Info Badges -->
+                                                    <div class="downtime-info d-flex flex-wrap justify-content-center"
+                                                        id="downtimeInfo<?= htmlspecialchars($recordHeaderId) ?>">
+                                                        <?php if (!empty($details[$recordHeaderId]) && is_array($details[$recordHeaderId])): ?>
+                                                            <?php foreach ($details[$recordHeaderId] as $detail): ?>
+                                                                <?php
+                                                                $downtimeId = $detail['DowntimeId'] ?? null;
+                                                                $actionTakenId = $detail['ActionTakenId'] ?? null;
 
-                        $downtimeCode = $downtimeId && isset($downtimeMap[$downtimeId])
-                            ? $downtimeMap[$downtimeId]['DowntimeCode']
-                            : null;
+                                                                $downtimeCode = $downtimeId && isset($downtimeMap[$downtimeId])
+                                                                    ? $downtimeMap[$downtimeId]['DowntimeCode']
+                                                                    : null;
 
-                        $actionTakenTitle = $actionTakenId && isset($actionTakenMap[$actionTakenId])
-                            ? $actionTakenMap[$actionTakenId]['ActionDescription']
-                            : 'No Description';
-                    ?>
+                                                                $actionTakenTitle = $actionTakenId && isset($actionTakenMap[$actionTakenId])
+                                                                    ? $actionTakenMap[$actionTakenId]['ActionDescription']
+                                                                    : 'No Description';
+                                                                ?>
 
-                    <?php if (!empty($downtimeCode)): ?>
-                        <small class="badge bg-danger text-white me-1 mb-1"
-                               title="<?= htmlspecialchars($actionTakenTitle) ?>">
-                            <?= htmlspecialchars($downtimeCode) ?>
-                        </small>
-                    <?php endif; ?>
-                <?php endforeach; ?>
-            <?php else: ?>
-                <small class="badge bg-secondary text-white me-1 mb-1">No Downtime</small>
-            <?php endif; ?>
-        </div>
-    </div>
-</td>
+                                                                <?php if (!empty($downtimeCode)): ?>
+                                                                    <small class="badge bg-danger text-white me-1 mb-1"
+                                                                        title="<?= htmlspecialchars($actionTakenTitle) ?>">
+                                                                        <?= htmlspecialchars($downtimeCode) ?>
+                                                                    </small>
+                                                                <?php endif; ?>
+                                                            <?php endforeach; ?>
+                                                        <?php else: ?>
+                                                            <small class="badge bg-secondary text-white me-1 mb-1">No Downtime</small>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                </div>
+                                            </td>
 
 
                                             <!-- Delete -->
@@ -662,19 +662,29 @@ foreach ($dimChecks as $row) {
                                         </div>
 
 
-                                        <div class="modal fade" id="downtimeModal" tabindex="-1" aria-labelledby="downtimeModalLabel" aria-hidden="true">
+                                        <<div class="modal fade"
+                                            id="downtimeModal<?= $header['RecordHeaderId'] ?>"
+                                            tabindex="-1"
+                                            aria-labelledby="downtimeModalLabel<?= $header['RecordHeaderId'] ?>"
+                                            aria-hidden="true"
+                                            data-record-id="<?= $header['RecordHeaderId'] ?>">
+
                                             <div class="modal-dialog modal-lg modal-dialog-centered">
                                                 <div class="modal-content shadow">
+                                                    <!-- Modal Header -->
                                                     <div class="modal-header bg-danger text-white">
-                                                        <h5 class="modal-title" id="downtimeModalLabel">Manage Downtime</h5>
+                                                        <h5 class="modal-title" id="downtimeModalLabel<?= $header['RecordHeaderId'] ?>">
+                                                            Manage Downtime for Row #<?= htmlspecialchars($i) ?>
+                                                        </h5>
                                                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                                                     </div>
 
+                                                    <!-- Modal Body -->
                                                     <div class="modal-body">
                                                         <!-- Downtime Reason -->
                                                         <div class="mb-3">
-                                                            <label for="downtimeSelect" class="form-label">Downtime Reason</label>
-                                                            <select id="downtimeSelect" class="form-select">
+                                                            <label for="downtimeSelect<?= $header['RecordHeaderId'] ?>" class="form-label">Downtime Reason</label>
+                                                            <select id="downtimeSelect<?= $header['RecordHeaderId'] ?>" class="form-select downtime-select">
                                                                 <option value="">-- Select Downtime --</option>
                                                                 <?php foreach ($downtimeOptions as $downtime): ?>
                                                                     <option value="<?= htmlspecialchars($downtime['DowntimeId']) ?>">
@@ -686,50 +696,54 @@ foreach ($dimChecks as $row) {
 
                                                         <!-- Action Taken -->
                                                         <div class="mb-3">
-                                                            <label for="actionTakenSelect" class="form-label">Action Taken</label>
-                                                            <select id="actionTakenSelect" class="form-select">
+                                                            <label for="actionTakenSelect<?= $header['RecordHeaderId'] ?>" class="form-label">Action Taken</label>
+                                                            <select id="actionTakenSelect<?= $header['RecordHeaderId'] ?>" class="form-select action-select">
                                                                 <option value="">-- Select Action Taken --</option>
                                                                 <?php foreach ($actionTakenOptions as $option): ?>
                                                                     <option value="<?= htmlspecialchars($option['ActionTakenId']) ?>">
                                                                         <?= htmlspecialchars($option['ActionTakenCode'] . ' - ' . $option['ActionTakenName']) ?>
                                                                     </option>
                                                                 <?php endforeach; ?>
-                                                                <pre><?php print_r($details[$recordHeaderId]); ?></pre>
-
                                                             </select>
                                                         </div>
 
                                                         <!-- PIC Input -->
                                                         <div class="mb-3">
-                                                            <label for="picInput" class="form-label">PIC (Person In Charge)</label>
-                                                            <input type="text" id="picInput" class="form-control" placeholder="Enter PIC name">
+                                                            <label for="picInput<?= $header['RecordHeaderId'] ?>" class="form-label">PIC (Person In Charge)</label>
+                                                            <input type="text" id="picInput<?= $header['RecordHeaderId'] ?>" class="form-control pic-input" placeholder="Enter PIC name">
                                                         </div>
 
-                                                        <!-- Hidden Target Row ID -->
-                                                        <input type="hidden" id="downtimeTargetRow">
+                                                        <!-- Hidden Record Header ID -->
+                                                        <input type="hidden" class="downtimeTargetRow" value="<?= $header['RecordHeaderId'] ?>">
                                                     </div>
 
+                                                    <!-- Modal Footer -->
                                                     <div class="modal-footer">
-                                                        <button type="button" class="btn btn-danger" id="saveDowntime">Save Downtime</button>
+                                                        <button type="button"
+                                                            class="btn btn-danger btn-save-downtime"
+                                                            data-record-id="<?= $header['RecordHeaderId'] ?>">
+                                                            Save Downtime
+                                                        </button>
                                                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
+                        </div>
 
 
 
-                                    <?php
+
+                    <?php
                                         $modals[] = ob_get_clean();
                                     } ?>
-                                </tbody>
-                            </table>
+                    </tbody>
+                    </table>
 
-                        </div>
                     </div>
                 </div>
-
             </div>
+
+        </div>
         </div>
 
 
@@ -1015,102 +1029,83 @@ foreach ($dimChecks as $row) {
 
 
             // === Downtime Modal ===
-            const downtimeSelect = document.getElementById('downtimeSelect');
-            const actionSelect = document.getElementById('actionTakenSelect');
-            const picInput = document.getElementById('picInput');
-            let selectedRecordId = null;
-            let selectedPic = null;
-
-            // Handle trigger button click
             document.querySelectorAll('.downtime-trigger').forEach(button => {
                 button.addEventListener('click', function() {
-                    selectedRecordId = this.dataset.recordId || null;
-                    selectedPic = this.dataset.pic || document.getElementById('picField')?.value || '';
+                    const recordId = this.dataset.recordId;
+                    const modalId = `downtimeModal${recordId}`;
+                    const modal = document.getElementById(modalId);
 
-                    // Clear previous values in modal
-                    downtimeSelect.value = '';
-                    actionSelect.value = '';
-                    if (picInput) {
-                        picInput.value = selectedPic;
+                    if (!modal) {
+                        console.error("Modal not found for RecordHeaderId:", recordId);
+                        return;
                     }
 
-                    if (!selectedRecordId) {
-                        console.error("Missing data-record-id on downtime trigger.");
+                    const downtimeSelect = modal.querySelector('.downtime-select');
+                    const actionSelect = modal.querySelector('.action-select');
+                    const picInput = modal.querySelector('.pic-input');
+
+                    // Reset modal values
+                    if (downtimeSelect) downtimeSelect.value = '';
+                    if (actionSelect) actionSelect.value = '';
+                    if (picInput) picInput.value = document.getElementById('picField')?.value || '';
+
+                    // Attach handler for save button (inside the same modal)
+                    const saveButton = modal.querySelector('.btn-save-downtime');
+                    if (saveButton) {
+                        saveButton.onclick = function() {
+                            const downtimeId = downtimeSelect.value;
+                            const actionTakenId = actionSelect.value;
+                            const selectedPic = picInput?.value?.trim();
+
+                            if (!recordId || !downtimeId || !actionTakenId || !selectedPic) {
+                                alert("Please fill out all fields, including PIC.");
+                                return;
+                            }
+
+                            fetch("../controller/dor-dor.php", {
+                                    method: "POST",
+                                    headers: {
+                                        "Content-Type": "application/json",
+                                    },
+                                    body: JSON.stringify({
+                                        type: "saveActionDowntime",
+                                        recordHeaderId: recordId,
+                                        downtimeId,
+                                        actionTakenId,
+                                        pic: selectedPic
+                                    })
+                                })
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data.success) {
+                                        alert("Downtime saved successfully!");
+
+                                        const container = document.getElementById(`downtimeInfo${recordId}`);
+                                        if (container) {
+                                            const downtimeCode = window.downtimeMap?.[downtimeId]?.DowntimeCode || '???';
+                                            const actionDesc = window.actionTakenMap?.[actionTakenId]?.ActionTakenName || 'Action info missing';
+
+                                            const newBadge = document.createElement('small');
+                                            newBadge.className = 'badge bg-danger text-white me-1 mb-1';
+                                            newBadge.title = actionDesc;
+                                            newBadge.textContent = downtimeCode;
+
+                                            container.appendChild(newBadge);
+                                        }
+
+                                        const bootstrapModal = bootstrap.Modal.getInstance(modal);
+                                        bootstrapModal?.hide();
+                                    } else {
+                                        alert("Failed to save downtime: " + (data.message || "Unknown error."));
+                                    }
+                                })
+                                .catch(err => {
+                                    console.error("Fetch error:", err);
+                                    alert("An error occurred while saving downtime.");
+                                });
+                        };
                     }
                 });
-            });
-
-            // Handle Save button click
-            document.getElementById("saveDowntime").addEventListener("click", function() {
-                const downtimeId = downtimeSelect.value;
-                const actionTakenId = actionSelect.value;
-                selectedPic = picInput?.value?.trim();
-
-                if (!selectedRecordId || !downtimeId || !actionTakenId || !selectedPic) {
-                    alert("Please fill out all fields, including PIC.");
-                    return;
-                }
-
-                console.log("Saving downtime with data:", {
-                    selectedRecordId,
-                    downtimeId,
-                    actionTakenId,
-                    selectedPic
-                });
-
-                fetch("../controller/dor-dor.php", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                        },
-                        body: JSON.stringify({
-                            type: "saveActionDowntime",
-                            recordHeaderId: selectedRecordId,
-                            downtimeId,
-                            actionTakenId,
-                            pic: selectedPic
-                        })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            alert("Downtime saved successfully!");
-
-                            const container = document.getElementById(`downtimeInfo${selectedRecordId}`);
-                            if (container) {
-                                const downtimeCode = window.downtimeMap?.[downtimeId]?.DowntimeCode || '???';
-                                const actionDesc = window.actionTakenMap?.[actionTakenId]?.ActionTakenName || 'Action info missing';
-
-                                const newBadge = document.createElement('small');
-newBadge.className = 'badge bg-danger text-white me-1 mb-1';
-newBadge.title = actionDesc;
-newBadge.textContent = downtimeCode;
-
-container.appendChild(newBadge);
-
-                            }
-
-                            // Hide modal
-                            const modalElement = document.getElementById("downtimeModal");
-                            if (modalElement) {
-                                const modalInstance = bootstrap.Modal.getInstance(modalElement);
-                                modalInstance?.hide();
-                            }
-
-                            // Reset variables
-                            selectedRecordId = null;
-                            selectedPic = null;
-                            downtimeSelect.value = '';
-                            actionSelect.value = '';
-                            if (picInput) picInput.value = '';
-                        } else {
-                            alert("Failed to save downtime: " + (data.message || "Unknown error."));
-                        }
-                    })
-                    .catch(err => {
-                        console.error("Fetch error:", err);
-                        alert("An error occurred while saving downtime.");
-                    });
             });
 
 
