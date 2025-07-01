@@ -1,5 +1,8 @@
 Array
 (
-    [type] => getDowntimeDetails
-    [recordHeaderId] => 7
+    [type] => saveActionDowntime
+    [recordHeaderId] => 3
+    [downtimeId] => 4
+    [actionTakenId] => 10
+    [pic] => Jb
 )
