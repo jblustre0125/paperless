@@ -53,6 +53,7 @@ if (empty($hostData)) {
 //Authenticate leader (only if tablet is valid)
 if (empty($error)) {
     $userQuery = "
+
         SELECT OperatorId, ProductionCode, EmployeeCode, EmployeeName, IsLeader, IsSrLeader, IsActive 
         FROM GenOperator 
         WHERE LTRIM(RTRIM(ProductionCode)) = ?
