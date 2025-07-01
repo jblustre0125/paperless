@@ -33,8 +33,6 @@ unset($_SESSION['login_error']); // Clear after showing
 
                         <input type="text" name="production_code" id="codeInput" class="form-control py-2 mb-3" placeholder="Enter your Production Code">
 
-                        <input type="text" name="production_code" id="codeInput" class="form-control py-2 mb-3" placeholder="Enter your Employee ID">
-
                         <button type="button" class="btn btn-outline-secondary" id="scanToggleBtn">Scan ID</button>
                     </div>
                     <div class="d-grid gap-2">
