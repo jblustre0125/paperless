@@ -1,0 +1,8 @@
+Array
+(
+    [type] => saveActionDowntime
+    [recordHeaderId] => 3
+    [downtimeId] => 3
+    [actionTakenId] => 10
+    [pic] => Jb
+)

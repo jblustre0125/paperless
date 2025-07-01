@@ -1,14 +1,17 @@
 <?php
 require_once '../../config/dbop.php';
 
-class DorDor {
+class DorDor
+{
     private $db;
 
-    public function __construct($db = null) {
+    public function __construct($db = null)
+    {
         $this->db = new DbOp(1);
     }
 
-    public function getHeaders($hostnameId = null) {
+    public function getHeaders($hostnameId = null)
+    {
         $sql = "
             SELECT h.RecordHeaderId, h.RecordId, h.BoxNumber, h.TimeStart, h.TimeEnd, h.Duration, d.CreatedBy
             FROM AtoDorHeader h
@@ -25,7 +28,8 @@ class DorDor {
         return $this->db->execute($sql, $params);
     }
 
-    public function getDetails() {
+    public function getDetails()
+    {
         $result = $this->db->execute("SELECT * FROM AtoDorDetail");
         $details = [];
 
@@ -40,22 +44,26 @@ class DorDor {
         return $details;
     }
 
-    public function getActionTakenList() {
+    public function getActionTakenList()
+    {
         $result = $this->db->execute("SELECT ActionTakenId, ActionTakenCode, ActionTakenName FROM AtoActionTaken");
         return is_array($result) ? array_column($result, null, 'ActionTakenId') : [];
     }
 
-    public function getDowntimeList() {
+    public function getDowntimeList()
+    {
         $result = $this->db->execute("SELECT DowntimeId, DowntimeCategoryId, DowntimeCode, DowntimeName FROM GenDorDowntime");
         return is_array($result) ? array_column($result, null, 'DowntimeId') : [];
     }
 
-    public function getOperatorMap() {
+    public function getOperatorMap()
+    {
         $result = $this->db->execute("SELECT ProductionCode, EmployeeCode, EmployeeName FROM GenOperator WHERE IsActive = 1");
         return is_array($result) ? array_column($result, 'EmployeeName', 'ProductionCode') : [];
     }
 
-    public function getMPByRecordHeaderId($recordHeaderId) {
+    public function getMPByRecordHeaderId($recordHeaderId)
+    {
         $sql = "
             SELECT gm.MP
             FROM AtoDorHeader h
@@ -67,7 +75,8 @@ class DorDor {
         return $result[0]['MP'] ?? null;
     }
 
-    public function insertOrUpdateDetail($data) {
+    public function insertOrUpdateDetail($data)
+    {
         $recordHeaderId = $data['RecordHeaderId'] ?? null;
         if (!$recordHeaderId) return false;
 
@@ -117,7 +126,24 @@ class DorDor {
         return true;
     }
 
-    public function deleteOperator($recordHeaderId, $operatorCode) {
+    public function getAllDowntimeDetails()
+{
+    $result = $this->db->execute("SELECT * FROM AtoDorDetail");
+    $groupedDetails = [];
+
+    foreach ($result as $row) {
+        $recordHeaderId = $row['RecordHeaderId'] ?? null;
+        if ($recordHeaderId !== null) {
+            $groupedDetails[$recordHeaderId][] = $row;
+        }
+    }
+
+    return $groupedDetails;
+}
+
+
+    public function deleteOperator($recordHeaderId, $operatorCode)
+    {
         $detail = $this->db->execute("SELECT * FROM AtoDorDetail WHERE RecordHeaderId = ?", [$recordHeaderId])[0] ?? null;
         if (!$detail) return false;
 
@@ -134,11 +160,13 @@ class DorDor {
         return $this->db->execute("UPDATE AtoDorDetail SET $setClause WHERE RecordHeaderId = ?", [$recordHeaderId]);
     }
 
-    public function updateDowntime($recordHeaderId, $downtimeId) {
+    public function updateDowntime($recordHeaderId, $downtimeId)
+    {
         return $this->db->execute("UPDATE AtoDorDetail SET DowntimeId = ? WHERE RecordHeaderId = ?", [$downtimeId, $recordHeaderId]);
     }
 
-    public function saveOperators($recordHeaderId, $employeeCodes) {
+    public function saveOperators($recordHeaderId, $employeeCodes)
+    {
         if (!$recordHeaderId || !is_array($employeeCodes)) return false;
 
         $employeeCodes = array_unique(array_filter($employeeCodes)); // Filter out duplicates and empty
@@ -252,43 +280,84 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             break;
 
         case 'getDowntimeDetails':
+            $recordHeaderId = $data['recordHeaderId'] ?? null;
+            if (!$recordHeaderId) {
+                echo json_encode(['success' => false, 'message' => 'Missing recordHeaderId']);
+                exit;
+            }
+
+            $details = $controller->getDetails();
+
+            $downtimeMap = $controller->getDowntimeList();
+            $actionTakenMap = $controller->getActionTakenList();
+
+            $badges = [];
+
+            foreach ($details as $row) {
+                if ($row['RecordHeaderId'] == $recordHeaderId) {
+                    $downtimeId = $row['DowntimeId'] ?? null;
+                    $actionTakenId = $row['ActionTakenId'] ?? null;
+
+                    $downtimeCode = $downtimeId && isset($downtimeMap[$downtimeId])
+                        ? $downtimeMap[$downtimeId]['DowntimeCode']
+                        : null;
+
+                    $actionTakenDesc = $actionTakenId && isset($actionTakenMap[$actionTakenId])
+                        ? $actionTakenMap[$actionTakenId]['ActionTakenName']
+                        : 'No Description';
+
+                    if ($downtimeCode) {
+                        $badges[] = [
+                            'DowntimeCode' => $downtimeCode,
+                            'ActionDescription' => $actionTakenDesc
+                        ];
+                    }
+                }
+            }
+
+            echo json_encode(['success' => true, 'badges' => $badges]);
+            break;
+        
+        case 'renderDowntimeBadges':
     $recordHeaderId = $data['recordHeaderId'] ?? null;
     if (!$recordHeaderId) {
         echo json_encode(['success' => false, 'message' => 'Missing recordHeaderId']);
         exit;
     }
 
-    $details = $controller->getDetails();
-
+    ob_start();
+    $allDetails = $controller->getAllDowntimeDetails();
     $downtimeMap = $controller->getDowntimeList();
     $actionTakenMap = $controller->getActionTakenList();
+    $details = $allDetails[$recordHeaderId] ?? [];
 
-    $badges = [];
-
-    foreach ($details as $row) {
-        if ($row['RecordHeaderId'] == $recordHeaderId) {
-            $downtimeId = $row['DowntimeId'] ?? null;
-            $actionTakenId = $row['ActionTakenId'] ?? null;
+    if (!empty($details)) {
+        foreach ($details as $detail) {
+            $downtimeId = $detail['DowntimeId'] ?? null;
+            $actionTakenId = $detail['ActionTakenId'] ?? null;
 
             $downtimeCode = $downtimeId && isset($downtimeMap[$downtimeId])
                 ? $downtimeMap[$downtimeId]['DowntimeCode']
                 : null;
 
-            $actionTakenDesc = $actionTakenId && isset($actionTakenMap[$actionTakenId])
+            $actionTakenTitle = $actionTakenId && isset($actionTakenMap[$actionTakenId])
                 ? $actionTakenMap[$actionTakenId]['ActionTakenName']
                 : 'No Description';
 
-            if ($downtimeCode) {
-                $badges[] = [
-                    'DowntimeCode' => $downtimeCode,
-                    'ActionDescription' => $actionTakenDesc
-                ];
+            if (!empty($downtimeCode)) {
+                echo '<small class="badge bg-danger text-white me-1 mb-1" title="' . htmlspecialchars($actionTakenTitle) . '">'
+                    . htmlspecialchars($downtimeCode) .
+                    '</small>';
             }
         }
+    } else {
+        echo '<small class="badge bg-secondary text-white me-1 mb-1">No Downtime</small>';
     }
 
-    echo json_encode(['success' => true, 'badges' => $badges]);
-    exit;
+    $html = ob_get_clean();
+    echo json_encode(['success' => true, 'html' => $html]);
+    break;
+
 
 
         case 'deleteOperator':
@@ -302,4 +371,3 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     exit;
 }
-?>
