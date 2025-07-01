@@ -7,24 +7,24 @@
 
 
     if (session_status() !== PHP_SESSION_ACTIVE) {
-    session_set_cookie_params([
-        'lifetime' => 0,
-        'path' => '/',
-        'domain' => $_SERVER['HTTP_HOST'],
-        'secure' => isset($_SERVER['HTTPS']),
-        'httponly' => true,
-        'samesite' => 'Strict'
-    ]);
-    session_start();
-    
-    // Regenerate session ID periodically for security
-    if (!isset($_SESSION['created'])) {
-        $_SESSION['created'] = time();
-    } else if (time() - $_SESSION['created'] > 1800) {
-        session_regenerate_id(true);
-        $_SESSION['created'] = time();
+        session_set_cookie_params([
+            'lifetime' => 0,
+            'path' => '/',
+            'domain' => $_SERVER['HTTP_HOST'],
+            'secure' => isset($_SERVER['HTTPS']),
+            'httponly' => true,
+            'samesite' => 'Strict'
+        ]);
+        session_start();
+
+        // Regenerate session ID periodically for security
+        if (!isset($_SESSION['created'])) {
+            $_SESSION['created'] = time();
+        } else if (time() - $_SESSION['created'] > 1800) {
+            session_regenerate_id(true);
+            $_SESSION['created'] = time();
+        }
     }
-}
 
     require_once __DIR__ . "/../../config/header.php";
     require_once __DIR__ . "/../../config/dbop.php";
@@ -36,73 +36,75 @@
     $method = new Method(1);
 
     // Get current user's tablet ID from session
-        $currentTabletId = $_SESSION['hostnameId'] ?? null;
+    $currentTabletId = $_SESSION['hostnameId'] ?? null;
 
-        $hostnames = $method->getOnlineTablets($currentTabletId);
+    $hostnames = $method->getOnlineTablets($currentTabletId);
 
-        $productionCode = $_SESSION['production_code'] ?? null;
+    $productionCode = $_SESSION['production_code'] ?? null;
 
-    
-if (empty($_SESSION['user_id']) || empty($_SESSION['production_code'])) {
-    header('Location: dor-leader-login.php');
-    exit;
-}
+
+    if (empty($_SESSION['user_id']) || empty($_SESSION['production_code'])) {
+        header('Location: dor-leader-login.php');
+        exit;
+    }
 
     ?>
     <!DOCTYPE html>
     <html lang="en">
+
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title><?=$title ?></title>
+        <title><?= $title ?></title>
         <link rel="stylesheet" href="../../css/bootstrap.min.css">
         <link href="../css/leader-dashboard.css" rel="stylesheet">
     </head>
+
     <body>
         <nav class="navbar navbar-expand-md navbar-dark bg-dark shadow-sm">
-        <div class="container-lg">
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
-                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
+            <div class="container-lg">
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                    aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
 
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link active fs-5" href="dor-home.php">DOR System</a>
-                    </li>
-                </ul>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav me-auto">
+                        <li class="nav-item">
+                            <a class="nav-link active fs-5" href="dor-home.php">DOR System</a>
+                        </li>
+                    </ul>
 
-                <!-- Device Name Display -->
-                <ul class="navbar-nav">
-                    <li class="nav-item dropdown">
-                        <?php
-                        // Get current tablet info
-                        $currentTablet = isset($_SESSION['hostnameId']) ? $method->getCurrentTablet($_SESSION['hostnameId']) : null;
-                        $tabletName = $currentTablet ? htmlspecialchars($currentTablet['Hostname']) : 'Tablet Name';
-                        $isActive = $currentTablet ? $currentTablet['IsActive'] : false;
-                        $statusClass = $isActive ? 'text-success' : 'text-warning';
-                        ?>
-                        <a class="nav-link dropdown-toggle <?= $statusClass ?> fw-bold" href="#" id="deviceDropdown" role="button"
-                            data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="bi bi-tablet"></i> <?= $tabletName ?>
-                            <span class="badge <?= $isActive ? 'bg-success' : 'bg-secondary' ?> ms-2">
-                                <?= $isActive ? 'Active' : 'Inactive' ?>
-                            </span>
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item text-danger fw-bold" href="dor-leader-login.php">
-                                <i class="bi bi-box-arrow-right"></i> Exit Application
-                            </a></li>
-                        </ul>
-                    </li>
-                </ul>
+                    <!-- Device Name Display -->
+                    <ul class="navbar-nav">
+                        <li class="nav-item dropdown">
+                            <?php
+                            // Get current tablet info
+                            $currentTablet = isset($_SESSION['hostnameId']) ? $method->getCurrentTablet($_SESSION['hostnameId']) : null;
+                            $tabletName = $currentTablet ? htmlspecialchars($currentTablet['Hostname']) : 'Tablet Name';
+                            $isActive = $currentTablet ? $currentTablet['IsActive'] : false;
+                            $statusClass = $isActive ? 'text-success' : 'text-warning';
+                            ?>
+                            <a class="nav-link dropdown-toggle <?= $statusClass ?> fw-bold" href="#" id="deviceDropdown" role="button"
+                                data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-tablet"></i> <?= $tabletName ?>
+                                <span class="badge <?= $isActive ? 'bg-success' : 'bg-secondary' ?> ms-2">
+                                    <?= $isActive ? 'Active' : 'Inactive' ?>
+                                </span>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item text-danger fw-bold" href="dor-leader-login.php">
+                                        <i class="bi bi-box-arrow-right"></i> Exit Application
+                                    </a></li>
+                            </ul>
+                        </li>
+                    </ul>
+                </div>
             </div>
-        </div>
-    </nav>
+        </nav>
         <script src="../../js/bootstrap.bundle.min.js"></script>
         <div class="container mt-5">
-        <!-- Current User Tablet (Displayed separately) -->
+            <!-- Current User Tablet (Displayed separately) -->
             <div class="row mb-4">
                 <div class="col-12">
                     <div class="card bg-primary text-white">
@@ -112,7 +114,7 @@ if (empty($_SESSION['user_id']) || empty($_SESSION['production_code'])) {
                                 <div>
                                     <h5 class="card-title mb-1">Your Tablet</h5>
                                     <p class="card-text mb-0">
-                                        <?php if(isset($_SESSION['is_leader']) || isset($_SESSION['is_sr_leader'])): ?>
+                                        <?php if (isset($_SESSION['is_leader']) || isset($_SESSION['is_sr_leader'])): ?>
                                             <span class="badge bg-light text-dark me-2">
                                                 <?= $_SESSION['is_sr_leader'] ? 'SR Leader' : 'Leader' ?>
                                             </span>
@@ -128,8 +130,9 @@ if (empty($_SESSION['user_id']) || empty($_SESSION['production_code'])) {
                 </div>
             </div>
 
-                <!-- Other Online Tablets -->
-                <h4 class="mb-3">Operator Tablets</h4>
+            <!-- Other Online Tablets -->
+            <h4 class="mb-3">Operator Tablets</h4>
+            <div id="tablet-list">
                 <div class="row row-cols-2 row-cols-md-4 row-cols-lg-6 g-3">
                     <?php if (!empty($hostnames)): ?>
                         <?php foreach ($hostnames as $row): ?>
@@ -157,6 +160,29 @@ if (empty($_SESSION['user_id']) || empty($_SESSION['production_code'])) {
                         </div>
                     <?php endif; ?>
                 </div>
-
             </div>
         </div>
+        </div>
+
+        <script>
+            function loadTabletList(){
+                fetch('../ajax/dor-load-tablet.php')
+                .then(response => {
+                    if(!response.ok) throw new Error('Network Error.');
+                    return response.text();
+                })
+                .then(html => {
+                    document.getElementById('tablet-list').innerHTML = html;
+                })
+                .catch(err => {
+                    console.error("Failed to lo;ad tablets:", err)
+                });
+            }
+
+            loadTabletList();
+
+            setInterval(loadTabletList, 3000);
+        </script>
+    </body>
+
+    </html>
