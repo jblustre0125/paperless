@@ -43,12 +43,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $leaderToOperator = $_POST['leaderToOperator'] ?? 'NA';
                 $operatorToLeader = $_POST['operatorToLeader'] ?? 'NA';
 
-                // Get changes field value (only for dorTypeId 4)
-                $changes = null;
-                if (isset($_SESSION['dorTypeId']) && $_SESSION['dorTypeId'] == 4) {
-                    $changesValue = trim($_POST['changes'] ?? '');
-                    $changes = !empty($changesValue) ? $changesValue : null;
-                }
+                // Get changes field value (for all DOR types)
+                $changesValue = trim($_POST['changes'] ?? '');
+                $changes = !empty($changesValue) ? $changesValue : null;
 
                 // First check if record exists
                 $checkSp = "EXEC RdAtoDorCheckpointRefreshRecordId @RecordId=?";
@@ -56,31 +53,18 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
                 if (!$existingRecord || empty($existingRecord)) {
                     // Execute stored procedure to save new responses
-                    if (isset($_SESSION['dorTypeId']) && $_SESSION['dorTypeId'] == 4) {
-                        $insSp = "EXEC InsAtoDorCheckpointRefresh 
-                            @RecordId=?, 
-                            @OpLeaderResponse=?,
-                            @OpOperatorResponse=?,
-                            @Changes=?";
+                    $insSp = "EXEC InsAtoDorCheckpointRefresh 
+                        @RecordId=?, 
+                        @OpLeaderResponse=?,
+                        @OpOperatorResponse=?,
+                        @Changes=?";
 
-                        $result = $db1->execute($insSp, [
-                            $recordId,
-                            $leaderToOperator,
-                            $operatorToLeader,
-                            $changes
-                        ]);
-                    } else {
-                        $insSp = "EXEC InsAtoDorCheckpointRefresh 
-                            @RecordId=?, 
-                            @OpLeaderResponse=?,
-                            @OpOperatorResponse=?";
-
-                        $result = $db1->execute($insSp, [
-                            $recordId,
-                            $leaderToOperator,
-                            $operatorToLeader
-                        ]);
-                    }
+                    $result = $db1->execute($insSp, [
+                        $recordId,
+                        $leaderToOperator,
+                        $operatorToLeader,
+                        $changes
+                    ]);
 
                     if ($result !== false) {
                         $response['success'] = true;
@@ -91,31 +75,18 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     }
                 } else {
                     // Record exists, update it
-                    if (isset($_SESSION['dorTypeId']) && $_SESSION['dorTypeId'] == 4) {
-                        $updSp = "EXEC UpdAtoDorCheckpointRefreshRecordId 
-                            @RecordId=?,
-                            @OpLeaderResponse=?,
-                            @OpOperatorResponse=?,
-                            @Changes=?";
+                    $updSp = "EXEC UpdAtoDorCheckpointRefreshRecordId 
+                        @RecordId=?,
+                        @OpLeaderResponse=?,
+                        @OpOperatorResponse=?,
+                        @Changes=?";
 
-                        $result = $db1->execute($updSp, [
-                            $recordId,
-                            $leaderToOperator,
-                            $operatorToLeader,
-                            $changes
-                        ]);
-                    } else {
-                        $updSp = "EXEC UpdAtoDorCheckpointRefreshRecordId 
-                            @RecordId=?,
-                            @OpLeaderResponse=?,
-                            @OpOperatorResponse=?";
-
-                        $result = $db1->execute($updSp, [
-                            $recordId,
-                            $leaderToOperator,
-                            $operatorToLeader
-                        ]);
-                    }
+                    $result = $db1->execute($updSp, [
+                        $recordId,
+                        $leaderToOperator,
+                        $operatorToLeader,
+                        $changes
+                    ]);
 
                     if ($result !== false) {
                         $response['success'] = true;
@@ -221,14 +192,12 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                         </div>
                     </td>
                 </tr>
-                <?php if (isset($_SESSION['dorTypeId']) && $_SESSION['dorTypeId'] == 4): ?>
-                    <tr>
-                        <td>Changes</td>
-                        <td>
-                            <input type="text" name="changes" placeholder="Enter new MP (example: P1, P2, etc.)" class="form-control">
-                        </td>
-                    </tr>
-                <?php endif; ?>
+                <tr>
+                    <td>Changes/Remarks</td>
+                    <td>
+                        <input type="text" name="changes" class="form-control" placeholder="Enter any changes or remarks...">
+                    </td>
+                </tr>
             </tbody>
             <tfoot>
                 <tr>
@@ -326,6 +295,9 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
 
         // Add event handler for btnProceed
         document.addEventListener("DOMContentLoaded", function() {
+            // Restore form data from session storage
+            restoreFormData();
+
             // Variables for file paths
             const workInstructFile = <?php echo json_encode($workInstructFile); ?>;
             const preCardFile = <?php echo json_encode($preCardFile); ?>;
@@ -351,6 +323,16 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                 }
             });
 
+            // Save form data when user navigates away
+            window.addEventListener('beforeunload', function() {
+                saveFormData();
+            });
+
+            // Save form data when user clicks back button
+            document.querySelector('button[onclick="goBack()"]').addEventListener('click', function() {
+                saveFormData();
+            });
+
             document.getElementById("btnProceed").addEventListener("click", function(e) {
                 e.preventDefault();
 
@@ -360,12 +342,10 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                 formData.append('leaderToOperator', document.querySelector('input[name="leaderToOperator"]:checked').value);
                 formData.append('operatorToLeader', document.querySelector('input[name="operatorToLeader"]:checked').value);
 
-                // Add changes field if dorTypeId is 4
-                if (dorTypeId === 4) {
-                    const changesInput = document.querySelector('input[name="changes"]');
-                    if (changesInput) {
-                        formData.append('changes', changesInput.value);
-                    }
+                // Add changes field for all DOR types
+                const changesInput = document.querySelector('input[name="changes"]');
+                if (changesInput) {
+                    formData.append('changes', changesInput.value);
                 }
 
                 // Send AJAX request
@@ -376,6 +356,8 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
+                            // Clear form data from session storage when proceeding to next page
+                            clearFormData();
                             window.location.href = data.redirectUrl;
                         } else {
                             showErrorModal(data.errors.join('\n'));
@@ -386,6 +368,71 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                     });
             });
         });
+
+        // Function to save form data to session storage
+        function saveFormData() {
+            const formData = {};
+
+            // Save radio button values
+            const leaderToOperator = document.querySelector('input[name="leaderToOperator"]:checked');
+            if (leaderToOperator) {
+                formData['leaderToOperator'] = leaderToOperator.value;
+            }
+
+            const operatorToLeader = document.querySelector('input[name="operatorToLeader"]:checked');
+            if (operatorToLeader) {
+                formData['operatorToLeader'] = operatorToLeader.value;
+            }
+
+            // Save changes field if it exists
+            const changesInput = document.querySelector('input[name="changes"]');
+            if (changesInput) {
+                formData['changes'] = changesInput.value;
+            }
+
+            sessionStorage.setItem('dorRefreshData', JSON.stringify(formData));
+        }
+
+        // Function to restore form data from session storage
+        function restoreFormData() {
+            const savedData = sessionStorage.getItem('dorRefreshData');
+            if (!savedData) return;
+
+            try {
+                const formData = JSON.parse(savedData);
+
+                // Restore radio button values
+                if (formData['leaderToOperator']) {
+                    const radio = document.querySelector(`input[name="leaderToOperator"][value="${formData['leaderToOperator']}"]`);
+                    if (radio) {
+                        radio.checked = true;
+                    }
+                }
+
+                if (formData['operatorToLeader']) {
+                    const radio = document.querySelector(`input[name="operatorToLeader"][value="${formData['operatorToLeader']}"]`);
+                    if (radio) {
+                        radio.checked = true;
+                    }
+                }
+
+                // Restore changes field
+                if (formData['changes']) {
+                    const changesInput = document.querySelector('input[name="changes"]');
+                    if (changesInput) {
+                        changesInput.value = formData['changes'];
+                    }
+                }
+
+            } catch (error) {
+                console.error('Error restoring form data:', error);
+            }
+        }
+
+        // Function to clear form data from session storage
+        function clearFormData() {
+            sessionStorage.removeItem('dorRefreshData');
+        }
     </script>
 
     <script src="../js/pdf.min.js"></script>

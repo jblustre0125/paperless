@@ -545,7 +545,7 @@ try {
       <div class="modal-content">
         <div class="modal-header bg-primary text-white py-3">
           <div class="d-flex justify-content-between align-items-center w-100">
-            <h5 class="modal-title mb-0" id="operatorModalLabel">Manage Operators - Row <span id="operatorRowNumber"></span></h5>
+            <h5 class="modal-title mb-0" id="operatorModalLabel">Operators - Row <span id="operatorRowNumber"></span></h5>
             <div class="d-flex align-items-center">
               <span class="text-white me-3">Box Number: <span id="modalLotNumber" class="fw-bold"></span></span>
               <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -600,7 +600,7 @@ try {
       <div class="modal-content">
         <div class="modal-header bg-secondary text-white py-3">
           <div class="d-flex justify-content-between align-items-center w-100">
-            <h5 class="modal-title mb-0" id="downtimeModalLabel">Manage Downtime - Row <span id="downtimeRowNumber"></span></h5>
+            <h5 class="modal-title mb-0" id="downtimeModalLabel">Downtime - Row <span id="downtimeRowNumber"></span></h5>
             <div class="d-flex align-items-center">
               <span class="text-white me-3">Box Number: <span id="downtimeModalLotNumber" class="fw-bold"></span></span>
               <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -768,6 +768,9 @@ try {
 
   <script>
     document.addEventListener("DOMContentLoaded", function() {
+      // Restore form data from session storage
+      restoreFormData();
+
       const scannerModal = new bootstrap.Modal(document.getElementById("qrScannerModal"));
       const video = document.getElementById("qr-video");
       let canvas = document.createElement("canvas");
@@ -776,6 +779,16 @@ try {
       });
       let scanning = false;
       let activeRowId = null;
+
+      // Save form data when user navigates away
+      window.addEventListener('beforeunload', function() {
+        saveFormData();
+      });
+
+      // Save form data when user clicks back button
+      document.querySelector('button[onclick="goBack()"]').addEventListener('click', function() {
+        saveFormData();
+      });
 
       // Time input validation
       document.querySelectorAll('.time-input').forEach(input => {
@@ -1128,6 +1141,9 @@ try {
     const preCardFile = <?php echo json_encode($preCardFile); ?>;
 
     document.addEventListener("DOMContentLoaded", function() {
+      // Restore form data from session storage
+      restoreFormData();
+
       // Attach event listeners to buttons
       document.getElementById("btnDrawing").addEventListener("click", function() {
         openPiPViewer("<?php echo $drawingFile; ?>", 'image');
@@ -1249,6 +1265,8 @@ try {
           .then((data) => {
             if (data.success) {
               if (clickedButton.name === "btnProceed") {
+                // Clear all form data from session storage when saving DOR
+                clearAllFormData();
                 window.location.href = data.redirectUrl;
                 return;
               }
@@ -1264,6 +1282,83 @@ try {
       });
 
     });
+
+    // Function to save form data to session storage
+    function saveFormData() {
+      const formData = {};
+
+      // Save all box numbers, time inputs, and operator inputs
+      for (let i = 1; i <= 20; i++) {
+        const boxNoInput = document.getElementById(`boxNo${i}`);
+        const timeStartInput = document.getElementById(`timeStart${i}`);
+        const timeEndInput = document.getElementById(`timeEnd${i}`);
+        const operatorsInput = document.getElementById(`operators${i}`);
+
+        if (boxNoInput) {
+          formData[`boxNo${i}`] = boxNoInput.value;
+        }
+        if (timeStartInput) {
+          formData[`timeStart${i}`] = timeStartInput.value;
+        }
+        if (timeEndInput) {
+          formData[`timeEnd${i}`] = timeEndInput.value;
+        }
+        if (operatorsInput) {
+          formData[`operators${i}`] = operatorsInput.value;
+        }
+      }
+
+      sessionStorage.setItem('dorDorData', JSON.stringify(formData));
+    }
+
+    // Function to restore form data from session storage
+    function restoreFormData() {
+      const savedData = sessionStorage.getItem('dorDorData');
+      if (!savedData) return;
+
+      try {
+        const formData = JSON.parse(savedData);
+
+        // Restore all form inputs
+        for (let i = 1; i <= 20; i++) {
+          const boxNoInput = document.getElementById(`boxNo${i}`);
+          const timeStartInput = document.getElementById(`timeStart${i}`);
+          const timeEndInput = document.getElementById(`timeEnd${i}`);
+          const operatorsInput = document.getElementById(`operators${i}`);
+
+          if (boxNoInput && formData[`boxNo${i}`]) {
+            boxNoInput.value = formData[`boxNo${i}`];
+          }
+          if (timeStartInput && formData[`timeStart${i}`]) {
+            timeStartInput.value = formData[`timeStart${i}`];
+          }
+          if (timeEndInput && formData[`timeEnd${i}`]) {
+            timeEndInput.value = formData[`timeEnd${i}`];
+          }
+          if (operatorsInput && formData[`operators${i}`]) {
+            operatorsInput.value = formData[`operators${i}`];
+          }
+        }
+
+        // Update row states and durations after restoring data
+        updateRowStates();
+        for (let i = 1; i <= 20; i++) {
+          updateDuration(i);
+        }
+        updateDORSummary();
+
+      } catch (error) {
+        console.error('Error restoring form data:', error);
+      }
+    }
+
+    // Function to clear all form data from session storage
+    function clearAllFormData() {
+      sessionStorage.removeItem('dorFormData');
+      sessionStorage.removeItem('dorRefreshData');
+      sessionStorage.removeItem('dorDorData');
+      sessionStorage.removeItem('activeTab');
+    }
 
     function openTab(event, tabName) {
       let tabContents = document.querySelectorAll(".tab-content");
