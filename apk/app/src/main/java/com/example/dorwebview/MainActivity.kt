@@ -92,7 +92,7 @@ class MainActivity : AppCompatActivity() {
                 view: WebView?,
                 handler: SslErrorHandler?,
                 error: SslError?
-            ) {z
+            ) {
                 handler?.proceed()
             }
 
