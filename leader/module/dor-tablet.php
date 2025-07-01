@@ -8,8 +8,6 @@ require_once '../controller/dor-dimension-checkpoint.php';
 require_once '../controller/dor-dor.php';
 require_once '../controller/dor-leader-method.php';
 
-
-
 $isSubmitted = isset($_GET['submitted']) && $_GET['submitted'] == 1;
 
 // Make sure $recordId is defined at this point
@@ -20,7 +18,6 @@ $counter = 1;
 foreach ($dimChecks as $row) {
     $indexedDimChecks[$counter++] = $row;
 }
-
 ?>
 
 <!DOCTYPE html>
@@ -78,7 +75,6 @@ foreach ($dimChecks as $row) {
             font-style: italic;
         }
     </style>
-
 </head>
 
 <body class="fs-6" style="margin-left: 0; margin-right: 0; padding: 0;">
@@ -105,11 +101,10 @@ foreach ($dimChecks as $row) {
                     <input type="hidden" name="record_id" value="<?= $recordId ?>">
                     <input type="hidden" name="current_tab_index" id="currentTabInput" value="<?= isset($_GET['tab']) ? (int)$_GET['tab'] : 0 ?>">
 
-
                     <!-- Right-aligned group -->
                     <div class="d-flex gap-2 flex-wrap">
                         <button type="button" class="btn btn-secondary btn-lg nav-btn-group btn-nav-fixed" id="btnBack">Back</button>
-                        <button type="submit    " class="btn btn-primary btn-lg nav-btn-group btn-nav-fixed" name="btnNext" id="btnNext">
+                        <button type="submit" class="btn btn-primary btn-lg nav-btn-group btn-nav-fixed" name="btnNext" id="btnNext">
                             <span class="short-label">Next</span>
                             <span class="long-label">Proceed to Next Checkpoint</span>
                         </button>
@@ -117,12 +112,13 @@ foreach ($dimChecks as $row) {
                 </div>
             </div>
         </nav>
+
         <div class="container-fluid py-0 m-0">
             <!-- CheckpointA -->
             <div class="tab-content fixed-top" style="margin-top: 50px; display:none;" id="dorTabContent">
                 <div class="tab-pane fade show active" id="tab-0" role="tabpanel">
                     <div class="table-responsive" style="max-height:90vh; margin-top: 10px; overflow: auto;">
-                        <table class=" table table-bordered text-center align-middle w-100 h-100">
+                        <table class="table table-bordered text-center align-middle w-100 h-100">
                             <thead class="table-light">
                                 <tr>
                                     <th class="fs-6" colspan="6">A. Required Item and Jig Condition VS Work Instruction</th>
@@ -210,7 +206,6 @@ foreach ($dimChecks as $row) {
                                                             </div>
                                                         <?php endforeach; ?>
                                                     </div>
-
                                                 <?php endif; ?>
                                             </td>
                                         </tr>
@@ -224,7 +219,6 @@ foreach ($dimChecks as $row) {
 
                 <div class="tab-pane fade" id="tab-1" role="tabpanel">
                     <div class="container-fluid mt-5">
-
                         <?php $tabNames = ['Hatsumono', 'Nakamono', 'Owarimono']; ?>
 
                         <!-- Sub-tabs -->
@@ -375,7 +369,7 @@ foreach ($dimChecks as $row) {
                                     </tr>
                                 <?php endfor; ?>
 
-                                <!-- Judge row (same as your previous logic) -->
+                                <!-- Judge row -->
                                 <tr>
                                     <td class="fw-bold text-center fs-6">Judge</td>
                                     <?php foreach (['hatsumono', 'nakamono', 'owarimono'] as $section): ?>
@@ -395,17 +389,15 @@ foreach ($dimChecks as $row) {
                                                 <input type="hidden" name="checkby_<?= $section . $i ?>"
                                                     value="<?= htmlspecialchars($_SESSION['employee_code'] ?? '') ?>">
                                             </td>
-
                                         <?php endfor; ?>
                                     <?php endforeach; ?>
                                 </tr>
                             </tbody>
-
-
                         </table>
                         <button type="submit" name="btnSubmit" id="hiddenSubmit" style="display: none;">Submit</button>
                     </div>
                 </div>
+
                 <!-- Tab Pane -->
                 <div class="tab-pane fade" id="tab-3" role="tabpanel">
                     <div class="container-fluid py-2">
@@ -462,10 +454,7 @@ foreach ($dimChecks as $row) {
                                     for ($i = 1; $i <= 20; $i++) {
                                         $header = $headers[$i - 1] ?? [];
                                         $recordHeaderId = $header['RecordHeaderId'] ?? 'unknown_' . $i;
-
-                                        // Get employee codes
                                         $employeeCodes = $sharedEmployeeCodes;
-
                                         $modalId = "operatorModal_" . htmlspecialchars($recordHeaderId);
                                     ?>
                                         <tr data-row-id="<?= $i ?>">
@@ -516,27 +505,21 @@ foreach ($dimChecks as $row) {
                                                         <?php endforeach; ?>
                                                     </div>
 
-                                                    <!-- Hidden input to sync operator values (MUST be closed properly) -->
+                                                    <!-- Hidden input to sync operator values -->
                                                     <input type="hidden" id="operators<?= htmlspecialchars($recordHeaderId) ?>"
                                                         value="<?= htmlspecialchars(implode(',', $employeeCodes)) ?>">
                                                 </div>
                                             </td>
 
-
                                             <!-- Downtime -->
                                             <td class="text-center align-middle">
                                                 <?php $recordHeaderId = $header['RecordHeaderId'] ?? null; ?>
-
                                                 <div class="d-flex flex-column align-items-center mt-md-4">
                                                     <!-- View Downtime Button -->
                                                     <button type="button"
                                                         class="btn btn-outline-secondary btn-sm mb-1 downtime-trigger"
                                                         data-bs-toggle="modal"
-
                                                         data-bs-target="#downtimeModal<?= htmlspecialchars($recordHeaderId) ?>"
-
-                                                        data-bs-target="#downtimeModal"
-
                                                         data-record-id="<?= htmlspecialchars($recordHeaderId) ?>">
                                                         <i class="bi bi-clock-history"></i> View Downtime
                                                     </button>
@@ -544,29 +527,15 @@ foreach ($dimChecks as $row) {
                                                     <!-- Downtime Info Badges -->
                                                     <div class="downtime-info d-flex flex-wrap justify-content-center"
                                                         id="downtimeInfo<?= htmlspecialchars($recordHeaderId) ?>">
-
-                                                        <?php if (!empty($details[$recordHeaderId]) && is_array($details[$recordHeaderId])): ?>
-
                                                         <?php if (!empty($recordHeaderId) && !empty($details[$recordHeaderId]) && is_array($details[$recordHeaderId])): ?>
-
                                                             <?php foreach ($details[$recordHeaderId] as $detail): ?>
                                                                 <?php
                                                                 $downtimeId = $detail['DowntimeId'] ?? null;
                                                                 $actionTakenId = $detail['ActionTakenId'] ?? null;
-
-
-                                                                $downtimeCode = $downtimeId && isset($downtimeMap[$downtimeId])
-                                                                    ? $downtimeMap[$downtimeId]['DowntimeCode']
-                                                                    : null;
-
-                                                                $actionTakenTitle = $actionTakenId && isset($actionTakenMap[$actionTakenId])
-
                                                                 $downtimeCode = !empty($downtimeMap[$downtimeId]['DowntimeCode'])
                                                                     ? $downtimeMap[$downtimeId]['DowntimeCode']
                                                                     : null;
-
                                                                 $actionTakenTitle = !empty($actionTakenMap[$actionTakenId]['ActionDescription'])
-
                                                                     ? $actionTakenMap[$actionTakenId]['ActionDescription']
                                                                     : 'No Description';
                                                                 ?>
@@ -584,11 +553,6 @@ foreach ($dimChecks as $row) {
                                                     </div>
                                                 </div>
                                             </td>
-
-
-
-
-
 
                                             <!-- Delete -->
                                             <td class="text-center align-middle">
@@ -608,7 +572,7 @@ foreach ($dimChecks as $row) {
                                             aria-labelledby="operatorModalLabel<?= $header['RecordHeaderId'] ?>"
                                             aria-hidden="true"
                                             data-record-id="<?= $header['RecordHeaderId'] ?>"
-                                            data-record-detail-id="<?= $header['RecordDetailId'] ?>"> <!-- add RecordDetailId -->
+                                            data-record-detail-id="<?= $header['RecordDetailId'] ?>">
 
                                             <div class="modal-dialog modal-dialog-centered modal-lg">
                                                 <div class="modal-content shadow">
@@ -655,16 +619,6 @@ foreach ($dimChecks as $row) {
                                                             class="form-control"
                                                             id="operators<?= htmlspecialchars($header['RecordHeaderId']) ?>"
                                                             value="<?= htmlspecialchars(implode(',', $employeeCodes)) ?>">
-
-                                                        <!-- Optional: Output area for badges outside modal -->
-                                                        <!-- <div id="operatorList<?= htmlspecialchars($header['RecordHeaderId']) ?>" class="mt-3">
-                    <?php foreach ($employeeCodes as $code):
-                                            $name = $operatorMap[$code] ?? 'Unknown'; ?>
-                        <small class="badge bg-light text-dark border me-1 mb-1" title="<?= htmlspecialchars($name) ?>">
-                            <?= htmlspecialchars($code) ?>
-                        </small>
-                    <?php endforeach; ?>
-                </div> -->
                                                     </div>
 
                                                     <!-- Modal Footer -->
@@ -676,14 +630,12 @@ foreach ($dimChecks as $row) {
                                                         </button>
                                                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                                                     </div>
-
                                                 </div>
                                             </div>
                                         </div>
 
-
-
-                                        <<div class="modal fade"
+                                        <!-- Downtime Modal -->
+                                        <div class="modal fade"
                                             id="downtimeModal<?= $header['RecordHeaderId'] ?>"
                                             tabindex="-1"
                                             aria-labelledby="downtimeModalLabel<?= $header['RecordHeaderId'] ?>"
@@ -706,21 +658,6 @@ foreach ($dimChecks as $row) {
                                                         <div class="mb-3">
                                                             <label for="downtimeSelect<?= $header['RecordHeaderId'] ?>" class="form-label">Downtime Reason</label>
                                                             <select id="downtimeSelect<?= $header['RecordHeaderId'] ?>" class="form-select downtime-select">
-
-                                        <div class="modal fade" id="downtimeModal" tabindex="-1" aria-labelledby="downtimeModalLabel" aria-hidden="true">
-                                            <div class="modal-dialog modal-lg modal-dialog-centered">
-                                                <div class="modal-content shadow">
-                                                    <div class="modal-header bg-danger text-white">
-                                                        <h5 class="modal-title" id="downtimeModalLabel">Manage Downtime</h5>
-                                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                    </div>
-
-                                                    <div class="modal-body">
-                                                        <!-- Downtime Reason -->
-                                                        <div class="mb-3">
-                                                            <label for="downtimeSelect" class="form-label">Downtime Reason</label>
-                                                            <select id="downtimeSelect" class="form-select">
-
                                                                 <option value="">-- Select Downtime --</option>
                                                                 <?php foreach ($downtimeOptions as $downtime): ?>
                                                                     <option value="<?= htmlspecialchars($downtime['DowntimeId']) ?>">
@@ -732,30 +669,19 @@ foreach ($dimChecks as $row) {
 
                                                         <!-- Action Taken -->
                                                         <div class="mb-3">
-
                                                             <label for="actionTakenSelect<?= $header['RecordHeaderId'] ?>" class="form-label">Action Taken</label>
                                                             <select id="actionTakenSelect<?= $header['RecordHeaderId'] ?>" class="form-select action-select">
-
-                                                            <label for="actionTakenSelect" class="form-label">Action Taken</label>
-                                                            <select id="actionTakenSelect" class="form-select">
-
                                                                 <option value="">-- Select Action Taken --</option>
                                                                 <?php foreach ($actionTakenOptions as $option): ?>
                                                                     <option value="<?= htmlspecialchars($option['ActionTakenId']) ?>">
                                                                         <?= htmlspecialchars($option['ActionTakenCode'] . ' - ' . $option['ActionTakenName']) ?>
                                                                     </option>
                                                                 <?php endforeach; ?>
-
-
-                                                                <pre><?php print_r($details[$recordHeaderId]); ?></pre>
-
-
                                                             </select>
                                                         </div>
 
                                                         <!-- PIC Input -->
                                                         <div class="mb-3">
-
                                                             <label for="picInput<?= $header['RecordHeaderId'] ?>" class="form-label">PIC (Person In Charge)</label>
                                                             <input type="text" id="picInput<?= $header['RecordHeaderId'] ?>" class="form-control pic-input" placeholder="Enter PIC name">
                                                         </div>
@@ -771,223 +697,114 @@ foreach ($dimChecks as $row) {
                                                             data-record-id="<?= $header['RecordHeaderId'] ?>">
                                                             Save Downtime
                                                         </button>
-
-                                                            <label for="picInput" class="form-label">PIC (Person In Charge)</label>
-                                                            <input type="text" id="picInput" class="form-control" placeholder="Enter PIC name">
-                                                        </div>
-
-                                                        <!-- Hidden Target Row ID -->
-                                                        <input type="hidden" id="downtimeTargetRow">
-                                                    </div>
-
-                                                    <div class="modal-footer">
-                                                        <button type="button" class="btn btn-danger" id="saveDowntime">Save Downtime</button>
-
                                                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                                                     </div>
                                                 </div>
                                             </div>
-
-                        </div>
-
-
-
-
-                    <?php
-                                        $modals[] = ob_get_clean();
-                                    } ?>
-                    </tbody>
-                    </table>
-
-                    </div>
-                </div>
-
                                         </div>
-
-
-
-                                    <?php
+                                        <?php
                                         $modals[] = ob_get_clean();
                                     } ?>
                                 </tbody>
                             </table>
-
                         </div>
                     </div>
                 </div>
-
-
             </div>
-
         </div>
-        </div>
-
-
-
-        <?php
-        echo implode("\n", $modals);
-        ?>
     </form>
+
+    <?php
+    echo implode("\n", $modals);
+    ?>
+    
     <script src="../../js/bootstrap.bundle.min.js"></script>
-
-
     <script>
         window.downtimeMap = <?= json_encode($downtimeOptions, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
         window.actionTakenMap = <?= json_encode($actionTakenOptions, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
-    </script>
+        window.operatorMap = <?= json_encode($operatorMap) ?>;
 
-    <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Tab Handling
-            const tabPanes = Array.from(document.querySelectorAll('#dorTabContent > .tab-pane')).slice(0, 4);
-            const tabInput = document.getElementById("currentTabInput");
-            const form = document.querySelector('form');
-            const operatorMap = <?= json_encode($operatorMap) ?>;
-
-
-            let urlTabParam = new URLSearchParams(window.location.search).get("tab");
-            let parsedIndex = parseInt(urlTabParam);
-            if (isNaN(parsedIndex)) parsedIndex = parseInt(tabInput.value) || 0;
-            parsedIndex = Math.max(0, Math.min(parsedIndex, tabPanes.length - 1));
-            let currentTabIndex = parsedIndex;
-
-            // === Handle tab from URL or saved input ===
-            let urlTabParam = new URLSearchParams(window.location.search).get("tab");
-            let currentTabIndex = Math.max(0, Math.min(parseInt(urlTabParam) || parseInt(tabInput.value) || 0, tabPanes.length - 1));
-
-
-            function showTab(index) {
-                if (index < 0 || index >= tabPanes.length) return;
-
-                tabPanes.forEach(tab => tab.classList.remove('show', 'active'));
-                tabPanes[index].classList.add('show', 'active');
-                tabInput.value = index;
-
-                // Update URL
-                const newUrl = new URL(window.location.href);
-                newUrl.searchParams.set('tab', index);
-                window.history.replaceState({}, '', newUrl);
-
-
-                // Nested tab activation
-
-                const nestedNav = tabPanes[index].querySelector('.nav-tabs');
-                const nestedContent = tabPanes[index].querySelector('.tab-content');
-                if (nestedNav && nestedContent) {
-                    const activeBtn = nestedNav.querySelector('.nav-link.active') || nestedNav.querySelector('.nav-link');
-                    const targetSelector = activeBtn?.getAttribute('data-bs-target');
-
-                    nestedNav.querySelectorAll('.nav-link').forEach(btn => btn.classList.remove('active'));
-                    nestedContent.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('show', 'active'));
-
-                    activeBtn?.classList.add('active');
-                    if (targetSelector) nestedContent.querySelector(targetSelector)?.classList.add('show', 'active');
-                }
-
-
-                const btnNext = document.getElementById('btnNext');
-                if (btnNext) {
-                    btnNext.textContent = (index === tabPanes.length - 1) ? 'Submit' : 'Next';
-                }
+    // Initialize tabs
+    const tabPanes = document.querySelectorAll('#dorTabContent > .tab-pane');
+    const tabInput = document.getElementById("currentTabInput");
+    
+    // Get initial tab index from URL or default to 0
+    const urlParams = new URLSearchParams(window.location.search);
+    let currentTabIndex = parseInt(urlParams.get('tab')) || 0;
+    currentTabIndex = Math.max(0, Math.min(currentTabIndex, tabPanes.length - 1));
+    
+    function showTab(index) {
+        // Safety check
+        if (!tabPanes || !tabPanes.length) {
+            console.error("No tab panes found");
+            return;
+        }
+        
+        // Validate index
+        if (index < 0 || index >= tabPanes.length) {
+            console.error("Invalid tab index:", index);
+            return;
+        }
+        
+        // Hide all tabs
+        tabPanes.forEach(tab => {
+            if (tab && tab.classList) {  // Double-check element exists
+                tab.classList.remove('show', 'active');
             }
+        });
+        
+        // Show selected tab
+        if (tabPanes[index] && tabPanes[index].classList) {
+            tabPanes[index].classList.add('show', 'active');
+        }
+        
+        // Update URL
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.set('tab', index);
+        window.history.replaceState({}, '', newUrl);
+        
+        // Update next button text
+        const btnNext = document.getElementById('btnNext');
+        if (btnNext) {
+            btnNext.textContent = (index === tabPanes.length - 1) ? 'Submit' : 'Next';
+        }
+    }
+    
+    // Initialize with first tab
+    showTab(currentTabIndex);
+    
+    // Make sure tab content is visible
+    const tabContent = document.getElementById('dorTabContent');
+    if (tabContent) {
+        tabContent.style.display = 'block';
+    }
+    
+    // Tab navigation handlers
+    document.getElementById('btnNext')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        if (currentTabIndex < tabPanes.length - 1) {
+            currentTabIndex++;
+            showTab(currentTabIndex);
+        } else {
+            // Submit form or redirect
+            window.location.href = 'dor-leader-dashboard.php';
+        }
+    });
+    
+    document.getElementById('btnBack')?.addEventListener('click', function(e) {
+        e.preventDefault();
+        if (currentTabIndex > 0) {
+            currentTabIndex--;
+            showTab(currentTabIndex);
+        }
+    });
 
-            // Tab Navigation
-            document.getElementById('btnNext').addEventListener('click', function(e) {
-
-                document.getElementById('btnNext').textContent = (index === tabPanes.length - 1) ? 'Submit' : 'Next';
-            }
-
-            // === Next / Back buttons ===
-            document.getElementById('btnNext')?.addEventListener('click', function(e) {
-
-                e.preventDefault();
-                const currentTab = tabPanes[currentTabIndex];
-
-                if (currentTabIndex === 0 && form) {
-
-                    const tabInputs = currentTab.querySelectorAll('input, select, textarea');
-                    const tabData = new FormData();
-
-                    tabInputs.forEach(input => {
-                        if (!input.name) return;
-                        if ((input.type === 'radio' || input.type === 'checkbox')) {
-                            if (input.checked) tabData.append(input.name, input.value);
-
-                    const formData = new FormData(form);
-                    currentTab.querySelectorAll('input, select, textarea').forEach(input => {
-                        if (!input.name) return;
-                        if (input.type === 'checkbox' || input.type === 'radio') {
-                            if (input.checked) formData.append(input.name, input.value);
-
-                        } else {
-                            formData.set(input.name, input.value);
-                        }
-                    });
-
-                    formData.append('tab', '0');
-                    formData.append('btnVisual', '1');
-                    formData.append('current_tab_index', currentTabIndex);
-
-                    fetch(form.action, {
-
-                            method: 'POST',
-                            body: tabData
-                        })
-                        .then(res => {
-                            if (!res.ok) throw new Error('Failed to save Tab 0');
-                            return res.text();
-                        })
-                        .then(() => {
-                            currentTabIndex++;
-                            showTab(currentTabIndex);
-                        })
-                        .catch(err => {
-                            console.error(err);
-                            alert('Could not save Tab 0. Please try again.');
-                        });
-
-                    return;
-                }
-
-                if (currentTabIndex < tabPanes.length - 1) {
-
-                        method: 'POST',
-                        body: formData
-                    }).then(res => {
-                        if (!res.ok) throw new Error('Failed to save Tab 0');
-                        return res.text();
-                    }).then(() => {
-                        currentTabIndex++;
-                        showTab(currentTabIndex);
-                    }).catch(err => {
-                        console.error(err);
-                        alert('Could not save Tab 0. Please try again.');
-                    });
-                } else if (currentTabIndex < tabPanes.length - 1) {
-
-                    currentTabIndex++;
-                    showTab(currentTabIndex);
-                } else {
-                    window.location.href = 'dor-leader-dashboard.php';
-                }
-            });
-
-
-            document.getElementById('btnBack').addEventListener('click', function(e) {
-
-            document.getElementById('btnBack')?.addEventListener('click', function(e) {
-
-                e.preventDefault();
-                if (currentTabIndex > 0) {
-                    currentTabIndex--;
-                    showTab(currentTabIndex);
-                }
-            });
 
             showTab(currentTabIndex);
             document.getElementById('dorTabContent').style.display = 'block';
 
-            // === Operator Modal Logic ===
+            // Operator Modal Logic
             document.querySelectorAll('.operator-modal').forEach(modal => {
                 const recordHeaderId = modal.dataset.recordId;
                 const hiddenInput = document.getElementById(`operatorsHidden${recordHeaderId}`);
@@ -995,72 +812,38 @@ foreach ($dimChecks as $row) {
                 const badgeList = document.getElementById(`operatorList${recordHeaderId}`);
                 const modalBody = modal.querySelector('.current-operators');
 
-
-                function updateDisplay(codes) {
-                    const html = codes.map(code => {
-                        const name = operatorMap[code] || 'Unknown';
-                        return `<small class="badge bg-light text-dark border me-1 mb-1" title="${name}">${code}</small>`;
-                    }).join('');
-                    badgeList.innerHTML = html;
-                }
-
-                function syncCode(code, action = 'add') {
-
                 const updateDisplay = (codes) => {
                     badgeList.innerHTML = codes.map(code => {
-                        const name = operatorMap[code] || 'Unknown';
+                        const name = window.operatorMap[code] || 'Unknown';
                         return `<small class="badge bg-light text-dark border me-1 mb-1" title="${name}">${code}</small>`;
                     }).join('');
                 };
 
                 const syncCode = (code, action = 'add') => {
-
                     let codes = hiddenInput.value.split(',').map(c => c.trim()).filter(Boolean);
                     const codeSet = new Set(codes);
 
                     if (action === 'add') codeSet.add(code);
-
                     else if (action === 'remove') codeSet.delete(code);
-
-                    const updatedCodes = Array.from(codeSet);
-                    hiddenInput.value = visibleInput.value = updatedCodes.join(',');
-                    updateDisplay(updatedCodes);
-
-                    else codeSet.delete(code);
 
                     const updated = [...codeSet];
                     hiddenInput.value = visibleInput.value = updated.join(',');
                     updateDisplay(updated);
-
 
                     if (action === 'add' && !modalBody.querySelector(`[data-code="${code}"]`)) {
                         const card = document.createElement('div');
                         card.className = 'card border-primary operator-card';
                         card.dataset.code = code;
                         card.innerHTML = `
-                    <div class="card-body text-center p-2">
-                        <h6 class="card-title mb-1">${operatorMap[code] || 'No operator'}</h6>
-                        <small class="text-muted">${code}</small>
-                        <button type="button" class="btn btn-sm btn-outline-danger mt-2 btn-remove-operator">
-                            <i class="bi bi-x-circle"></i> Remove
-                        </button>
-                    </div>`;
+                            <div class="card-body text-center p-2">
+                                <h6 class="card-title mb-1">${window.operatorMap[code] || 'No operator'}</h6>
+                                <small class="text-muted">${code}</small>
+                                <button type="button" class="btn btn-sm btn-outline-danger mt-2 btn-remove-operator">
+                                    <i class="bi bi-x-circle"></i> Remove
+                                </button>
+                            </div>`;
                         modalBody.appendChild(card);
                     } else if (action === 'remove') {
-
-                        modalBody.querySelectorAll(`[data-code="${code}"]`).forEach(el => el.remove());
-                    }
-                }
-
-                modal.addEventListener('click', e => {
-                    const btn = e.target.closest('.btn-remove-operator');
-                    if (btn) {
-                        const card = btn.closest('.operator-card');
-                        if (card?.dataset.code) {
-                            syncCode(card.dataset.code, 'remove');
-                        }
-                    }
-
                         modalBody.querySelector(`[data-code="${code}"]`)?.remove();
                     }
                 };
@@ -1068,7 +851,6 @@ foreach ($dimChecks as $row) {
                 modal.addEventListener('click', e => {
                     const btn = e.target.closest('.btn-remove-operator');
                     if (btn) syncCode(btn.closest('.operator-card').dataset.code, 'remove');
-
                 });
 
                 modal.querySelector('.operator-search')?.addEventListener('input', function() {
@@ -1079,13 +861,9 @@ foreach ($dimChecks as $row) {
                     if (!val) return;
 
                     let count = 0;
-                    for (const [code, name] of Object.entries(operatorMap)) {
+                    for (const [code, name] of Object.entries(window.operatorMap)) {
                         if (code.toLowerCase().includes(val) || name.toLowerCase().includes(val)) {
-
-                            if (count++ >= 10) break;
-
                             if (++count > 10) break;
-
 
                             const btn = document.createElement('button');
                             btn.type = 'button';
@@ -1101,30 +879,13 @@ foreach ($dimChecks as $row) {
                         }
                     }
 
-
                     if (count === 0) {
                         resultsBox.innerHTML = '<small class="text-muted">No matches found.</small>';
                     }
                 });
             });
 
-            // === Save Operators
-            // === Save Operators ===
-            document.querySelectorAll('.btn-save-operators').forEach(btn => {
-                btn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    const modal = this.closest('.operator-modal');
-                    const recordHeaderId = modal.dataset.recordId;
-
-                    const operatorCards = modal.querySelectorAll('.operator-card');
-                    const selectedCodes = [...new Set(Array.from(operatorCards).map(card => card.dataset.code).filter(Boolean))];
-
-                    if (selectedCodes.length === 0) {
-
-                    if (count === 0) resultsBox.innerHTML = '<small class="text-muted">No matches found.</small>';
-                });
-            });
-
+            // Save Operators
             document.querySelectorAll('.btn-save-operators').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const modal = this.closest('.operator-modal');
@@ -1133,93 +894,44 @@ foreach ($dimChecks as $row) {
                     const selectedCodes = [...new Set(Array.from(operatorCards).map(c => c.dataset.code))];
 
                     if (!selectedCodes.length) {
-
                         alert('No operator codes selected.');
                         return;
                     }
 
                     btn.disabled = true;
-
-                    btn.innerHTML = 'Saving...';
-
                     btn.textContent = 'Saving...';
 
-
                     fetch('../controller/dor-dor.php', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                type: 'saveOperators',
-                                recordHeaderId,
-                                employeeCodes: selectedCodes
-                            })
-
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            type: 'saveOperators',
+                            recordHeaderId,
+                            employeeCodes: selectedCodes
                         })
-                        .then(res => res.json())
-                        .then(json => {
-                            btn.disabled = false;
-                            btn.innerHTML = 'Save Changes';
+                    }).then(res => res.json())
+                    .then(json => {
+                        btn.disabled = false;
+                        btn.textContent = 'Save Changes';
 
-                            if (json.success) {
-                                alert('Operators saved.');
-                                location.reload();
-
-                                // === Update the operator badges on the row
-                                const operatorContainer = document.getElementById(`operatorList${recordHeaderId}`);
-                                const operatorInput = document.getElementById(`operators${recordHeaderId}`);
-                                operatorInput.value = selectedCodes.join(',');
-
-                                operatorContainer.innerHTML = '';
-
-                                if (selectedCodes.length === 0) {
-                                    operatorContainer.innerHTML = '<small class="badge bg-secondary text-white">No Operators</small>';
-                                } else {
-                                    selectedCodes.forEach(code => {
-                                        // Optional: Add tooltip with name if available from a global map
-                                        const name = window.operatorMap?.[code] || '';
-                                        operatorContainer.innerHTML += `
-                            <small class="badge bg-light text-dark border me-1 mb-1" title="${name}">
-                                ${code}
-                            </small>`;
-                                    });
-                                }
-
-                                const modalInstance = bootstrap.Modal.getInstance(modal);
-                                if (modalInstance) modalInstance.hide();
-                            } else {
-                                alert(json.message || 'Save failed.');
-                            }
-                        })
-                        .catch(err => {
-                            console.error(err);
-                            btn.disabled = false;
-                            btn.innerHTML = 'Save Changes';
-
-                        }).then(res => res.json())
-                        .then(json => {
-                            btn.disabled = false;
-                            btn.textContent = 'Save Changes';
-
-                            if (json.success) {
-                                alert('Operators saved.');
-                                location.reload(); // or update badgeList dynamically
-                            } else {
-                                alert(json.message || 'Save failed.');
-                            }
-                        }).catch(err => {
-                            console.error(err);
-                            btn.disabled = false;
-                            btn.textContent = 'Save Changes';
-
-                            alert('Server error while saving.');
-                        });
+                        if (json.success) {
+                            alert('Operators saved.');
+                            location.reload();
+                        } else {
+                            alert(json.message || 'Save failed.');
+                        }
+                    }).catch(err => {
+                        console.error(err);
+                        btn.disabled = false;
+                        btn.textContent = 'Save Changes';
+                        alert('Server error while saving.');
+                    });
                 });
             });
 
-
-            // === Downtime Modal ===
+            // Downtime Modal
             document.querySelectorAll('.downtime-trigger').forEach(button => {
                 button.addEventListener('click', function() {
                     const recordId = this.dataset.recordId;
@@ -1240,7 +952,7 @@ foreach ($dimChecks as $row) {
                     if (actionSelect) actionSelect.value = '';
                     if (picInput) picInput.value = document.getElementById('picField')?.value || '';
 
-                    // Attach handler for save button (inside the same modal)
+                    // Attach handler for save button
                     const saveButton = modal.querySelector('.btn-save-downtime');
                     if (saveButton) {
                         saveButton.onclick = function() {
@@ -1254,156 +966,51 @@ foreach ($dimChecks as $row) {
                             }
 
                             fetch("../controller/dor-dor.php", {
-                                    method: "POST",
-                                    headers: {
-                                        "Content-Type": "application/json",
-                                    },
-                                    body: JSON.stringify({
-                                        type: "saveActionDowntime",
-                                        recordHeaderId: recordId,
-                                        downtimeId,
-                                        actionTakenId,
-                                        pic: selectedPic
-                                    })
+                                method: "POST",
+                                headers: {
+                                    "Content-Type": "application/json",
+                                },
+                                body: JSON.stringify({
+                                    type: "saveActionDowntime",
+                                    recordHeaderId: recordId,
+                                    downtimeId,
+                                    actionTakenId,
+                                    pic: selectedPic
                                 })
-                                .then(response => response.json())
-                                .then(data => {
-                                    if (data.success) {
-                                        alert("Downtime saved successfully!");
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    alert("Downtime saved successfully!");
 
-                                        const container = document.getElementById(`downtimeInfo${recordId}`);
-                                        if (container) {
-                                            const downtimeCode = window.downtimeMap?.[downtimeId]?.DowntimeCode || '???';
-                                            const actionDesc = window.actionTakenMap?.[actionTakenId]?.ActionTakenName || 'Action info missing';
+                                    const container = document.getElementById(`downtimeInfo${recordId}`);
+                                    if (container) {
+                                        const downtimeCode = window.downtimeMap?.[downtimeId]?.DowntimeCode || '???';
+                                        const actionDesc = window.actionTakenMap?.[actionTakenId]?.ActionTakenName || 'Action info missing';
 
-                                            const newBadge = document.createElement('small');
-                                            newBadge.className = 'badge bg-danger text-white me-1 mb-1';
-                                            newBadge.title = actionDesc;
-                                            newBadge.textContent = downtimeCode;
+                                        const newBadge = document.createElement('small');
+                                        newBadge.className = 'badge bg-danger text-white me-1 mb-1';
+                                        newBadge.title = actionDesc;
+                                        newBadge.textContent = downtimeCode;
 
-                                            container.appendChild(newBadge);
-                                        }
-
-                                        const bootstrapModal = bootstrap.Modal.getInstance(modal);
-                                        bootstrapModal?.hide();
-                                    } else {
-                                        alert("Failed to save downtime: " + (data.message || "Unknown error."));
+                                        container.appendChild(newBadge);
                                     }
-                                })
-                                .catch(err => {
-                                    console.error("Fetch error:", err);
-                                    alert("An error occurred while saving downtime.");
-                                });
+
+                                    const bootstrapModal = bootstrap.Modal.getInstance(modal);
+                                    bootstrapModal?.hide();
+                                } else {
+                                    alert("Failed to save downtime: " + (data.message || "Unknown error."));
+                                }
+                            })
+                            .catch(err => {
+                                console.error("Fetch error:", err);
+                                alert("An error occurred while saving downtime.");
+                            });
                         };
                     }
                 });
             });
-
-
-
-
-            // === Downtime Modal ===
-            const downtimeSelect = document.getElementById('downtimeSelect');
-            const actionSelect = document.getElementById('actionTakenSelect');
-            const picInput = document.getElementById('picInput');
-            let selectedRecordId = null;
-
-            document.querySelectorAll('.downtime-trigger').forEach(button => {
-                button.addEventListener('click', function() {
-                    selectedRecordId = this.dataset.recordId;
-                    const selectedPic = this.dataset.pic || document.getElementById('picField')?.value || '';
-                    downtimeSelect.value = '';
-                    actionSelect.value = '';
-                    if (picInput) picInput.value = selectedPic;
-
-                    const container = document.getElementById(`downtimeInfo${selectedRecordId}`);
-                    if (container) {
-                        container.innerHTML = '<small class="text-muted">Loading...</small>';
-                    }
-
-                    fetch("../controller/dor-dor.php", {
-                            method: "POST",
-                            headers: {
-                                "Content-Type": "application/json"
-                            },
-                            body: JSON.stringify({
-                                type: "getDowntimeDetails",
-                                recordHeaderId: selectedRecordId
-                            })
-                        }).then(res => res.json())
-                        .then(data => {
-                            const container = document.getElementById(`downtimeInfo${selectedRecordId}`);
-                            container.innerHTML = '';
-
-                            if (data.success && Array.isArray(data.badges)) {
-                                data.badges.forEach(badge => {
-                                    const el = document.createElement('small');
-                                    el.className = 'badge bg-danger text-white me-1 mb-1';
-                                    el.title = badge.ActionDescription;
-                                    el.textContent = badge.DowntimeCode;
-                                    container.appendChild(el);
-                                });
-                            } else {
-                                container.innerHTML = '<small class="badge bg-secondary text-white">No Downtime</small>';
-                            }
-                        }).catch(err => {
-                            console.error("Downtime load error", err);
-                        });
-                });
-            });
-
-            document.getElementById("saveDowntime").addEventListener("click", function() {
-                const downtimeId = downtimeSelect.value;
-                const actionTakenId = actionSelect.value;
-                const pic = picInput?.value?.trim();
-
-                if (!selectedRecordId || !downtimeId || !actionTakenId || !pic) {
-                    alert("Please fill out all fields, including PIC.");
-                    return;
-                }
-
-                fetch("../controller/dor-dor.php", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify({
-                            type: "saveActionDowntime",
-                            recordHeaderId: selectedRecordId,
-                            downtimeId,
-                            actionTakenId,
-                            pic
-                        })
-                    }).then(res => res.json())
-                    .then(data => {
-                        if (data.success) {
-                            const container = document.getElementById(`downtimeInfo${selectedRecordId}`);
-                            const badge = document.createElement('small');
-                            badge.className = 'badge bg-danger text-white me-1 mb-1';
-                            badge.title = window.actionTakenMap?.[actionTakenId]?.ActionTakenName || '';
-                            badge.textContent = window.downtimeMap?.[downtimeId]?.DowntimeCode || '???';
-                            container.appendChild(badge);
-
-                            const modalEl = document.getElementById("downtimeModal");
-                            bootstrap.Modal.getInstance(modalEl)?.hide();
-
-                            // Reset modal
-                            downtimeSelect.value = '';
-                            actionSelect.value = '';
-                            if (picInput) picInput.value = '';
-                            selectedRecordId = null;
-                        } else {
-                            alert("Failed to save downtime: " + (data.message || "Unknown error."));
-                        }
-                    }).catch(err => {
-                        console.error(err);
-                        alert("An error occurred while saving downtime.");
-                    });
-            });
-
         });
     </script>
-
 </body>
-
 </html>

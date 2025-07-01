@@ -1,8 +1,0 @@
-Array
-(
-    [type] => saveActionDowntime
-    [recordHeaderId] => 3
-    [downtimeId] => 4
-    [actionTakenId] => 10
-    [pic] => Jb
-)
