@@ -30,7 +30,7 @@ unset($_SESSION['login_error']); // Clear after showing
                 <form id="myForm" method="POST" action="../controller/dor-leader-login.php">
                     <div class="mb-4">
                         <label for="codeInput" class="form-label">Employee ID</label>
-                        <input type="text" name="production_code" id="codeInput" class="form-control py-2 mb-3" placeholder="Enter your Employee ID">
+                        <input type="text" name="production_code" id="codeInput" class="form-control py-2 mb-3" placeholder="Enter your Production Code">
                         <button type="button" class="btn btn-outline-secondary" id="scanToggleBtn">Scan ID</button>
                     </div>
                     <div class="d-grid gap-2">

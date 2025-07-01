@@ -40,10 +40,10 @@
 
         $hostnames = $method->getOnlineTablets($currentTabletId);
 
-         $employeeCode = $_SESSION['employee_code'] ?? null;
+        $productionCode = $_SESSION['production_code'] ?? null;
 
     
-if (empty($_SESSION['user_id']) || empty($_SESSION['employee_code'])) {
+if (empty($_SESSION['user_id']) || empty($_SESSION['production_code'])) {
     header('Location: dor-leader-login.php');
     exit;
 }

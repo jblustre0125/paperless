@@ -523,52 +523,51 @@ foreach ($dimChecks as $row) {
                                             </td>
 
 
-                                            <!-- Downtime -->
-                                            <td class="text-center align-middle">
-                                                <?php $recordHeaderId = $header['RecordHeaderId'] ?? null; ?>
+                                          <!-- Downtime -->
+<td class="text-center align-middle">
+    <?php $recordHeaderId = $header['RecordHeaderId'] ?? null; ?>
 
-                                                <div class="d-flex flex-column align-items-center mt-md-4">
-                                                    <!-- View Downtime Button -->
-                                                    <button type="button"
-                                                        class="btn btn-outline-secondary btn-sm mb-1 downtime-trigger"
-                                                        data-bs-toggle="modal"
-                                                        data-bs-target="#downtimeModal"
-                                                        data-record-id="<?= htmlspecialchars($recordHeaderId) ?>">
-                                                        <i class="bi bi-clock-history"></i> View Downtime
-                                                    </button>
+    <div class="d-flex flex-column align-items-center mt-md-4">
+        <!-- View Downtime Button -->
+        <button type="button"
+                class="btn btn-outline-secondary btn-sm mb-1 downtime-trigger"
+                data-bs-toggle="modal"
+                data-bs-target="#downtimeModal"
+                data-record-id="<?= htmlspecialchars($recordHeaderId) ?>">
+            <i class="bi bi-clock-history"></i> View Downtime
+        </button>
 
-                                                    <!-- Downtime Info Badges -->
-                                                    <div class="downtime-info d-flex flex-wrap justify-content-center"
-                                                        id="downtimeInfo<?= htmlspecialchars($recordHeaderId) ?>">
-                                                        <?php if (!empty($recordHeaderId) && !empty($details[$recordHeaderId]) && is_array($details[$recordHeaderId])): ?>
-                                                            <?php foreach ($details[$recordHeaderId] as $detail): ?>
-                                                                <?php
-                                                                $downtimeId = $detail['DowntimeId'] ?? null;
-                                                                $actionTakenId = $detail['ActionTakenId'] ?? null;
+        <!-- Downtime Info Badges -->
+        <div class="downtime-info d-flex flex-wrap justify-content-center"
+             id="downtimeInfo<?= htmlspecialchars($recordHeaderId) ?>">
+            <?php if (!empty($details[$recordHeaderId]) && is_array($details[$recordHeaderId])): ?>
+                <?php foreach ($details[$recordHeaderId] as $detail): ?>
+                    <?php
+                        $downtimeId = $detail['DowntimeId'] ?? null;
+                        $actionTakenId = $detail['ActionTakenId'] ?? null;
 
-                                                                $downtimeCode = !empty($downtimeMap[$downtimeId]['DowntimeCode'])
-                                                                    ? $downtimeMap[$downtimeId]['DowntimeCode']
-                                                                    : null;
+                        $downtimeCode = $downtimeId && isset($downtimeMap[$downtimeId])
+                            ? $downtimeMap[$downtimeId]['DowntimeCode']
+                            : null;
 
-                                                                $actionTakenTitle = !empty($actionTakenMap[$actionTakenId]['ActionDescription'])
-                                                                    ? $actionTakenMap[$actionTakenId]['ActionDescription']
-                                                                    : 'No Description';
-                                                                ?>
+                        $actionTakenTitle = $actionTakenId && isset($actionTakenMap[$actionTakenId])
+                            ? $actionTakenMap[$actionTakenId]['ActionDescription']
+                            : 'No Description';
+                    ?>
 
-                                                                <?php if (!empty($downtimeCode)): ?>
-                                                                    <small class="badge bg-danger text-white me-1 mb-1"
-                                                                        title="<?= htmlspecialchars($actionTakenTitle) ?>">
-                                                                        <?= htmlspecialchars($downtimeCode) ?>
-                                                                    </small>
-                                                                <?php endif; ?>
-                                                            <?php endforeach; ?>
-                                                        <?php else: ?>
-                                                            <small class="badge bg-secondary text-white me-1 mb-1">No Downtime</small>
-                                                        <?php endif; ?>
-                                                    </div>
-                                                </div>
-                                            </td>
-
+                    <?php if (!empty($downtimeCode)): ?>
+                        <small class="badge bg-danger text-white me-1 mb-1"
+                               title="<?= htmlspecialchars($actionTakenTitle) ?>">
+                            <?= htmlspecialchars($downtimeCode) ?>
+                        </small>
+                    <?php endif; ?>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <small class="badge bg-secondary text-white me-1 mb-1">No Downtime</small>
+            <?php endif; ?>
+        </div>
+    </div>
+</td>
 
 
                                             <!-- Delete -->
@@ -739,18 +738,24 @@ foreach ($dimChecks as $row) {
         ?>
     </form>
     <script src="../../js/bootstrap.bundle.min.js"></script>
-
+    <script>
+        window.downtimeMap = <?= json_encode($downtimeOptions, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
+        window.actionTakenMap = <?= json_encode($actionTakenOptions, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
+    </script>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Tab Handling
             const tabPanes = Array.from(document.querySelectorAll('#dorTabContent > .tab-pane')).slice(0, 4);
             const tabInput = document.getElementById("currentTabInput");
             const form = document.querySelector('form');
             const operatorMap = <?= json_encode($operatorMap) ?>;
 
-            // === Handle tab from URL or saved input ===
             let urlTabParam = new URLSearchParams(window.location.search).get("tab");
-            let currentTabIndex = Math.max(0, Math.min(parseInt(urlTabParam) || parseInt(tabInput.value) || 0, tabPanes.length - 1));
+            let parsedIndex = parseInt(urlTabParam);
+            if (isNaN(parsedIndex)) parsedIndex = parseInt(tabInput.value) || 0;
+            parsedIndex = Math.max(0, Math.min(parsedIndex, tabPanes.length - 1));
+            let currentTabIndex = parsedIndex;
 
             function showTab(index) {
                 if (index < 0 || index >= tabPanes.length) return;
@@ -759,12 +764,10 @@ foreach ($dimChecks as $row) {
                 tabPanes[index].classList.add('show', 'active');
                 tabInput.value = index;
 
-                // Update URL
                 const newUrl = new URL(window.location.href);
                 newUrl.searchParams.set('tab', index);
                 window.history.replaceState({}, '', newUrl);
 
-                // Nested tab activation
                 const nestedNav = tabPanes[index].querySelector('.nav-tabs');
                 const nestedContent = tabPanes[index].querySelector('.tab-content');
                 if (nestedNav && nestedContent) {
@@ -775,47 +778,62 @@ foreach ($dimChecks as $row) {
                     nestedContent.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('show', 'active'));
 
                     activeBtn?.classList.add('active');
-                    if (targetSelector) nestedContent.querySelector(targetSelector)?.classList.add('show', 'active');
+                    if (targetSelector) {
+                        const targetContent = nestedContent.querySelector(targetSelector);
+                        targetContent?.classList.add('show', 'active');
+                    }
                 }
 
-                document.getElementById('btnNext').textContent = (index === tabPanes.length - 1) ? 'Submit' : 'Next';
+                const btnNext = document.getElementById('btnNext');
+                if (btnNext) {
+                    btnNext.textContent = (index === tabPanes.length - 1) ? 'Submit' : 'Next';
+                }
             }
 
-            // === Next / Back buttons ===
-            document.getElementById('btnNext')?.addEventListener('click', function(e) {
+            // Tab Navigation
+            document.getElementById('btnNext').addEventListener('click', function(e) {
                 e.preventDefault();
-
                 const currentTab = tabPanes[currentTabIndex];
 
                 if (currentTabIndex === 0 && form) {
-                    const formData = new FormData(form);
-                    currentTab.querySelectorAll('input, select, textarea').forEach(input => {
+                    const tabInputs = currentTab.querySelectorAll('input, select, textarea');
+                    const tabData = new FormData();
+
+                    tabInputs.forEach(input => {
                         if (!input.name) return;
-                        if (input.type === 'checkbox' || input.type === 'radio') {
-                            if (input.checked) formData.append(input.name, input.value);
+                        if ((input.type === 'radio' || input.type === 'checkbox')) {
+                            if (input.checked) tabData.append(input.name, input.value);
                         } else {
-                            formData.set(input.name, input.value);
+                            tabData.append(input.name, input.value);
                         }
                     });
 
-                    formData.append('tab', '0');
-                    formData.append('btnVisual', '1');
-                    formData.append('current_tab_index', currentTabIndex);
+                    tabData.append('tab', '0');
+                    tabData.append('btnVisual', '1');
+                    tabData.append('record_id', form.querySelector('input[name="record_id"]').value);
+                    tabData.append('current_tab_index', currentTabIndex);
 
                     fetch(form.action, {
-                        method: 'POST',
-                        body: formData
-                    }).then(res => {
-                        if (!res.ok) throw new Error('Failed to save Tab 0');
-                        return res.text();
-                    }).then(() => {
-                        currentTabIndex++;
-                        showTab(currentTabIndex);
-                    }).catch(err => {
-                        console.error(err);
-                        alert('Could not save Tab 0. Please try again.');
-                    });
-                } else if (currentTabIndex < tabPanes.length - 1) {
+                            method: 'POST',
+                            body: tabData
+                        })
+                        .then(res => {
+                            if (!res.ok) throw new Error('Failed to save Tab 0');
+                            return res.text();
+                        })
+                        .then(() => {
+                            currentTabIndex++;
+                            showTab(currentTabIndex);
+                        })
+                        .catch(err => {
+                            console.error(err);
+                            alert('Could not save Tab 0. Please try again.');
+                        });
+
+                    return;
+                }
+
+                if (currentTabIndex < tabPanes.length - 1) {
                     currentTabIndex++;
                     showTab(currentTabIndex);
                 } else {
@@ -823,7 +841,7 @@ foreach ($dimChecks as $row) {
                 }
             });
 
-            document.getElementById('btnBack')?.addEventListener('click', function(e) {
+            document.getElementById('btnBack').addEventListener('click', function(e) {
                 e.preventDefault();
                 if (currentTabIndex > 0) {
                     currentTabIndex--;
@@ -842,23 +860,24 @@ foreach ($dimChecks as $row) {
                 const badgeList = document.getElementById(`operatorList${recordHeaderId}`);
                 const modalBody = modal.querySelector('.current-operators');
 
-                const updateDisplay = (codes) => {
-                    badgeList.innerHTML = codes.map(code => {
+                function updateDisplay(codes) {
+                    const html = codes.map(code => {
                         const name = operatorMap[code] || 'Unknown';
                         return `<small class="badge bg-light text-dark border me-1 mb-1" title="${name}">${code}</small>`;
                     }).join('');
-                };
+                    badgeList.innerHTML = html;
+                }
 
-                const syncCode = (code, action = 'add') => {
+                function syncCode(code, action = 'add') {
                     let codes = hiddenInput.value.split(',').map(c => c.trim()).filter(Boolean);
                     const codeSet = new Set(codes);
 
                     if (action === 'add') codeSet.add(code);
-                    else codeSet.delete(code);
+                    else if (action === 'remove') codeSet.delete(code);
 
-                    const updated = [...codeSet];
-                    hiddenInput.value = visibleInput.value = updated.join(',');
-                    updateDisplay(updated);
+                    const updatedCodes = Array.from(codeSet);
+                    hiddenInput.value = visibleInput.value = updatedCodes.join(',');
+                    updateDisplay(updatedCodes);
 
                     if (action === 'add' && !modalBody.querySelector(`[data-code="${code}"]`)) {
                         const card = document.createElement('div');
@@ -874,13 +893,18 @@ foreach ($dimChecks as $row) {
                     </div>`;
                         modalBody.appendChild(card);
                     } else if (action === 'remove') {
-                        modalBody.querySelector(`[data-code="${code}"]`)?.remove();
+                        modalBody.querySelectorAll(`[data-code="${code}"]`).forEach(el => el.remove());
                     }
-                };
+                }
 
                 modal.addEventListener('click', e => {
                     const btn = e.target.closest('.btn-remove-operator');
-                    if (btn) syncCode(btn.closest('.operator-card').dataset.code, 'remove');
+                    if (btn) {
+                        const card = btn.closest('.operator-card');
+                        if (card?.dataset.code) {
+                            syncCode(card.dataset.code, 'remove');
+                        }
+                    }
                 });
 
                 modal.querySelector('.operator-search')?.addEventListener('input', function() {
@@ -893,7 +917,7 @@ foreach ($dimChecks as $row) {
                     let count = 0;
                     for (const [code, name] of Object.entries(operatorMap)) {
                         if (code.toLowerCase().includes(val) || name.toLowerCase().includes(val)) {
-                            if (++count > 10) break;
+                            if (count++ >= 10) break;
 
                             const btn = document.createElement('button');
                             btn.type = 'button';
@@ -909,24 +933,30 @@ foreach ($dimChecks as $row) {
                         }
                     }
 
-                    if (count === 0) resultsBox.innerHTML = '<small class="text-muted">No matches found.</small>';
+                    if (count === 0) {
+                        resultsBox.innerHTML = '<small class="text-muted">No matches found.</small>';
+                    }
                 });
             });
 
+            // === Save Operators
+            // === Save Operators ===
             document.querySelectorAll('.btn-save-operators').forEach(btn => {
-                btn.addEventListener('click', function() {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
                     const modal = this.closest('.operator-modal');
                     const recordHeaderId = modal.dataset.recordId;
-                    const operatorCards = modal.querySelectorAll('.operator-card');
-                    const selectedCodes = [...new Set(Array.from(operatorCards).map(c => c.dataset.code))];
 
-                    if (!selectedCodes.length) {
+                    const operatorCards = modal.querySelectorAll('.operator-card');
+                    const selectedCodes = [...new Set(Array.from(operatorCards).map(card => card.dataset.code).filter(Boolean))];
+
+                    if (selectedCodes.length === 0) {
                         alert('No operator codes selected.');
                         return;
                     }
 
                     btn.disabled = true;
-                    btn.textContent = 'Saving...';
+                    btn.innerHTML = 'Saving...';
 
                     fetch('../controller/dor-dor.php', {
                             method: 'POST',
@@ -938,127 +968,155 @@ foreach ($dimChecks as $row) {
                                 recordHeaderId,
                                 employeeCodes: selectedCodes
                             })
-                        }).then(res => res.json())
+                        })
+                        .then(res => res.json())
                         .then(json => {
                             btn.disabled = false;
-                            btn.textContent = 'Save Changes';
+                            btn.innerHTML = 'Save Changes';
 
                             if (json.success) {
                                 alert('Operators saved.');
-                                location.reload(); // or update badgeList dynamically
+                                location.reload();
+
+                                // === Update the operator badges on the row
+                                const operatorContainer = document.getElementById(`operatorList${recordHeaderId}`);
+                                const operatorInput = document.getElementById(`operators${recordHeaderId}`);
+                                operatorInput.value = selectedCodes.join(',');
+
+                                operatorContainer.innerHTML = '';
+
+                                if (selectedCodes.length === 0) {
+                                    operatorContainer.innerHTML = '<small class="badge bg-secondary text-white">No Operators</small>';
+                                } else {
+                                    selectedCodes.forEach(code => {
+                                        // Optional: Add tooltip with name if available from a global map
+                                        const name = window.operatorMap?.[code] || '';
+                                        operatorContainer.innerHTML += `
+                            <small class="badge bg-light text-dark border me-1 mb-1" title="${name}">
+                                ${code}
+                            </small>`;
+                                    });
+                                }
+
+                                const modalInstance = bootstrap.Modal.getInstance(modal);
+                                if (modalInstance) modalInstance.hide();
                             } else {
                                 alert(json.message || 'Save failed.');
                             }
-                        }).catch(err => {
+                        })
+                        .catch(err => {
                             console.error(err);
                             btn.disabled = false;
-                            btn.textContent = 'Save Changes';
+                            btn.innerHTML = 'Save Changes';
                             alert('Server error while saving.');
                         });
                 });
             });
+
 
             // === Downtime Modal ===
             const downtimeSelect = document.getElementById('downtimeSelect');
             const actionSelect = document.getElementById('actionTakenSelect');
             const picInput = document.getElementById('picInput');
             let selectedRecordId = null;
+            let selectedPic = null;
 
+            // Handle trigger button click
             document.querySelectorAll('.downtime-trigger').forEach(button => {
                 button.addEventListener('click', function() {
-                    selectedRecordId = this.dataset.recordId;
-                    const selectedPic = this.dataset.pic || document.getElementById('picField')?.value || '';
+                    selectedRecordId = this.dataset.recordId || null;
+                    selectedPic = this.dataset.pic || document.getElementById('picField')?.value || '';
+
+                    // Clear previous values in modal
                     downtimeSelect.value = '';
                     actionSelect.value = '';
-                    if (picInput) picInput.value = selectedPic;
-
-                    const container = document.getElementById(`downtimeInfo${selectedRecordId}`);
-                    if (container) {
-                        container.innerHTML = '<small class="text-muted">Loading...</small>';
+                    if (picInput) {
+                        picInput.value = selectedPic;
                     }
 
-                    fetch("../controller/dor-dor.php", {
-                            method: "POST",
-                            headers: {
-                                "Content-Type": "application/json"
-                            },
-                            body: JSON.stringify({
-                                type: "getDowntimeDetails",
-                                recordHeaderId: selectedRecordId
-                            })
-                        }).then(res => res.json())
-                        .then(data => {
-                            const container = document.getElementById(`downtimeInfo${selectedRecordId}`);
-                            container.innerHTML = '';
-
-                            if (data.success && Array.isArray(data.badges)) {
-                                data.badges.forEach(badge => {
-                                    const el = document.createElement('small');
-                                    el.className = 'badge bg-danger text-white me-1 mb-1';
-                                    el.title = badge.ActionDescription;
-                                    el.textContent = badge.DowntimeCode;
-                                    container.appendChild(el);
-                                });
-                            } else {
-                                container.innerHTML = '<small class="badge bg-secondary text-white">No Downtime</small>';
-                            }
-                        }).catch(err => {
-                            console.error("Downtime load error", err);
-                        });
+                    if (!selectedRecordId) {
+                        console.error("Missing data-record-id on downtime trigger.");
+                    }
                 });
             });
 
+            // Handle Save button click
             document.getElementById("saveDowntime").addEventListener("click", function() {
                 const downtimeId = downtimeSelect.value;
                 const actionTakenId = actionSelect.value;
-                const pic = picInput?.value?.trim();
+                selectedPic = picInput?.value?.trim();
 
-                if (!selectedRecordId || !downtimeId || !actionTakenId || !pic) {
+                if (!selectedRecordId || !downtimeId || !actionTakenId || !selectedPic) {
                     alert("Please fill out all fields, including PIC.");
                     return;
                 }
 
+                console.log("Saving downtime with data:", {
+                    selectedRecordId,
+                    downtimeId,
+                    actionTakenId,
+                    selectedPic
+                });
+
                 fetch("../controller/dor-dor.php", {
                         method: "POST",
                         headers: {
-                            "Content-Type": "application/json"
+                            "Content-Type": "application/json",
                         },
                         body: JSON.stringify({
                             type: "saveActionDowntime",
                             recordHeaderId: selectedRecordId,
                             downtimeId,
                             actionTakenId,
-                            pic
+                            pic: selectedPic
                         })
-                    }).then(res => res.json())
+                    })
+                    .then(response => response.json())
                     .then(data => {
                         if (data.success) {
+                            alert("Downtime saved successfully!");
+
                             const container = document.getElementById(`downtimeInfo${selectedRecordId}`);
-                            const badge = document.createElement('small');
-                            badge.className = 'badge bg-danger text-white me-1 mb-1';
-                            badge.title = window.actionTakenMap?.[actionTakenId]?.ActionTakenName || '';
-                            badge.textContent = window.downtimeMap?.[downtimeId]?.DowntimeCode || '???';
-                            container.appendChild(badge);
+                            if (container) {
+                                const downtimeCode = window.downtimeMap?.[downtimeId]?.DowntimeCode || '???';
+                                const actionDesc = window.actionTakenMap?.[actionTakenId]?.ActionTakenName || 'Action info missing';
 
-                            const modalEl = document.getElementById("downtimeModal");
-                            bootstrap.Modal.getInstance(modalEl)?.hide();
+                                const newBadge = document.createElement('small');
+newBadge.className = 'badge bg-danger text-white me-1 mb-1';
+newBadge.title = actionDesc;
+newBadge.textContent = downtimeCode;
 
-                            // Reset modal
+container.appendChild(newBadge);
+
+                            }
+
+                            // Hide modal
+                            const modalElement = document.getElementById("downtimeModal");
+                            if (modalElement) {
+                                const modalInstance = bootstrap.Modal.getInstance(modalElement);
+                                modalInstance?.hide();
+                            }
+
+                            // Reset variables
+                            selectedRecordId = null;
+                            selectedPic = null;
                             downtimeSelect.value = '';
                             actionSelect.value = '';
                             if (picInput) picInput.value = '';
-                            selectedRecordId = null;
                         } else {
                             alert("Failed to save downtime: " + (data.message || "Unknown error."));
                         }
-                    }).catch(err => {
-                        console.error(err);
+                    })
+                    .catch(err => {
+                        console.error("Fetch error:", err);
                         alert("An error occurred while saving downtime.");
                     });
             });
+
+
+
         });
     </script>
-
 
 
 

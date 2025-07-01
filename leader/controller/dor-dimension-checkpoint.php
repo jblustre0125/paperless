@@ -85,7 +85,7 @@ foreach (['hatsumono', 'nakamono', 'owarimono'] as $section) {
             $fields[] = ucfirst($section) . $j . "Judge = ?";
             $params[] = $judge;
 
-            $checkBy = $_POST["checkby_{$section}{$j}"] ?? ($_SESSION['employee_code'] ?? null);
+            $checkBy = $_POST["checkby_{$section}{$j}"] ?? ($_SESSION['production_code'] ?? null);
             if (!empty($checkBy)) {
                 $fields[] = ucfirst($section) . $j . "CheckBy = ?";
                 $params[] = $checkBy;
