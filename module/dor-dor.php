@@ -545,7 +545,7 @@ try {
       <div class="modal-content">
         <div class="modal-header bg-primary text-white py-3">
           <div class="d-flex justify-content-between align-items-center w-100">
-            <h5 class="modal-title mb-0" id="operatorModalLabel">Manage Operators - Row <span id="operatorRowNumber"></span></h5>
+            <h5 class="modal-title mb-0" id="operatorModalLabel">Operators - Row <span id="operatorRowNumber"></span></h5>
             <div class="d-flex align-items-center">
               <span class="text-white me-3">Box Number: <span id="modalLotNumber" class="fw-bold"></span></span>
               <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -600,7 +600,7 @@ try {
       <div class="modal-content">
         <div class="modal-header bg-secondary text-white py-3">
           <div class="d-flex justify-content-between align-items-center w-100">
-            <h5 class="modal-title mb-0" id="downtimeModalLabel">Manage Downtime - Row <span id="downtimeRowNumber"></span></h5>
+            <h5 class="modal-title mb-0" id="downtimeModalLabel">Downtime - Row <span id="downtimeRowNumber"></span></h5>
             <div class="d-flex align-items-center">
               <span class="text-white me-3">Box Number: <span id="downtimeModalLotNumber" class="fw-bold"></span></span>
               <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
