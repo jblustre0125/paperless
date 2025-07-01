@@ -101,9 +101,9 @@ function saveLeaderCheckpointResponses($db, $recordId, $employeeCode, $responses
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['btnVisual'])) {
     $leaderResponses = $_POST['leader'] ?? [];
     $recordId = $_POST['record_id'];
-    $employeeCode = $_SESSION['employee_code'] ?? null;
+    $productionCode = $_SESSION['production_code'] ?? null;
 
-    if (!$employeeCode) {
+    if (!$productionCode) {
         echo "Missing employee code for leader.";
         exit;
     }

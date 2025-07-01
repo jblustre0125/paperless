@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_POST['btnLogin'])) {
 
 $db = new DbOp(1);
 $ip = getUserIP();
-$employeeCode = isset($_POST['employee_code']) ? strtoupper(trim($_POST['employee_code'])) : '';
+$productionCode = isset($_POST['production_code']) ? strtoupper(trim($_POST['production_code'])) : '';
 $error = '';
 
 //Validate tablet IP
@@ -53,14 +53,14 @@ if (empty($hostData)) {
 //Authenticate leader (only if tablet is valid)
 if (empty($error)) {
     $userQuery = "
-        SELECT OperatorId, EmployeeCode, EmployeeName, IsLeader, IsSrLeader, IsActive 
+        SELECT OperatorId, ProductionCode EmployeeCode, EmployeeName, IsLeader, IsSrLeader, IsActive 
         FROM GenOperator 
-        WHERE LTRIM(RTRIM(EmployeeCode)) = ?
+        WHERE LTRIM(RTRIM(ProductionCode)) = ?
     ";
-    $userData = $db->execute($userQuery, [$employeeCode]);
+    $userData = $db->execute($userQuery, [$productionCode]);
 
     if (empty($userData)) {
-        $error = "Employee ID [" . htmlspecialchars($employeeCode) . "] not found.";
+        $error = "Production Code [" . htmlspecialchars($productionCode) . "] not found.";
     } elseif ((int)$userData[0]['IsActive'] !== 1) {
         $error = "Your account is inactive.";
     } elseif ((int)$userData[0]['IsLeader'] !== 1 && (int)$userData[0]['IsSrLeader'] !== 1) {
@@ -69,8 +69,8 @@ if (empty($error)) {
         // Tablet is logged in already, prevent others but allow same leader to re-log
         if ((int)$hostData[0]['IsLoggedIn'] === 1) {
             if (
-                isset($_SESSION['employee_code']) &&
-                $_SESSION['employee_code'] !== $employeeCode
+                isset($_SESSION['production_code']) &&
+                $_SESSION['production_code'] !== $productionCode
             ) {
                 $error = "Tablet is already in use by another leader.";
             }
@@ -82,6 +82,7 @@ if (empty($error)) {
             session_regenerate_id(true);
 
             $_SESSION['user_id']        = $userData[0]['OperatorId'];
+             $_SESSION['production_code']  = $userData[0]['ProductionCode'];
             $_SESSION['employee_code']  = $userData[0]['EmployeeCode'];
             $_SESSION['employee_name']  = $userData[0]['EmployeeName'];
             $_SESSION['is_leader']      = $userData[0]['IsLeader'];

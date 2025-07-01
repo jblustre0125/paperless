@@ -1,0 +1,5 @@
+Array
+(
+    [type] => getDowntimeDetails
+    [recordHeaderId] => 7
+)
