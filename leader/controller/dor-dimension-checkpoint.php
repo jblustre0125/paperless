@@ -95,11 +95,11 @@ foreach (['hatsumono', 'nakamono', 'owarimono'] as $section) {
 }
 
 // Metadata fields
-if (!empty($_SESSION['employee_code'])) {
+if (!empty($_SESSION['production_code'])) {
     $fields[] = "ModifiedBy = ?";
     $fields[] = "NotedBy = ?";
-    $params[] = $_SESSION['employee_code'];
-    $params[] = $_SESSION['employee_code'];
+    $params[] = $_SESSION['production_code'];
+    $params[] = $_SESSION['production_code'];
 }
 $fields[] = "ModifiedDate = GETDATE()"; // No param needed
 

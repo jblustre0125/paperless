@@ -65,8 +65,8 @@ function getShiftTime()
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['btnProceed'])) {
     $recordId = $_POST['record_id'] ?? 0;
-    $employeeCode = $_SESSION['employee_code'] ?? null;
-    if (!$employeeCode) {
+    $productionCode = $_SESSION['production_code'] ?? null;
+    if (!$productionCode) {
         die("Leader employee code is required from session.");
     }
 
