@@ -127,19 +127,19 @@ class DorDor
     }
 
     public function getAllDowntimeDetails()
-    {
-        $result = $this->db->execute("SELECT * FROM AtoDorDetail");
-        $groupedDetails = [];
+{
+    $result = $this->db->execute("SELECT * FROM AtoDorDetail");
+    $groupedDetails = [];
 
-        foreach ($result as $row) {
-            $recordHeaderId = $row['RecordHeaderId'] ?? null;
-            if ($recordHeaderId !== null) {
-                $groupedDetails[$recordHeaderId][] = $row;
-            }
+    foreach ($result as $row) {
+        $recordHeaderId = $row['RecordHeaderId'] ?? null;
+        if ($recordHeaderId !== null) {
+            $groupedDetails[$recordHeaderId][] = $row;
         }
-
-        return $groupedDetails;
     }
+
+    return $groupedDetails;
+}
 
 
     public function deleteOperator($recordHeaderId, $operatorCode)
@@ -207,6 +207,12 @@ class DorDor
 // ================== MAIN SCRIPT ===================
 
 $controller = new DorDor();
+$hostnameId = isset($_GET['hostname_id']) ? (int)$_GET['hostname_id'] : null;
+    $headers = $controller->getHeaders($hostnameId);
+    $details = $controller->getDetails();
+    $downtimeOptions = $controller->getDowntimeList();
+    $operatorMap = $controller->getOperatorMap();
+    $actionTakenOptions = $controller->getActionTakenList();
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     if (isset($_GET['type']) && $_GET['type'] === 'getActionDowntime') {
@@ -227,12 +233,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         exit;
     }
 
-    $hostnameId = isset($_GET['hostname_id']) ? (int)$_GET['hostname_id'] : null;
-    $headers = $controller->getHeaders($hostnameId);
-    $details = $controller->getDetails();
-    $downtimeOptions = $controller->getDowntimeList();
-    $operatorMap = $controller->getOperatorMap();
-    $actionTakenOptions = $controller->getActionTakenList();
+    
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -317,46 +318,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             echo json_encode(['success' => true, 'badges' => $badges]);
             break;
-
+        
         case 'renderDowntimeBadges':
-            $recordHeaderId = $data['recordHeaderId'] ?? null;
-            if (!$recordHeaderId) {
-                echo json_encode(['success' => false, 'message' => 'Missing recordHeaderId']);
-                exit;
+    $recordHeaderId = $data['recordHeaderId'] ?? null;
+    if (!$recordHeaderId) {
+        echo json_encode(['success' => false, 'message' => 'Missing recordHeaderId']);
+        exit;
+    }
+
+    ob_start();
+    $allDetails = $controller->getAllDowntimeDetails();
+    $downtimeMap = $controller->getDowntimeList();
+    $actionTakenMap = $controller->getActionTakenList();
+    $details = $allDetails[$recordHeaderId] ?? [];
+
+    if (!empty($details)) {
+        foreach ($details as $detail) {
+            $downtimeId = $detail['DowntimeId'] ?? null;
+            $actionTakenId = $detail['ActionTakenId'] ?? null;
+
+            $downtimeCode = $downtimeId && isset($downtimeMap[$downtimeId])
+                ? $downtimeMap[$downtimeId]['DowntimeCode']
+                : null;
+
+            $actionTakenTitle = $actionTakenId && isset($actionTakenMap[$actionTakenId])
+                ? $actionTakenMap[$actionTakenId]['ActionTakenName']
+                : 'No Description';
+
+            if (!empty($downtimeCode)) {
+                echo '<small class="badge bg-danger text-white me-1 mb-1" title="' . htmlspecialchars($actionTakenTitle) . '">'
+                    . htmlspecialchars($downtimeCode) .
+                    '</small>';
             }
+        }
+    } else {
+        echo '<small class="badge bg-secondary text-white me-1 mb-1">No Downtime</small>';
+    }
 
-            ob_start();
-            $allDetails = $controller->getAllDowntimeDetails();
-            $downtimeMap = $controller->getDowntimeList();
-            $actionTakenMap = $controller->getActionTakenList();
-            $details = $allDetails[$recordHeaderId] ?? [];
-
-            if (!empty($details)) {
-                foreach ($details as $detail) {
-                    $downtimeId = $detail['DowntimeId'] ?? null;
-                    $actionTakenId = $detail['ActionTakenId'] ?? null;
-
-                    $downtimeCode = $downtimeId && isset($downtimeMap[$downtimeId])
-                        ? $downtimeMap[$downtimeId]['DowntimeCode']
-                        : null;
-
-                    $actionTakenTitle = $actionTakenId && isset($actionTakenMap[$actionTakenId])
-                        ? $actionTakenMap[$actionTakenId]['ActionTakenName']
-                        : 'No Description';
-
-                    if (!empty($downtimeCode)) {
-                        echo '<small class="badge bg-danger text-white me-1 mb-1" title="' . htmlspecialchars($actionTakenTitle) . '">'
-                            . htmlspecialchars($downtimeCode) .
-                            '</small>';
-                    }
-                }
-            } else {
-                echo '<small class="badge bg-secondary text-white me-1 mb-1">No Downtime</small>';
-            }
-
-            $html = ob_get_clean();
-            echo json_encode(['success' => true, 'html' => $html]);
-            break;
+    $html = ob_get_clean();
+    echo json_encode(['success' => true, 'html' => $html]);
+    break;
 
 
 
