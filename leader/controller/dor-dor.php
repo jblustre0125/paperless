@@ -207,6 +207,12 @@ class DorDor
 // ================== MAIN SCRIPT ===================
 
 $controller = new DorDor();
+$hostnameId = isset($_GET['hostname_id']) ? (int)$_GET['hostname_id'] : null;
+    $headers = $controller->getHeaders($hostnameId);
+    $details = $controller->getDetails();
+    $downtimeOptions = $controller->getDowntimeList();
+    $operatorMap = $controller->getOperatorMap();
+    $actionTakenOptions = $controller->getActionTakenList();
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     if (isset($_GET['type']) && $_GET['type'] === 'getActionDowntime') {
@@ -227,12 +233,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         exit;
     }
 
-    $hostnameId = isset($_GET['hostname_id']) ? (int)$_GET['hostname_id'] : null;
-    $headers = $controller->getHeaders($hostnameId);
-    $details = $controller->getDetails();
-    $downtimeOptions = $controller->getDowntimeList();
-    $operatorMap = $controller->getOperatorMap();
-    $actionTakenOptions = $controller->getActionTakenList();
+    
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
