@@ -74,8 +74,6 @@ foreach ($dimChecks as $row) {
             color: #6c757d;
             font-style: italic;
         }
-
-
         .scrollable-body {
             max-height: 300px;
             /* or whatever you prefer */
@@ -793,5 +791,4 @@ foreach ($dimChecks as $row) {
     <script src="../js/dor-downtimeTaken.js"></script>
     <script src="../js/dor-tab.js"></script>
 </body>
-
 </html>
