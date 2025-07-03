@@ -193,9 +193,9 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                     </td>
                 </tr>
                 <tr>
-                    <td>Changes/Remarks</td>
+                    <td>Changes</td>
                     <td>
-                        <input type="text" name="changes" class="form-control" placeholder="Enter any changes or remarks...">
+                        <input type="text" name="changes" class="form-control" placeholder="Enter new MP">
                     </td>
                 </tr>
             </tbody>
