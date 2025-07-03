@@ -148,7 +148,63 @@ td.operator-cell {
 #dorTabContent {
     display: none;
 }
+.operator-grid {
+            display: flex;
+            flex-wrap: wrap;
+            max-width: 220px;
+        }
 
+        .operator-tile {
+            width: 90px;
+            height: 42px;
+            background-color: #e9ecef;
+            border: 1px solid #ced4da;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            font-size: 0.9rem;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        .operator-tile .remove-operator {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            background-color: #dc3545;
+            color: white;
+            font-size: 0.7rem;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            line-height: 16px;
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .operator-tile.text-muted {
+            background-color: #f8f9fa;
+            color: #6c757d;
+            font-style: italic;
+        }
+
+
+        .scrollable-body {
+            max-height: 300px;
+            /* or whatever you prefer */
+            overflow-y: auto;
+        }
+
+        .scrollable-body table {
+            margin: 0;
+            table-layout: fixed;
+        }
+
+        .table-container {
+            border: 1px solid #dee2e6;
+            border-radius: 0.25rem;
+        }
  
-
 
