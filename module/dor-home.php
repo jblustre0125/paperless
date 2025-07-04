@@ -561,19 +561,16 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
         modelInput.addEventListener("keydown", function(e) {
             if (e.key === "Enter") {
                 e.preventDefault();
-                parseModelInput(this.value);
+                const inputValue = this.value.trim();
+                if (inputValue) {
+                    parseModelInput(inputValue);
+                }
                 qtyInput.focus(); // Move focus to qty input
             }
         });
 
         // Handle input change for gun scanner (auto-trigger on value change)
-        modelInput.addEventListener("input", function() {
-            const value = this.value;
-            // Check if input contains spaces (likely from scanner)
-            if (value.includes(" ")) {
-                parseModelInput(value);
-            }
-        });
+        // REMOVED - Only parse on Enter key press
 
         document.getElementById("enterManually").addEventListener("click", () => {
             enterManually = true;

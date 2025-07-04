@@ -1671,7 +1671,6 @@ try {
       }
 
       form.addEventListener("submit", function(e) {
-        console.log('Form submit event triggered'); // Debug log
         if (errorModalIsOpen) {
           // Prevent repeated validation/modal if already open
           return;
@@ -1745,11 +1744,8 @@ try {
           })
           .then(response => response.json())
           .then((data) => {
-            console.log('Response data:', data); // Debug log
-            console.log('Clicked button:', clickedButton); // Debug log
             if (data.success) {
               if (clickedButton && clickedButton.name === "btnProceed") {
-                console.log('Redirecting to:', data.redirectUrl); // Debug log
                 // Clear all form data from session storage when saving DOR
                 clearAllFormData();
                 // Try multiple redirect methods
@@ -1762,7 +1758,6 @@ try {
                 // Fallback redirect after 2 seconds if the above methods fail
                 setTimeout(() => {
                   if (window.location.pathname.indexOf('dor-dor.php') !== -1) {
-                    console.log('Fallback redirect to:', data.redirectUrl);
                     window.location.href = data.redirectUrl;
                   }
                 }, 2000);
@@ -1924,7 +1919,6 @@ try {
 
     // Form submission handling
     const form = document.querySelector("#myForm");
-    console.log('Form element found:', form); // Debug log
     // Remove the conflicting modal instance creation
     // const errorModal = new bootstrap.Modal(document.getElementById("errorModal"));
     const modalErrorMessage = document.getElementById("modalErrorMessage");
@@ -1934,14 +1928,11 @@ try {
     // Track which submit button was clicked
     document.querySelectorAll("button[type='submit']").forEach(button => {
       button.addEventListener("click", function(e) {
-        console.log('Button click event triggered for:', this.id, this.name); // Debug log
         e.preventDefault(); // Prevent default form submission
         clickedButton = this;
-        console.log('Button clicked:', this.id, this.name); // Debug log
 
         // If it's the proceed button, trigger form validation and submission
         if (this.id === "btnProceed") {
-          console.log('Dispatching form submit event'); // Debug log
           form.dispatchEvent(new Event('submit'));
         }
       });
@@ -1972,7 +1963,6 @@ try {
             .then(response => response.json())
             .then(data => {
               if (data.success) {
-                console.log(`Row ${rowId} deleted from database successfully`);
                 performRowShift(rowId);
               } else {
                 console.error(`Failed to delete row ${rowId} from database:`, data.errors);
@@ -2088,9 +2078,7 @@ try {
         })
         .then(response => response.json())
         .then(data => {
-          if (data.success) {
-            console.log(`Row ${rowId} updated in database successfully`);
-          } else {
+          if (data.success) {} else {
             console.error(`Failed to update row ${rowId} in database:`, data.errors);
           }
         })
@@ -2150,9 +2138,7 @@ try {
         })
         .then(response => response.json())
         .then(data => {
-          if (data.success) {
-            console.log(`Row ${rowId} cleared from database successfully`);
-          } else {
+          if (data.success) {} else {
             console.error(`Failed to clear row ${rowId} from database:`, data.errors);
           }
         })
@@ -2274,8 +2260,6 @@ try {
                   row.classList.remove('row-saving');
                 }
                 if (data.success) {
-                  // Row saved successfully - you can add visual feedback here if needed
-                  console.log(`Row ${rowId} auto-saved successfully`);
                   // Add a small visual indicator that the row was saved
                   if (row) {
                     row.classList.add('row-saved');
@@ -2456,9 +2440,6 @@ try {
             }
 
             if (data.success) {
-              // Row saved successfully - you can add visual feedback here if needed
-              console.log(`Row ${rowId} auto-saved successfully`);
-
               // Add a small visual indicator that the row was saved
               if (row) {
                 row.classList.add('row-saved');
