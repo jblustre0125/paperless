@@ -302,19 +302,12 @@ class DorDor
 // ================== MAIN SCRIPT ===================
 
 $controller = new DorDor();
-$controller->syncTimeFieldsToDetail();
 $hostnameId = isset($_GET['hostname_id']) ? (int)$_GET['hostname_id'] : null;
-$headers = $controller->getHeaders($hostnameId);
-$details = $controller->getDetails();
-$downtimeOptions = $controller->getDowntimeList();
-$operatorMap = $controller->getOperatorMap();
-$actionTakenOptions = $controller->getActionTakenList();
-
-
-$operatorCodesByHeader = [];
-foreach ($headers as $header) {
-    $operatorCodesByHeader[$header['RecordHeaderId']] = $controller->getOperatorCodesFromCheckpoint($header['RecordHeaderId']);
-}
+    $headers = $controller->getHeaders($hostnameId);
+    $details = $controller->getDetails();
+    $downtimeOptions = $controller->getDowntimeList();
+    $operatorMap = $controller->getOperatorMap();
+    $actionTakenOptions = $controller->getActionTakenList();
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     if (isset($_GET['type']) && $_GET['type'] === 'getActionDowntime') {
@@ -335,26 +328,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         exit;
     }
 
-    // ADD THIS: Endpoint to fetch operator codes for a row
-    if (isset($_GET['type']) && $_GET['type'] === 'getOperators') {
-        $recordHeaderId = $_GET['recordHeaderId'] ?? null;
-        if (!$recordHeaderId) {
-            echo json_encode(['success' => false, 'message' => 'Missing recordHeaderId']);
-            exit;
-        }
-        $detail = $controller->getDetails()[$recordHeaderId] ?? null;
-        $operators = [];
-        if ($detail) {
-            $operators = array_filter([
-                $detail['OperatorCode1'] ?? null,
-                $detail['OperatorCode2'] ?? null,
-                $detail['OperatorCode3'] ?? null,
-                $detail['OperatorCode4'] ?? null,
-            ]);
-        }
-        echo json_encode(['success' => true, 'operators' => $operators]);
-        exit;
-    }
+    
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

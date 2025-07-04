@@ -294,8 +294,13 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
 
         <div class="mb-3">
             <label for="txtModelName" class="form-label-lg fw-bold">Model</label>
-            <input type="text" class="form-control form-control-lg" id="txtModelName" name="txtModelName" placeholder="Tap to scan ID tag" required data-scan
-                value="<?php echo $_POST["txtModelName"] ?? ''; ?>">
+            <div class="input-group">
+                <input type="text" class="form-control form-control-lg" id="txtModelName" name="txtModelName" placeholder="Enter model name" required
+                    value="<?php echo $_POST["txtModelName"] ?? ''; ?>">
+                <button type="button" class="btn btn-outline-secondary btn-lg" id="btnScanModel">
+                    <i class="bi bi-upc-scan"></i> Scan
+                </button>
+            </div>
         </div>
 
         <div class="mb-3">
@@ -510,24 +515,64 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
             }
         }
 
-        document.querySelectorAll("input[data-scan]").forEach(input => {
-            input.addEventListener("click", async function() {
-                const accessGranted = await navigator.mediaDevices.getUserMedia({
-                        video: true
-                    })
-                    .then(stream => {
-                        stream.getTracks().forEach(track => track.stop());
-                        return true;
-                    })
-                    .catch(() => false);
+        // Scanner button for model input
+        document.getElementById("btnScanModel").addEventListener("click", async function() {
+            const accessGranted = await navigator.mediaDevices.getUserMedia({
+                    video: true
+                })
+                .then(stream => {
+                    stream.getTracks().forEach(track => track.stop());
+                    return true;
+                })
+                .catch(() => false);
 
-                if (accessGranted) {
-                    activeInput = this;
-                    startScanning();
+            if (accessGranted) {
+                activeInput = modelInput;
+                startScanning();
+            } else {
+                alert("Camera access denied.");
+            }
+        });
+
+        // Function to parse model input and auto-populate fields
+        function parseModelInput(inputValue) {
+            const parts = inputValue.trim().split(" ");
+
+            if (parts.length === 1) {
+                // Single value - assume it's just the model name
+                modelInput.value = parts[0];
+                // Don't change qty input
+            } else if (parts.length >= 2) {
+                // Multiple values - first is model, second is qty
+                const model = parts[0];
+                const qty = parts[1];
+
+                if (!isNaN(qty)) {
+                    modelInput.value = model;
+                    qtyInput.value = qty;
                 } else {
-                    alert("Camera access denied.");
+                    // If second value is not a number, treat as single model name
+                    modelInput.value = inputValue.trim();
                 }
-            });
+            }
+        }
+
+        // Handle Enter key on model input
+        modelInput.addEventListener("keydown", function(e) {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                parseModelInput(this.value);
+                qtyInput.focus(); // Move focus to qty input
+            }
+        });
+
+        // Handle input change for gun scanner (auto-trigger on value change)
+        modelInput.addEventListener("input", function() {
+            const value = this.value;
+            // Check if input contains spaces (likely from scanner)
+            if (value.includes(" ")) {
+                parseModelInput(value);
+            }
         });
 
         document.getElementById("enterManually").addEventListener("click", () => {
@@ -675,7 +720,7 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
             document.getElementById("txtLineNumber").value = "1";
             // document.getElementById("txtModelName").value = "7M0656-7020";
             document.getElementById("txtModelName").value = "7L0113-7021C";
-            document.getElementById("cmbDorType").value = "2";
+            document.getElementById("cmbDorType").value = "3";
             document.getElementById("txtQty").value = "100";
         }
 
