@@ -1,0 +1,11 @@
+Array
+(
+    [type] => saveOperators
+    [recordHeaderId] => 10
+    [employeeCodes] => Array
+        (
+            [0] => CC057
+            [1] => CC045
+        )
+
+)

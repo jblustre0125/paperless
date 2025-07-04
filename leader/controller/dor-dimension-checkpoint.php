@@ -1,4 +1,7 @@
 <?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 
 require_once '../../config/dbop.php';
 
@@ -79,26 +82,27 @@ $params = [];
 
 foreach (['hatsumono', 'nakamono', 'owarimono'] as $section) {
     for ($j = 1; $j <= 3; $j++) {
-        $judge = $_POST["judge_{$section}_{$j}"] ?? null;
+        $judgeKey = "judge_{$section}_{$j}";
+        $checkByKey = "checkby_{$section}{$j}";
 
-        if ($judge !== null && $judge !== '') {
-            $fields[] = ucfirst($section) . $j . "Judge = ?";
-            $params[] = $judge;
+        $judge = array_key_exists($judgeKey, $_POST) ? $_POST[$judgeKey] : null;
+        $checkBy = array_key_exists($checkByKey, $_POST) ? $_POST[$checkByKey] : ($_SESSION['production_code'] ?? null);
 
-            $checkBy = $_POST["checkby_{$section}{$j}"] ?? ($_SESSION['production_code'] ?? null);
-            if (!empty($checkBy)) {
-                $fields[] = ucfirst($section) . $j . "CheckBy = ?";
-                $params[] = $checkBy;
-            }
-        }
+        error_log("JUDGE {$judgeKey}: " . var_export($judge, true));
+
+        $fields[] = ucfirst($section) . $j . "Judge = ?";
+        $params[] = ($judge === '') ? null : $judge;
+
+        $fields[] = ucfirst($section) . $j . "CheckBy = ?";
+        $params[] = ($checkBy === '') ? null : $checkBy;
     }
 }
 
 // Metadata fields
 if (!empty($_SESSION['production_code'])) {
     $fields[] = "ModifiedBy = ?";
-    $fields[] = "NotedBy = ?";
     $params[] = $_SESSION['production_code'];
+    $fields[] = "NotedBy = ?";
     $params[] = $_SESSION['production_code'];
 }
 $fields[] = "ModifiedDate = GETDATE()"; // No param needed
@@ -112,26 +116,27 @@ try {
             // Update
             $setClause = implode(", ", $fields);
             $sql = "UPDATE AtoDor SET $setClause WHERE RecordId = ?";
-            $db->execute($sql, [...$params, $recordId]);
+            $db->execute($sql, array_merge($params, [$recordId]));
         } else {
             // Insert
             $columns = ['RecordId'];
             $placeholders = ['?'];
             $values = [$recordId];
 
-            foreach ($fields as $index => $field) {
+            $paramIndex = 0;
+            foreach ($fields as $field) {
                 if (strpos($field, ' = ') !== false) {
                     [$col, $val] = explode(' = ', $field);
-                    if (trim($val) !== 'GETDATE()') {
+                    if (trim($val) === 'GETDATE()') {
+                        $columns[] = trim($col);
+                        $placeholders[] = 'GETDATE()';
+                    } else {
                         $columns[] = trim($col);
                         $placeholders[] = '?';
-                        $values[] = $params[$index];
+                        $values[] = $params[$paramIndex++];
                     }
                 }
             }
-
-            $columns[] = "ModifiedDate";
-            $placeholders[] = "GETDATE()";
 
             $sql = "INSERT INTO AtoDor (" . implode(", ", $columns) . ") VALUES (" . implode(", ", $placeholders) . ")";
             $db->execute($sql, $values);

@@ -32,15 +32,11 @@ class DorDor
     {
         $result = $this->db->execute("SELECT * FROM AtoDorDetail");
         $details = [];
-
         foreach ($result as $row) {
             if (!empty($row['RecordHeaderId'])) {
                 $details[$row['RecordHeaderId']] = $row;
-            } else {
-                error_log("Missing RecordHeaderId in AtoDorDetail row: " . print_r($row, true));
             }
         }
-
         return $details;
     }
 
@@ -82,6 +78,9 @@ class DorDor
 
         $existing = $this->db->execute("SELECT * FROM AtoDorDetail WHERE RecordHeaderId = ?", [$recordHeaderId])[0] ?? [];
 
+        // Always fetch from header for time fields
+        $header = $this->db->execute("SELECT TimeStart, TimeEnd, Duration FROM AtoDorHeader WHERE RecordHeaderId = ?", [$recordHeaderId])[0] ?? [];
+
         $fields = [
             'OperatorCode1' => $data['OperatorCode1'] ?? $existing['OperatorCode1'] ?? null,
             'OperatorCode2' => $data['OperatorCode2'] ?? $existing['OperatorCode2'] ?? null,
@@ -89,9 +88,9 @@ class DorDor
             'OperatorCode4' => $data['OperatorCode4'] ?? $existing['OperatorCode4'] ?? null,
             'DowntimeId'    => $data['DowntimeId'] ?? $existing['DowntimeId'] ?? null,
             'ActionTakenId' => $data['ActionTakenId'] ?? $existing['ActionTakenId'] ?? null,
-            'TimeStart'     => $data['TimeStart'] ?? $existing['TimeStart'] ?? null,
-            'TimeEnd'       => $data['TimeEnd'] ?? $existing['TimeEnd'] ?? null,
-            'Duration'      => $data['Duration'] ?? $existing['Duration'] ?? null,
+            'TimeStart'     => $header['TimeStart'] ?? $existing['TimeStart'] ?? null,
+            'TimeEnd'       => $header['TimeEnd'] ?? $existing['TimeEnd'] ?? null,
+            'Duration'      => $header['Duration'] ?? $existing['Duration'] ?? null,
             'Pic'           => $data['Pic'] ?? $existing['Pic'] ?? null,
             'RemarksId'     => $data['RemarksId'] ?? $existing['RemarksId'] ?? null,
         ];
@@ -111,10 +110,10 @@ class DorDor
 
         $this->db->execute($sql, $values);
 
-        $header = $this->db->execute("SELECT RecordId FROM AtoDorHeader WHERE RecordHeaderId = ?", [$recordHeaderId])[0] ?? null;
+        $headerRow = $this->db->execute("SELECT RecordId FROM AtoDorHeader WHERE RecordHeaderId = ?", [$recordHeaderId])[0] ?? null;
 
-        if ($header) {
-            $recordId = $header['RecordId'];
+        if ($headerRow) {
+            $recordId = $headerRow['RecordId'];
             foreach (array_reverse(['OperatorCode1', 'OperatorCode2', 'OperatorCode3', 'OperatorCode4']) as $key) {
                 if (!empty($fields[$key])) {
                     $this->db->execute("UPDATE AtoDor SET CreatedBy = ? WHERE RecordId = ?", [$fields[$key], $recordId]);
@@ -176,18 +175,45 @@ class DorDor
             return false;
         }
 
+        // Always fetch from header for time fields
+        $header = $this->db->execute("SELECT TimeStart, TimeEnd, Duration FROM AtoDorHeader WHERE RecordHeaderId = ?", [$recordHeaderId])[0] ?? [];
+
         $fields = [
             'OperatorCode1' => $employeeCodes[0] ?? null,
             'OperatorCode2' => $employeeCodes[1] ?? null,
             'OperatorCode3' => $employeeCodes[2] ?? null,
             'OperatorCode4' => $employeeCodes[3] ?? null,
+            'TimeStart'     => $header['TimeStart'] ?? null,
+            'TimeEnd'       => $header['TimeEnd'] ?? null,
+            'Duration'      => $header['Duration'] ?? null,
         ];
 
-        $setClause = implode(", ", array_map(fn($k) => "$k = ?", array_keys($fields)));
-        $values = array_values($fields);
-        $values[] = $recordHeaderId;
+        // Check if detail exists
+        $exists = $this->db->execute(
+            "SELECT COUNT(*) AS cnt FROM AtoDorDetail WHERE RecordHeaderId = ?",
+            [$recordHeaderId]
+        )[0]['cnt'] ?? 0;
 
-        $this->db->execute("UPDATE AtoDorDetail SET $setClause WHERE RecordHeaderId = ?", $values);
+        if ($exists == 0) {
+            // Insert new row
+            $columns = implode(", ", array_keys($fields));
+            $placeholders = implode(", ", array_fill(0, count($fields), '?'));
+            $values = array_values($fields);
+            array_unshift($values, $recordHeaderId);
+            $this->db->execute(
+                "INSERT INTO AtoDorDetail (RecordHeaderId, $columns) VALUES (?, $placeholders)",
+                $values
+            );
+        } else {
+            // Update existing row
+            $setClause = implode(", ", array_map(fn($k) => "$k = ?", array_keys($fields)));
+            $values = array_values($fields);
+            $values[] = $recordHeaderId;
+            $this->db->execute(
+                "UPDATE AtoDorDetail SET $setClause WHERE RecordHeaderId = ?",
+                $values
+            );
+        }
 
         $record = $this->db->execute("SELECT RecordId FROM AtoDorHeader WHERE RecordHeaderId = ?", [$recordHeaderId])[0] ?? null;
 
@@ -202,17 +228,93 @@ class DorDor
 
         return true;
     }
+
+    public function syncTimeFieldsToDetail()
+    {
+        $headers = $this->getHeaders();
+        foreach ($headers as $header) {
+            $recordHeaderId = $header['RecordHeaderId'];
+            $timeStart = $header['TimeStart'];
+            $timeEnd = $header['TimeEnd'];
+            $duration = $header['Duration'];
+
+            // Check if detail exists
+            $exists = $this->db->execute(
+                "SELECT COUNT(*) AS cnt FROM AtoDorDetail WHERE RecordHeaderId = ?",
+                [$recordHeaderId]
+            )[0]['cnt'] ?? 0;
+
+            if ($exists == 0) {
+                // Insert a new row if missing
+                $this->db->execute(
+                    "INSERT INTO AtoDorDetail (RecordHeaderId, TimeStart, TimeEnd, Duration) VALUES (?, ?, ?, ?)",
+                    [$recordHeaderId, $timeStart, $timeEnd, $duration]
+                );
+            } else {
+                // Update if exists
+                $this->db->execute(
+                    "UPDATE AtoDorDetail SET TimeStart = ?, TimeEnd = ?, Duration = ? WHERE RecordHeaderId = ?",
+                    [$timeStart, $timeEnd, $duration, $recordHeaderId]
+                );
+            }
+        }
+    }
+
+    public function syncOperatorsFromCheckpoint()
+    {
+        // Get all details with their RecordDetailId and RecordHeaderId
+        $details = $this->db->execute("SELECT RecordDetailId, RecordHeaderId FROM AtoDorDetail");
+        foreach ($details as $detail) {
+            $recordDetailId = $detail['RecordDetailId'];
+            $recordHeaderId = $detail['RecordHeaderId'];
+
+            // Fetch up to 4 unique EmployeeCodes for this detail from AtoDorCheckpointDefinition
+            $checkpointRows = $this->db->execute(
+                "SELECT DISTINCT EmployeeCode FROM AtoDorCheckpointDefinition WHERE RecordDetailId = ? AND EmployeeCode IS NOT NULL AND EmployeeCode <> '' LIMIT 4",
+                [$recordDetailId]
+            );
+
+            $employeeCodes = array_column($checkpointRows, 'EmployeeCode');
+            // Pad to 4 elements
+            while (count($employeeCodes) < 4) $employeeCodes[] = null;
+
+            // Update AtoDorDetail with these codes
+            $this->db->execute(
+                "UPDATE AtoDorDetail SET OperatorCode1 = ?, OperatorCode2 = ?, OperatorCode3 = ?, OperatorCode4 = ? WHERE RecordDetailId = ?",
+                [$employeeCodes[0], $employeeCodes[1], $employeeCodes[2], $employeeCodes[3], $recordDetailId]
+            );
+        }
+    }
+
+    public function getOperatorCodesFromCheckpoint($recordHeaderId)
+    {
+        $sql = "SELECT DISTINCT EmployeeCode 
+                FROM AtoDorCheckpointDefinition 
+                WHERE RecordHeaderId = ? AND EmployeeCode IS NOT NULL AND EmployeeCode <> ''";
+        $result = $this->db->execute($sql, [$recordHeaderId]);
+        if (!is_array($result)) {
+            return [];
+        }
+        return array_column($result, 'EmployeeCode');
+    }
 }
 
 // ================== MAIN SCRIPT ===================
 
 $controller = new DorDor();
+$controller->syncTimeFieldsToDetail();
 $hostnameId = isset($_GET['hostname_id']) ? (int)$_GET['hostname_id'] : null;
-    $headers = $controller->getHeaders($hostnameId);
-    $details = $controller->getDetails();
-    $downtimeOptions = $controller->getDowntimeList();
-    $operatorMap = $controller->getOperatorMap();
-    $actionTakenOptions = $controller->getActionTakenList();
+$headers = $controller->getHeaders($hostnameId);
+$details = $controller->getDetails();
+$downtimeOptions = $controller->getDowntimeList();
+$operatorMap = $controller->getOperatorMap();
+$actionTakenOptions = $controller->getActionTakenList();
+
+
+$operatorCodesByHeader = [];
+foreach ($headers as $header) {
+    $operatorCodesByHeader[$header['RecordHeaderId']] = $controller->getOperatorCodesFromCheckpoint($header['RecordHeaderId']);
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     if (isset($_GET['type']) && $_GET['type'] === 'getActionDowntime') {
@@ -233,12 +335,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         exit;
     }
 
-    
+    // ADD THIS: Endpoint to fetch operator codes for a row
+    if (isset($_GET['type']) && $_GET['type'] === 'getOperators') {
+        $recordHeaderId = $_GET['recordHeaderId'] ?? null;
+        if (!$recordHeaderId) {
+            echo json_encode(['success' => false, 'message' => 'Missing recordHeaderId']);
+            exit;
+        }
+        $detail = $controller->getDetails()[$recordHeaderId] ?? null;
+        $operators = [];
+        if ($detail) {
+            $operators = array_filter([
+                $detail['OperatorCode1'] ?? null,
+                $detail['OperatorCode2'] ?? null,
+                $detail['OperatorCode3'] ?? null,
+                $detail['OperatorCode4'] ?? null,
+            ]);
+        }
+        echo json_encode(['success' => true, 'operators' => $operators]);
+        exit;
+    }
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data = json_decode(file_get_contents("php://input"), true);
-    file_put_contents(__DIR__ . '/log.txt', print_r($data, true));
     $type = $data['type'] ?? null;
 
     switch ($type) {
