@@ -209,7 +209,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             }
 
             $response['success'] = true;
-            $response['redirectUrl'] = "dor-refresh.php";
+            $response['redirectUrl'] = "dor-home.php";
         } else {
             $response['success'] = false;
             $response['errors'][] = "Error.";
@@ -403,7 +403,12 @@ foreach ($tabData as $checkpointName => $rows) {
             </div>
         </div>
 
-        <?php for ($i = 1; $i <= $_SESSION['tabQty']; $i++) : ?>
+        <?php
+        // Debug: Check tabQty value
+        $tabQty = $_SESSION['tabQty'] ?? 0;
+        echo "<!-- Debug: tabQty = $tabQty -->";
+        ?>
+        <?php for ($i = 1; $i <= $tabQty; $i++) : ?>
             <div id="Process<?php echo $i; ?>" class="tab-content">
                 <div class="container-fluid px-2 py-0">
                     <div class="table-container">
@@ -867,11 +872,16 @@ foreach ($tabData as $checkpointName => $rows) {
                     const groups = {};
 
                     // Group radio and text inputs by field name
-                    form.querySelectorAll("input[name^='Process'], input[type='text'][name^='Process']").forEach(input => {
+                    const processInputs = form.querySelectorAll("input[name^='Process'], input[type='text'][name^='Process']");
+                    console.log('Found Process inputs:', processInputs.length); // Debug log
+
+                    processInputs.forEach(input => {
                         const name = input.name;
                         if (!groups[name]) groups[name] = [];
                         groups[name].push(input);
                     });
+
+                    console.log('Groups found:', Object.keys(groups).length); // Debug log
 
                     for (const name in groups) {
                         const group = groups[name];
@@ -892,6 +902,12 @@ foreach ($tabData as $checkpointName => $rows) {
                             if (!errorsByOperator[operator]) errorsByOperator[operator] = [];
                             errorsByOperator[operator].push(checkpoint);
                         }
+                    }
+
+                    // Check if no Process inputs were found at all
+                    if (Object.keys(groups).length === 0) {
+                        showErrorModal("<ul><li>No process inputs found. Please check if the model has processes configured.</li></ul>");
+                        return;
                     }
 
                     // Show modal if errors exist

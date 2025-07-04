@@ -18,14 +18,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
   // Handle operator validation request
   if (isset($_POST['action']) && $_POST['action'] === 'validate_operator') {
-    $employeeCode = trim($_POST['employeeCode'] ?? '');
+    $productionCode = trim($_POST['employeeCode'] ?? '');
 
-    if (empty($employeeCode)) {
+    if (empty($productionCode)) {
       $response['valid'] = false;
       $response['message'] = 'Employee ID is required.';
     } else {
-      $spRd1 = "EXEC RdGenEmployeeAll @EmployeeCode=?, @IsActive=1, @IsLoggedIn=0";
-      $res1 = $db1->execute($spRd1, [$employeeCode], 1);
+      $spRd1 = "EXEC RdGenOperator @ProductionCode=?, @IsActive=1, @IsLoggedIn=0";
+      $res1 = $db1->execute($spRd1, [$productionCode], 1);
 
       if (!empty($res1)) {
         $response['valid'] = true;
@@ -416,6 +416,19 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
   if (empty($response['errors'])) {
     if (isset($_POST['btnProceed'])) {
       $recordId = $_SESSION['dorRecordId'] ?? 0;
+
+      // Debug: Log all POST data
+      error_log("POST data received: " . print_r($_POST, true));
+
+      // Debug: Check for time-related fields
+      $timeFields = [];
+      foreach ($_POST as $key => $value) {
+        if (strpos($key, 'time') !== false || strpos($key, 'Time') !== false) {
+          $timeFields[$key] = $value;
+        }
+      }
+      error_log("Time-related fields found: " . print_r($timeFields, true));
+
       if ($recordId > 0) {
         try {
           // Process each row (1-20) to ensure all data is synced
@@ -426,7 +439,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
           // First pass: validate and collect data
           function isValidTime($val)
           {
-            return !empty($val) && $val !== 'HH:mm';
+            // More robust time validation
+            $val = trim($val);
+            return !empty($val) &&
+              $val !== 'HH:mm' &&
+              $val !== '' &&
+              strlen($val) > 0 &&
+              preg_match('/^\d{1,2}:\d{2}$/', $val); // Basic time format validation
           }
           for ($i = 1; $i <= 20; $i++) {
             $boxNo = trim($_POST["boxNo{$i}"] ?? '');
@@ -434,11 +453,25 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $timeEnd = trim($_POST["timeEnd{$i}"] ?? '');
             $operators = trim($_POST["operators{$i}"] ?? '');
 
-            // Check if any field has a value
-            $hasAnyValue = !empty($boxNo) || !empty($timeStart) || !empty($timeEnd);
-            $hasAllValues = !empty($boxNo) && isValidTime($timeStart) && isValidTime($timeEnd);
+            // Debug: Log what values are being detected
+            error_log("Row {$i} - BoxNo: '{$boxNo}', TimeStart: '{$timeStart}', TimeEnd: '{$timeEnd}'");
 
+            // Check if any field has a meaningful value (skip completely empty rows)
+            // More strict check to avoid placeholder values or whitespace-only values
+            $hasAnyValue = (!empty($boxNo) && $boxNo !== '') ||
+              (!empty($timeStart) && $timeStart !== '' && $timeStart !== 'HH:mm') ||
+              (!empty($timeEnd) && $timeEnd !== '' && $timeEnd !== 'HH:mm');
+
+            // Only validate rows that have some data
             if ($hasAnyValue) {
+              $hasAllValues = !empty($boxNo) && isValidTime($timeStart) && isValidTime($timeEnd);
+
+              // Debug: Log validation details
+              error_log("Row {$i} - hasAllValues: " . ($hasAllValues ? 'true' : 'false') .
+                ", boxNo: " . (!empty($boxNo) ? 'valid' : 'empty') .
+                ", timeStart: " . (isValidTime($timeStart) ? 'valid' : 'invalid') .
+                ", timeEnd: " . (isValidTime($timeEnd) ? 'valid' : 'invalid'));
+
               if ($hasAllValues) {
                 $completeRows++;
                 $rowsToProcess[] = [
@@ -448,16 +481,35 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                   'timeEnd' => $timeEnd,
                   'operators' => $operators
                 ];
+                error_log("Row {$i} - Complete row added");
               } else {
                 $incompleteRows[] = $i;
+                error_log("Row {$i} - Incomplete row added");
               }
+            } else {
+              error_log("Row {$i} - Skipped (no values)");
             }
+            // If no values at all, skip this row entirely (don't add to incompleteRows)
           }
+
+          // Debug: Log the final counts
+          error_log("Complete rows: {$completeRows}, Incomplete rows: " . implode(',', $incompleteRows));
 
           // Check if there's at least one complete record
           if ($completeRows === 0) {
+            $sampleRow1 = [
+              'boxNo' => $_POST['boxNo1'] ?? 'NOT_SET',
+              'timeStart' => $_POST['timeStart1'] ?? 'NOT_SET',
+              'timeEnd' => $_POST['timeEnd1'] ?? 'NOT_SET'
+            ];
             $response['success'] = false;
-            $response['errors'][] = "No records found";
+            $response['errors'][] = "No valid rows found. Please fill Box No., Start Time, and End Time in at least one row. Debug: Complete rows: {$completeRows}, Incomplete rows: " . implode(',', $incompleteRows) . ". Row 1 data: BoxNo='{$sampleRow1['boxNo']}', TimeStart='{$sampleRow1['timeStart']}', TimeEnd='{$sampleRow1['timeEnd']}'";
+            $response['debug'] = [
+              'completeRows' => $completeRows,
+              'incompleteRows' => $incompleteRows,
+              'totalRowsChecked' => 20,
+              'sampleRow1' => $sampleRow1
+            ];
             echo json_encode($response);
             exit;
           }
@@ -465,7 +517,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
           // Check for incomplete rows
           if (!empty($incompleteRows)) {
             $response['success'] = false;
-            $response['errors'][] = "Incomplete data in row " . implode(', incomplete data in row ', $incompleteRows);
+            $response['errors'][] = "Incomplete data in row(s): " . implode(', ', $incompleteRows) . ". Please fill Box No., Start Time, and End Time in HH:mm format for each row.";
             echo json_encode($response);
             exit;
           }
@@ -587,17 +639,24 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
           if ($response['success'] !== false) {
             $response['success'] = true;
             $response['redirectUrl'] = "dor-home.php";
+            $response['message'] = "DOR saved successfully. Redirecting...";
 
             // Clear all DOR-related session variables
             unset($_SESSION['dorTypeId']);
             unset($_SESSION['dorModelId']);
+            unset($_SESSION['dorModelName']);
             unset($_SESSION['dorRecordId']);
+            unset($_SESSION['dorDate']);
+            unset($_SESSION['dorShift']);
+            unset($_SESSION['dorLineId']);
+            unset($_SESSION['dorQty']);
             unset($_SESSION['dorBoxNumber']);
             unset($_SESSION['dorTimeStart']);
             unset($_SESSION['dorTimeEnd']);
             unset($_SESSION['dorDuration']);
             unset($_SESSION['dorOperators']);
             unset($_SESSION['dorDowntime']);
+            unset($_SESSION['tabQty']);
 
             // Clear any user codes that might have been set
             for ($j = 1; $j <= 4; $j++) {
@@ -765,10 +824,10 @@ try {
                   <input type="hidden" id="lotNumber<?= $i ?>" name="lotNumber<?= $i ?>">
                 </td>
                 <td class="time-column">
-                  <input type="text" class="form-control scan-box-no text-center time-input" id="timeStart<?= $i ?>" pattern="[0-9]{2}:[0-9]{2}" placeholder="HH:mm" maxlength="5" <?= $i === 1 ? '' : ' disabled' ?>>
+                  <input type="text" class="form-control scan-box-no text-center time-input" id="timeStart<?= $i ?>" name="timeStart<?= $i ?>" pattern="[0-9]{2}:[0-9]{2}" placeholder="HH:mm" maxlength="5" <?= $i === 1 ? '' : ' disabled' ?>>
                 </td>
                 <td class="time-column">
-                  <input type="text" class="form-control scan-box-no text-center time-input" id="timeEnd<?= $i ?>" pattern="[0-9]{2}:[0-9]{2}" placeholder="HH:mm" maxlength="5" <?= $i === 1 ? '' : ' disabled' ?>>
+                  <input type="text" class="form-control scan-box-no text-center time-input" id="timeEnd<?= $i ?>" name="timeEnd<?= $i ?>" pattern="[0-9]{2}:[0-9]{2}" placeholder="HH:mm" maxlength="5" <?= $i === 1 ? '' : ' disabled' ?>>
                 </td>
                 <td class="duration-column text-center align-middle">
                   <span id="duration<?= $i ?>" class="duration-value"></span>
@@ -921,6 +980,7 @@ try {
     </div>
   </div> -->
 
+
   <!-- QR Code Scanner Modal -->
   <div class="modal fade" id="qrScannerModal" tabindex="-1" aria-labelledby="qrScannerLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -999,7 +1059,6 @@ try {
 
           <div class="row">
             <div class="col-12">
-              <h6 class="mb-3">Current Operators</h6>
               <div id="currentOperators" class="border rounded p-3" style="min-height: 80px; max-height: 200px; overflow-y: auto;">
                 <p class="text-muted text-center mb-0">No operators assigned yet.</p>
               </div>
@@ -1100,7 +1159,6 @@ try {
           </form>
           <div class="row">
             <div class="col-12">
-              <h6 class="mb-3">Current Downtime Records</h6>
               <div id="currentDowntimeRecords" class="border rounded p-3" style="min-height: 80px; max-height: 200px; overflow-y: auto;">
                 <p class="text-muted text-center mb-0">No downtime records added yet.</p>
               </div>
@@ -1531,7 +1589,7 @@ try {
         activeRowId = null;
       }
 
-      // Add click event listeners to row numbers
+      // Add click event listeners to row numbers (now supports both camera and gun scanner)
       document.querySelectorAll('.clickable-row').forEach(cell => {
         cell.addEventListener('click', async function() {
           const rowId = this.closest('tr').getAttribute('data-row-id');
@@ -1545,7 +1603,11 @@ try {
           if (accessGranted) {
             startScanning(rowId);
           } else {
-            alert("Camera access denied");
+            // Fallback to focusing the box number input for gun scanner
+            const boxNoInput = document.getElementById(`boxNo${rowId}`);
+            if (boxNoInput && !boxNoInput.disabled) {
+              boxNoInput.focus();
+            }
           }
         });
       });
@@ -1609,6 +1671,7 @@ try {
       }
 
       form.addEventListener("submit", function(e) {
+        console.log('Form submit event triggered'); // Debug log
         if (errorModalIsOpen) {
           // Prevent repeated validation/modal if already open
           return;
@@ -1652,7 +1715,6 @@ try {
             }
           }
         }
-        // validateBoxNumberDuplicate(boxNoInput.value);
 
         // If there are incomplete rows, show that error first
         if (incompleteRows.length > 0) {
@@ -1664,8 +1726,6 @@ try {
           showErrorModal(errorHtml);
           return;
         }
-
-        validateBoxNumberDuplicate(boxNoInput.value);
 
         // If there are no complete rows, show "No records found"
         if (completeRows === 0) {
@@ -1685,11 +1745,27 @@ try {
           })
           .then(response => response.json())
           .then((data) => {
+            console.log('Response data:', data); // Debug log
+            console.log('Clicked button:', clickedButton); // Debug log
             if (data.success) {
-              if (clickedButton.name === "btnProceed") {
+              if (clickedButton && clickedButton.name === "btnProceed") {
+                console.log('Redirecting to:', data.redirectUrl); // Debug log
                 // Clear all form data from session storage when saving DOR
                 clearAllFormData();
-                window.location.href = data.redirectUrl;
+                // Try multiple redirect methods
+                try {
+                  window.location.href = data.redirectUrl;
+                } catch (e) {
+                  console.error('Redirect failed:', e);
+                  window.location.replace(data.redirectUrl);
+                }
+                // Fallback redirect after 2 seconds if the above methods fail
+                setTimeout(() => {
+                  if (window.location.pathname.indexOf('dor-dor.php') !== -1) {
+                    console.log('Fallback redirect to:', data.redirectUrl);
+                    window.location.href = data.redirectUrl;
+                  }
+                }, 2000);
                 return;
               }
             } else {
@@ -1780,6 +1856,7 @@ try {
       sessionStorage.removeItem('dorFormData');
       sessionStorage.removeItem('dorRefreshData');
       sessionStorage.removeItem('dorDorData');
+      sessionStorage.removeItem('dorHomeData');
       sessionStorage.removeItem('activeTab');
 
       // Clear all form inputs
@@ -1847,6 +1924,7 @@ try {
 
     // Form submission handling
     const form = document.querySelector("#myForm");
+    console.log('Form element found:', form); // Debug log
     // Remove the conflicting modal instance creation
     // const errorModal = new bootstrap.Modal(document.getElementById("errorModal"));
     const modalErrorMessage = document.getElementById("modalErrorMessage");
@@ -1856,11 +1934,14 @@ try {
     // Track which submit button was clicked
     document.querySelectorAll("button[type='submit']").forEach(button => {
       button.addEventListener("click", function(e) {
+        console.log('Button click event triggered for:', this.id, this.name); // Debug log
         e.preventDefault(); // Prevent default form submission
         clickedButton = this;
+        console.log('Button clicked:', this.id, this.name); // Debug log
 
         // If it's the proceed button, trigger form validation and submission
         if (this.id === "btnProceed") {
+          console.log('Dispatching form submit event'); // Debug log
           form.dispatchEvent(new Event('submit'));
         }
       });
@@ -2412,8 +2493,137 @@ try {
       });
     });
 
-    // Add event listeners for box number inputs to trigger auto-save
+    // Add event listeners for box number inputs to handle gun scanner parsing
     document.querySelectorAll('.box-no-input').forEach(input => {
+      // Function to parse box number input (gun scanner)
+      function parseBoxNumberInput(inputValue, rowId) {
+        const modelName = <?php echo json_encode($_SESSION['dorModelName'] ?? ''); ?>;
+        const sessionQty = <?php echo json_encode($_SESSION['dorQty'] ?? ''); ?>;
+        const parts = inputValue.trim().split(" ");
+
+        if (parts.length === 1) {
+          // Single value - check if it's the model name
+          if (parts[0] === modelName) {
+            showErrorModal("You scanned model name, please scan box number");
+            return false;
+          }
+          // Otherwise accept as box number
+          return {
+            boxNumber: parts[0],
+            shouldSetTime: true
+          };
+        } else if (parts.length === 3) {
+          // Three values - Model, Quantity, Box Number
+          const scannedModel = parts[0];
+          const scannedQty = parts[1];
+          const boxNumber = parts[2];
+
+          // Check if model matches
+          if (scannedModel !== modelName) {
+            showErrorModal("Invalid QR code: Model name mismatch");
+            return false;
+          }
+
+          // Check if quantity matches
+          if (scannedQty !== sessionQty.toString()) {
+            showErrorModal("Invalid QR code: Quantity mismatch");
+            return false;
+          }
+
+          // Both match, accept box number
+          return {
+            boxNumber: boxNumber,
+            shouldSetTime: true
+          };
+        } else {
+          showErrorModal("Invalid QR code format");
+          return false;
+        }
+      }
+
+      // Handle input change for gun scanner (auto-trigger on value change)
+      input.addEventListener('input', function() {
+        const value = this.value;
+        const rowId = this.closest('tr').getAttribute('data-row-id');
+
+        // Check if input contains spaces (likely from gun scanner)
+        if (value.includes(" ")) {
+          const result = parseBoxNumberInput(value, rowId);
+          if (result) {
+            // Set the box number
+            this.value = result.boxNumber;
+
+            if (result.shouldSetTime) {
+              // Check if time start already has a value
+              const timeStartInput = document.getElementById(`timeStart${rowId}`);
+              const timeEndInput = document.getElementById(`timeEnd${rowId}`);
+
+              if (timeStartInput && timeEndInput) {
+                const now = new Date();
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const currentTime = `${hours}:${minutes}`;
+
+                if (timeStartInput.value && !timeEndInput.value) {
+                  // Set end time
+                  timeEndInput.value = currentTime;
+                  timeEndInput.dispatchEvent(new Event('change'));
+                } else if (!timeStartInput.value) {
+                  // Set start time
+                  timeStartInput.value = currentTime;
+                  timeStartInput.dispatchEvent(new Event('change'));
+                }
+              }
+            }
+          } else {
+            // Clear invalid input
+            this.value = '';
+          }
+        }
+      });
+
+      // Handle Enter key on box number input
+      input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const value = this.value;
+          const rowId = this.closest('tr').getAttribute('data-row-id');
+
+          const result = parseBoxNumberInput(value, rowId);
+          if (result) {
+            // Set the box number
+            this.value = result.boxNumber;
+
+            if (result.shouldSetTime) {
+              // Check if time start already has a value
+              const timeStartInput = document.getElementById(`timeStart${rowId}`);
+              const timeEndInput = document.getElementById(`timeEnd${rowId}`);
+
+              if (timeStartInput && timeEndInput) {
+                const now = new Date();
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const currentTime = `${hours}:${minutes}`;
+
+                if (timeStartInput.value && !timeEndInput.value) {
+                  // Set end time
+                  timeEndInput.value = currentTime;
+                  timeEndInput.dispatchEvent(new Event('change'));
+                } else if (!timeStartInput.value) {
+                  // Set start time
+                  timeStartInput.value = currentTime;
+                  timeStartInput.dispatchEvent(new Event('change'));
+                }
+              }
+            }
+          } else {
+            // Clear invalid input
+            this.value = '';
+          }
+        }
+      });
+
+      // Original change event for auto-save
       input.addEventListener('change', function() {
         const rowId = this.closest('tr').getAttribute('data-row-id');
         // Trigger auto-save after a short delay to ensure all fields are updated
