@@ -85,9 +85,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                            ORDER BY JigName";
             $res = $db3->execute($suggestQuery, ['%' . $searchTerm . '%']);
 
-            // Debug logging
-            error_log("Jig autosuggest - Search term: " . $searchTerm);
-            error_log("Jig autosuggest - Results: " . print_r($res, true));
+
 
             $response['suggestions'] = $res ?: [];
         } else {
@@ -319,7 +317,6 @@ foreach ($tabData as $checkpointName => $rows) {
 
                 <!-- Right-aligned group -->
                 <div class="d-flex gap-2 flex-wrap">
-                    <button type="button" class="btn btn-secondary btn-lg nav-btn-group" onclick="setAllTestValues(event)">Set Test Values</button>
                     <button type="button" class="btn btn-secondary btn-lg nav-btn-group" onclick="goBack()">Back</button>
                     <button type="submit" class="btn btn-primary btn-lg nav-btn-group" id="btnProceed" name="btnProceed">
                         <span class="short-label">Next</span>
@@ -359,6 +356,7 @@ foreach ($tabData as $checkpointName => $rows) {
                         <?php endfor; ?>
                     </div>
                 </div>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="setAllTestValues(event)">Set Test Values</button>
             </div>
             <!-- Match EXACTLY the same container structure as the body table -->
             <div class="container-fluid px-2 py-0">
@@ -380,7 +378,7 @@ foreach ($tabData as $checkpointName => $rows) {
                                                 inputmode="numeric"
                                                 required>
                                             <div id="jigSuggestions" class="bg-white"></div>
-                                            <div id="jigValidationMessage" class="validation-message mt-1"></div>
+
                                         </div>
                                     </th>
                                     <th class="selection-cell"></th>
@@ -444,8 +442,7 @@ foreach ($tabData as $checkpointName => $rows) {
                                                 if ($controlType === 'radio' && !empty($options)) {
                                                     echo "<div class='process-radio'>";
                                                     foreach ($options as $index => $opt) {
-                                                        $checked = ($index === 0) ? "checked" : "";
-                                                        echo "<label><input type='radio' name='{$inputName}' value='{$opt}' {$checked}> {$opt}</label> ";
+                                                        echo "<label><input type='radio' name='{$inputName}' value='{$opt}'> {$opt}</label> ";
                                                     }
                                                     echo "</div>";
                                                 } elseif ($controlType === 'text') {
@@ -873,15 +870,12 @@ foreach ($tabData as $checkpointName => $rows) {
 
                     // Group radio and text inputs by field name
                     const processInputs = form.querySelectorAll("input[name^='Process'], input[type='text'][name^='Process']");
-                    console.log('Found Process inputs:', processInputs.length); // Debug log
 
                     processInputs.forEach(input => {
                         const name = input.name;
                         if (!groups[name]) groups[name] = [];
                         groups[name].push(input);
                     });
-
-                    console.log('Groups found:', Object.keys(groups).length); // Debug log
 
                     for (const name in groups) {
                         const group = groups[name];
@@ -897,7 +891,7 @@ foreach ($tabData as $checkpointName => $rows) {
                         if (!valid) {
                             const checkpoint = meta[name]?.checkpoint || name;
                             const tabIndex = meta[name]?.tabIndex;
-                            const operator = tabIndex && userCodes[tabIndex] ? userCodes[tabIndex] : `Process ${tabIndex}`;
+                            const operator = tabIndex && userCodes[tabIndex] ? `P${tabIndex}: ${userCodes[tabIndex]}` : `Process ${tabIndex}`;
 
                             if (!errorsByOperator[operator]) errorsByOperator[operator] = [];
                             errorsByOperator[operator].push(checkpoint);
@@ -915,16 +909,22 @@ foreach ($tabData as $checkpointName => $rows) {
                     if (operatorList.length > 0) {
                         let html = `<ul>`;
                         operatorList.forEach(op => {
-                            errorsByOperator[op].forEach(cp => {
-                                // Extract checkpoint number from the checkpoint name
-                                const checkpointMatch = cp.match(/^(\d+)\.\s*(.*)/);
-                                if (checkpointMatch) {
-                                    const [, number, name] = checkpointMatch;
-                                    html += `<li>${op} - Checkpoint ${number}: ${name}</li>`;
-                                } else {
-                                    html += `<li>${op} - ${cp}</li>`;
-                                }
-                            });
+                            html += `<li><strong>${op}</strong>`;
+                            if (errorsByOperator[op].length > 0) {
+                                html += `<ul>`;
+                                errorsByOperator[op].forEach(cp => {
+                                    // Extract checkpoint number from the checkpoint name
+                                    const checkpointMatch = cp.match(/^(\d+)\.\s*(.*)/);
+                                    if (checkpointMatch) {
+                                        const [, number, name] = checkpointMatch;
+                                        html += `<li>${name}</li>`;
+                                    } else {
+                                        html += `<li>${cp}</li>`;
+                                    }
+                                });
+                                html += `</ul>`;
+                            }
+                            html += `</li>`;
                         });
                         html += `</ul>`;
                         showErrorModal(html);
@@ -1087,6 +1087,15 @@ foreach ($tabData as $checkpointName => $rows) {
             if (jigIdInput && jigIdInput.style.display !== 'none') {
                 jigIdInput.value = 'Taping-123';
             }
+
+            // Set all radio buttons to "OK" (first option)
+            document.querySelectorAll('input[type="radio"][name^="Process"]').forEach(input => {
+                const radioGroup = document.querySelectorAll(`input[type="radio"][name="${input.name}"]`);
+                if (radioGroup.length > 0) {
+                    // Select the first radio button in each group (usually "OK")
+                    radioGroup[0].checked = true;
+                }
+            });
 
             document.querySelectorAll('input[type="text"][name^="Process"]').forEach(input => {
                 // Generate random number between 1 and 10
@@ -1251,6 +1260,14 @@ foreach ($tabData as $checkpointName => $rows) {
                     }
                 }, 200);
             });
+
+            // Clear validation classes when input is cleared
+            jigInput.addEventListener('input', function() {
+                if (this.value.trim() === '') {
+                    this.classList.remove('is-valid', 'is-invalid');
+                    selectedJigId = null;
+                }
+            });
         }
 
         function fetchSuggestions(searchTerm) {
@@ -1303,12 +1320,10 @@ foreach ($tabData as $checkpointName => $rows) {
                     if (data.valid) {
                         jigInput.classList.remove('is-invalid');
                         jigInput.classList.add('is-valid');
-                        validationDiv.innerHTML = `<small class="text-success">${data.message}</small>`;
                         selectedJigId = data.jigId;
                     } else {
                         jigInput.classList.remove('is-valid');
                         jigInput.classList.add('is-invalid');
-                        validationDiv.innerHTML = `<small class="text-danger">${data.message}</small>`;
                         selectedJigId = null;
                     }
                 })
