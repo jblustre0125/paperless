@@ -2112,10 +2112,20 @@ try {
 
     // Function to check if a row is complete
     function isRowComplete(rowId) {
-      const boxNo = document.getElementById(`boxNo${rowId}`).value.trim();
-      const timeStart = document.getElementById(`timeStart${rowId}`).value.trim();
-      const timeEnd = document.getElementById(`timeEnd${rowId}`).value.trim();
-      return boxNo && timeStart && timeEnd; // All three fields are required
+      const boxNoInput = document.getElementById(`boxNo${rowId}`);
+      const timeStartInput = document.getElementById(`timeStart${rowId}`);
+      const timeEndInput = document.getElementById(`timeEnd${rowId}`);
+
+      if (!boxNoInput || !timeStartInput || !timeEndInput) {
+        return false;
+      }
+
+      const boxNo = boxNoInput.value.trim();
+      const timeStart = timeStartInput.value.trim();
+      const timeEnd = timeEndInput.value.trim();
+
+      // All three fields are required and must be valid
+      return boxNo && timeStart && timeEnd && timeStart !== 'HH:mm' && timeEnd !== 'HH:mm';
     }
 
     // Function to set row active/inactive
@@ -2152,6 +2162,14 @@ try {
       for (let i = 2; i <= 20; i++) {
         const prevRowComplete = isRowComplete(i - 1);
         setRowActive(i, prevRowComplete);
+
+        // If previous row is complete, enable the current row's box number input
+        if (prevRowComplete) {
+          const boxNoInput = document.getElementById(`boxNo${i}`);
+          if (boxNoInput && boxNoInput.disabled) {
+            boxNoInput.disabled = false;
+          }
+        }
       }
     }
 
@@ -2343,6 +2361,25 @@ try {
 
         // Auto-save row when all required fields are complete
         autoSaveRow(rowId);
+
+        // Check if row is complete and enable next row
+        if (isRowComplete(rowId)) {
+          setTimeout(() => {
+            const nextRowId = parseInt(rowId) + 1;
+            if (nextRowId <= 20) {
+              const nextBoxNoInput = document.getElementById(`boxNo${nextRowId}`);
+              if (nextBoxNoInput) {
+                // Ensure the next row is enabled
+                nextBoxNoInput.disabled = false;
+                // Update row states to ensure proper enabling
+                updateRowStates();
+                // Focus and select the next box number input
+                nextBoxNoInput.focus();
+                nextBoxNoInput.select();
+              }
+            }
+          }, 100); // Small delay to ensure DOM updates are complete
+        }
       }
     }
 
@@ -2434,6 +2471,58 @@ try {
         const rowId = this.closest('tr').getAttribute('data-row-id');
         updateDuration(rowId);
         updateDORSummary(); // Update summary when duration changes
+
+        // Check if current row is complete and enable next row
+        if (isRowComplete(rowId)) {
+          setTimeout(() => {
+            const nextRowId = parseInt(rowId) + 1;
+            if (nextRowId <= 20) {
+              const nextBoxNoInput = document.getElementById(`boxNo${nextRowId}`);
+              if (nextBoxNoInput) {
+                // Ensure the next row is enabled
+                nextBoxNoInput.disabled = false;
+                // Update row states to ensure proper enabling
+                updateRowStates();
+                // Focus and select the next box number input
+                nextBoxNoInput.focus();
+                nextBoxNoInput.select();
+              }
+            }
+          }, 100); // Small delay to ensure DOM updates are complete
+        }
+      });
+
+      // Also handle input event for real-time updates
+      input.addEventListener('input', function() {
+        const rowId = this.closest('tr').getAttribute('data-row-id');
+
+        // If this is time end input and it has a value, check if row is complete
+        if (this.id.includes('timeEnd') && this.value.trim()) {
+          const boxNoInput = document.getElementById(`boxNo${rowId}`);
+          const timeStartInput = document.getElementById(`timeStart${rowId}`);
+
+          // Check if all required fields are filled
+          if (boxNoInput && timeStartInput &&
+            boxNoInput.value.trim() && timeStartInput.value.trim()) {
+
+            // Enable next row immediately
+            setTimeout(() => {
+              const nextRowId = parseInt(rowId) + 1;
+              if (nextRowId <= 20) {
+                const nextBoxNoInput = document.getElementById(`boxNo${nextRowId}`);
+                if (nextBoxNoInput) {
+                  // Ensure the next row is enabled
+                  nextBoxNoInput.disabled = false;
+                  // Update row states to ensure proper enabling
+                  updateRowStates();
+                  // Focus and select the next box number input
+                  nextBoxNoInput.focus();
+                  nextBoxNoInput.select();
+                }
+              }
+            }, 100); // Small delay to ensure DOM updates are complete
+          }
+        }
       });
     });
 
@@ -2448,51 +2537,107 @@ try {
         const modelName = <?php echo json_encode($_SESSION['dorModelName'] ?? ''); ?>;
         const sessionQty = <?php echo json_encode($_SESSION['dorQty'] ?? ''); ?>;
         const parts = inputValue.trim().split(" ");
+
         if (parts.length === 3) {
           // Three values - Model, Quantity, Box Number
           const scannedModel = parts[0];
           const scannedQty = parts[1];
           const boxNumber = parts[2];
+
           // Check if model matches
           if (scannedModel !== modelName) {
-            showErrorModal("Invalid QR code: Model name mismatch");
-            return false;
+            showErrorModal("Invalid scanner data: Model name mismatch. Expected: " + modelName + ", Got: " + scannedModel);
+            return {
+              success: false
+            };
           }
+
           // Check if quantity matches
           if (scannedQty !== sessionQty.toString()) {
-            showErrorModal("Invalid QR code: Quantity mismatch");
-            return false;
+            showErrorModal("Invalid scanner data: Quantity mismatch. Expected: " + sessionQty + ", Got: " + scannedQty);
+            return {
+              success: false
+            };
           }
-          // Both match, accept box number
+
+          // Check if this is a second scan (time end) - box number should match existing one
+          const currentBoxNoInput = document.getElementById(`boxNo${rowId}`);
+          const timeStartInput = document.getElementById(`timeStart${rowId}`);
+          const timeEndInput = document.getElementById(`timeEnd${rowId}`);
+
+          if (currentBoxNoInput && currentBoxNoInput.value.trim() &&
+            timeStartInput && timeStartInput.value.trim() &&
+            !timeEndInput.value.trim()) {
+            // This is a second scan for time end - box number should match
+            // Extract just the box number from the current input (in case it's full scanner data)
+            let currentBoxNumber = currentBoxNoInput.value.trim();
+            // If current input contains spaces, extract the last part as box number
+            if (currentBoxNumber.includes(' ')) {
+              const currentParts = currentBoxNumber.split(' ');
+              currentBoxNumber = currentParts[currentParts.length - 1];
+            }
+
+            if (currentBoxNumber !== boxNumber) {
+              showErrorModal(`Box number mismatch for time end. Expected: ${currentBoxNumber}, Got: ${boxNumber}`);
+              return {
+                success: false
+              };
+            }
+            // Box number matches, allow the scan for time end
+            return {
+              success: true,
+              boxNumber: boxNumber,
+              isTimeEndScan: true
+            };
+          }
+
+          // First scan - check for duplicate box number in other rows
+          for (let i = 1; i <= 20; i++) {
+            if (i === parseInt(rowId)) continue; // Skip current row
+            const existingBoxNo = document.getElementById(`boxNo${i}`);
+            if (existingBoxNo && existingBoxNo.value.trim() === boxNumber) {
+              showErrorModal(`Box number ${boxNumber} already exists in row ${i}`);
+              return {
+                success: false
+              };
+            }
+          }
+
+          // All validations passed for first scan
           return {
+            success: true,
             boxNumber: boxNumber,
-            shouldSetTime: true
+            isTimeEndScan: false
           };
         } else {
-          showErrorModal("Invalid QR code format");
-          return false;
+          showErrorModal("Invalid scanner data format. Expected: Model Qty BoxNumber (e.g., 7L0113-7021C 100 1001)");
+          return {
+            success: false
+          };
         }
       }
       // Validate on change/blur
       function validateBoxNumberInput(input) {
         const value = input.value.trim();
         const rowId = input.closest('tr').getAttribute('data-row-id');
-        // Check for empty
+
+        // Skip validation for empty values (user might be about to scan)
         if (!value) {
-          showErrorModal('Box number is required.');
-          input.focus();
-          return false;
+          input.classList.remove('is-invalid');
+          return true;
         }
+
         // Check for duplicate
         for (let i = 1; i <= 20; i++) {
           if (i == rowId) continue;
           const other = document.getElementById(`boxNo${i}`);
           if (other && other.value.trim() === value) {
-            showErrorModal(`Lot number ${value} already scanned.`);
+            showErrorModal(`Box number ${value} already exists in row ${i}`);
             input.focus();
             return false;
           }
         }
+
         // Passed validation
         input.classList.remove('is-invalid');
         return true;
@@ -2507,41 +2652,62 @@ try {
       input.addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
           e.preventDefault();
-          const value = this.value;
+          const value = this.value.trim();
           const rowId = this.closest('tr').getAttribute('data-row-id');
+
+          // Allow empty input - user might be about to scan
+          if (!value) {
+            this.focus();
+            return;
+          }
+
           const result = parseBoxNumberInput(value, rowId);
-          if (result) {
+          if (result && result.success) {
             // Set the box number
             this.value = result.boxNumber;
             this.select(); // Ensure next scan/typing replaces the value
-            if (result.shouldSetTime) {
-              // Check if time start already has a value
-              const timeStartInput = document.getElementById(`timeStart${rowId}`);
-              const timeEndInput = document.getElementById(`timeEnd${rowId}`);
-              if (timeStartInput && timeEndInput) {
-                const now = new Date();
-                const hours = String(now.getHours()).padStart(2, '0');
-                const minutes = String(now.getMinutes()).padStart(2, '0');
-                const currentTime = `${hours}:${minutes}`;
-                if (timeStartInput.value && !timeEndInput.value) {
-                  // Set end time
-                  timeEndInput.value = currentTime;
-                  timeEndInput.dispatchEvent(new Event('change'));
-                  // Move focus to next box number input
-                  const nextBoxNoInput = document.getElementById(`boxNo${parseInt(rowId) + 1}`);
-                  if (nextBoxNoInput && !nextBoxNoInput.disabled) {
-                    nextBoxNoInput.focus();
+
+            // Auto-populate time start or end
+            const timeStartInput = document.getElementById(`timeStart${rowId}`);
+            const timeEndInput = document.getElementById(`timeEnd${rowId}`);
+
+            if (timeStartInput && timeEndInput) {
+              const now = new Date();
+              const hours = String(now.getHours()).padStart(2, '0');
+              const minutes = String(now.getMinutes()).padStart(2, '0');
+              const currentTime = `${hours}:${minutes}`;
+
+              if (timeStartInput.value && !timeEndInput.value) {
+                // Second scan - set end time
+                timeEndInput.value = currentTime;
+                timeEndInput.dispatchEvent(new Event('change'));
+
+                // Enable next row and focus on its box number
+                setTimeout(() => {
+                  const nextRowId = parseInt(rowId) + 1;
+                  if (nextRowId <= 20) {
+                    const nextBoxNoInput = document.getElementById(`boxNo${nextRowId}`);
+                    if (nextBoxNoInput) {
+                      // Ensure the next row is enabled
+                      nextBoxNoInput.disabled = false;
+                      // Update row states to ensure proper enabling
+                      updateRowStates();
+                      // Focus and select the next box number input
+                      nextBoxNoInput.focus();
+                      nextBoxNoInput.select();
+                    }
                   }
-                } else if (!timeStartInput.value) {
-                  // Set start time
-                  timeStartInput.value = currentTime;
-                  timeStartInput.dispatchEvent(new Event('change'));
-                }
+                }, 100); // Small delay to ensure DOM updates are complete
+              } else if (!timeStartInput.value) {
+                // First scan - set start time
+                timeStartInput.value = currentTime;
+                timeStartInput.dispatchEvent(new Event('change'));
               }
             }
           } else {
             // Clear invalid input
             this.value = '';
+            this.focus();
           }
         }
       });
@@ -2555,21 +2721,52 @@ try {
           showErrorModal('Box number is required before entering time.');
           boxNoInput.focus();
           e.preventDefault();
-        } else {
-          // Check for duplicate as well
-          let isDuplicate = false;
+          return;
+        }
+
+        // Check for duplicate box numbers
+        if (boxNoInput && boxNoInput.value.trim()) {
           for (let i = 1; i <= 20; i++) {
             if (i == rowId) continue;
             const other = document.getElementById(`boxNo${i}`);
             if (other && other.value.trim() === boxNoInput.value.trim()) {
-              showErrorModal(`Lot number ${boxNoInput.value.trim()} already scanned.`);
+              showErrorModal(`Box number ${boxNoInput.value.trim()} already exists in row ${i}`);
               boxNoInput.focus();
               e.preventDefault();
-              isDuplicate = true;
-              break;
+              return;
             }
           }
-          if (isDuplicate) return;
+        }
+      });
+
+      // Handle Enter key on time inputs
+      input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const rowId = this.closest('tr').getAttribute('data-row-id');
+          const boxNoInput = document.getElementById(`boxNo${rowId}`);
+
+          // Don't enable next row if box number is empty
+          if (!boxNoInput || !boxNoInput.value.trim()) {
+            showErrorModal('Box number is required before entering time.');
+            if (boxNoInput) {
+              boxNoInput.focus();
+            }
+            return;
+          }
+
+          // If this is time end and it's valid, enable next row
+          if (this.id.includes('timeEnd') && this.value.trim()) {
+            const nextRowId = parseInt(rowId) + 1;
+            if (nextRowId <= 20) {
+              const nextBoxNoInput = document.getElementById(`boxNo${nextRowId}`);
+              if (nextBoxNoInput && nextBoxNoInput.disabled) {
+                nextBoxNoInput.disabled = false;
+                nextBoxNoInput.focus();
+                nextBoxNoInput.select();
+              }
+            }
+          }
         }
       });
     });
