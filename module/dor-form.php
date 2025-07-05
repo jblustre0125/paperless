@@ -207,7 +207,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             }
 
             $response['success'] = true;
-            $response['redirectUrl'] = "dor-home.php";
+            $response['redirectUrl'] = "dor-refresh.php";
         } else {
             $response['success'] = false;
             $response['errors'][] = "Error.";

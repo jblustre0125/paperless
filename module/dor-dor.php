@@ -1467,16 +1467,48 @@ try {
               return false;
             }
 
-            if (parts.length === 1) {
-              // Single part - Check if it matches model name
-              if (parts[0] === modelName) {
-                // If model name matches and time start exists, set time end
-                if (activeRowId) {
-                  const timeStartInput = document.getElementById(`timeStart${activeRowId}`);
-                  const timeEndInput = document.getElementById(`timeEnd${activeRowId}`);
-                  const boxNoInput = document.getElementById(`boxNo${activeRowId}`);
+            if (parts.length === 3) {
+              // Three parts - Model, Quantity, Lot/Box Number
+              const scannedModel = parts[0];
+              const scannedQty = parts[1];
+              const lotNumber = parts[2];
+              const sessionQty = <?php echo json_encode($_SESSION['dorQty'] ?? ''); ?>;
 
-                  if (timeStartInput && timeStartInput.value) {
+              // Check if model matches
+              if (scannedModel !== modelName) {
+                showErrorModal("Invalid QR code: Model name mismatch.");
+                stopScanning();
+                return;
+              }
+
+              // Check if quantity matches
+              if (scannedQty !== sessionQty.toString()) {
+                showErrorModal("Invalid QR code: Quantity mismatch.");
+                stopScanning();
+                return;
+              }
+
+              // Both model and quantity match, proceed with box number
+              if (activeRowId) {
+                const boxNoInput = document.getElementById(`boxNo${activeRowId}`);
+                const timeStartInput = document.getElementById(`timeStart${activeRowId}`);
+                const timeEndInput = document.getElementById(`timeEnd${activeRowId}`);
+
+                if (boxNoInput && timeStartInput && timeEndInput) {
+                  // Check for duplicate box number only if this is a new box number (not time end scan)
+                  if (!timeStartInput.value && isDuplicateBoxNumber(lotNumber)) {
+                    showErrorModal(`Lot number ${lotNumber} already scanned.`);
+                    stopScanning();
+                    return;
+                  }
+
+                  // Set box number
+                  boxNoInput.value = lotNumber;
+                  boxNoInput.select(); // Ensure next scan/typing replaces the value
+                  boxNoInput.dispatchEvent(new Event('change'));
+
+                  // Check if time start already has a value
+                  if (timeStartInput.value) {
                     // Set current time in 24-hour format for time end
                     const now = new Date();
                     const hours = String(now.getHours()).padStart(2, '0');
@@ -1484,94 +1516,25 @@ try {
                     timeEndInput.value = `${hours}:${minutes}`;
                     timeEndInput.dispatchEvent(new Event('change'));
                     updateDuration(activeRowId);
-                    indicateScanSuccess();
+                    // Move focus to next box number input
+                    const nextBoxNoInput = document.getElementById(`boxNo${parseInt(activeRowId) + 1}`);
+                    if (nextBoxNoInput && !nextBoxNoInput.disabled) {
+                      nextBoxNoInput.focus();
+                    }
                   } else {
-                    showErrorModal("Please set time start first.");
+                    // Set current time in 24-hour format for time start
+                    const now = new Date();
+                    const hours = String(now.getHours()).padStart(2, '0');
+                    const minutes = String(now.getMinutes()).padStart(2, '0');
+                    timeStartInput.value = `${hours}:${minutes}`;
+                    timeStartInput.dispatchEvent(new Event('change'));
+                    updateDuration(activeRowId);
                   }
-                }
-                stopScanning();
-                return;
-              }
-
-              // If not matching model name, use as box number
-              if (activeRowId) {
-                const boxNoInput = document.getElementById(`boxNo${activeRowId}`);
-                const timeStartInput = document.getElementById(`timeStart${activeRowId}`);
-
-                if (boxNoInput) {
-                  // Check for duplicate box number only if this is a new box number (not time end scan)
-                  if (!timeStartInput.value && isDuplicateBoxNumber(parts[0])) {
-                    showErrorModal(`Lot number ${parts[0]} already scanned.`);
-                    stopScanning();
-                    return;
-                  }
-
-                  boxNoInput.value = parts[0];
-                  boxNoInput.dispatchEvent(new Event('change'));
-
-                  // Set current time in 24-hour format for time start
-                  const now = new Date();
-                  const hours = String(now.getHours()).padStart(2, '0');
-                  const minutes = String(now.getMinutes()).padStart(2, '0');
-                  timeStartInput.value = `${hours}:${minutes}`;
-                  timeStartInput.dispatchEvent(new Event('change'));
-                  updateDuration(activeRowId);
 
                   indicateScanSuccess();
                 }
               }
               stopScanning();
-            } else if (parts.length === 3) {
-              // Three parts - Model, Quantity, Lot/Box Number
-              const scannedModel = parts[0];
-              const qty = parts[1];
-              const lotNumber = parts[2];
-
-              if (scannedModel === modelName) {
-                if (activeRowId) {
-                  const boxNoInput = document.getElementById(`boxNo${activeRowId}`);
-                  const timeStartInput = document.getElementById(`timeStart${activeRowId}`);
-                  const timeEndInput = document.getElementById(`timeEnd${activeRowId}`);
-
-                  if (boxNoInput && timeStartInput && timeEndInput) {
-                    // Check for duplicate box number only if this is a new box number (not time end scan)
-                    if (!timeStartInput.value && isDuplicateBoxNumber(lotNumber)) {
-                      showErrorModal(`Lot number ${lotNumber} already scanned.`);
-                      stopScanning();
-                      return;
-                    }
-
-                    // Set box number
-                    boxNoInput.value = lotNumber;
-                    boxNoInput.dispatchEvent(new Event('change'));
-
-                    // Check if time start already has a value
-                    if (timeStartInput.value) {
-                      // Set current time in 24-hour format for time end
-                      const now = new Date();
-                      const hours = String(now.getHours()).padStart(2, '0');
-                      const minutes = String(now.getMinutes()).padStart(2, '0');
-                      timeEndInput.value = `${hours}:${minutes}`;
-                      timeEndInput.dispatchEvent(new Event('change'));
-                      updateDuration(activeRowId);
-                    } else {
-                      // Set current time in 24-hour format for time start
-                      const now = new Date();
-                      const hours = String(now.getHours()).padStart(2, '0');
-                      const minutes = String(now.getMinutes()).padStart(2, '0');
-                      timeStartInput.value = `${hours}:${minutes}`;
-                      timeStartInput.dispatchEvent(new Event('change'));
-                      updateDuration(activeRowId);
-                    }
-
-                    indicateScanSuccess();
-                  }
-                }
-                stopScanning();
-              } else {
-                showErrorModal("Invalid QR code: Model name mismatch.");
-                stopScanning();
-              }
             } else {
               showErrorModal("Invalid QR code format.");
               stopScanning();
@@ -2476,41 +2439,30 @@ try {
 
     // Add event listeners for box number inputs to handle gun scanner parsing
     document.querySelectorAll('.box-no-input').forEach(input => {
+      // Select all text on focus to allow easy replacement by scan or typing
+      input.addEventListener('focus', function() {
+        this.select();
+      });
       // Function to parse box number input (gun scanner)
       function parseBoxNumberInput(inputValue, rowId) {
         const modelName = <?php echo json_encode($_SESSION['dorModelName'] ?? ''); ?>;
         const sessionQty = <?php echo json_encode($_SESSION['dorQty'] ?? ''); ?>;
         const parts = inputValue.trim().split(" ");
-
-        if (parts.length === 1) {
-          // Single value - check if it's the model name
-          if (parts[0] === modelName) {
-            showErrorModal("You scanned model name, please scan box number");
-            return false;
-          }
-          // Otherwise accept as box number
-          return {
-            boxNumber: parts[0],
-            shouldSetTime: true
-          };
-        } else if (parts.length === 3) {
+        if (parts.length === 3) {
           // Three values - Model, Quantity, Box Number
           const scannedModel = parts[0];
           const scannedQty = parts[1];
           const boxNumber = parts[2];
-
           // Check if model matches
           if (scannedModel !== modelName) {
             showErrorModal("Invalid QR code: Model name mismatch");
             return false;
           }
-
           // Check if quantity matches
           if (scannedQty !== sessionQty.toString()) {
             showErrorModal("Invalid QR code: Quantity mismatch");
             return false;
           }
-
           // Both match, accept box number
           return {
             boxNumber: boxNumber,
@@ -2521,75 +2473,65 @@ try {
           return false;
         }
       }
-
-      // Handle input change for gun scanner (auto-trigger on value change)
-      input.addEventListener('input', function() {
-        const value = this.value;
-        const rowId = this.closest('tr').getAttribute('data-row-id');
-
-        // Check if input contains spaces (likely from gun scanner)
-        if (value.includes(" ")) {
-          const result = parseBoxNumberInput(value, rowId);
-          if (result) {
-            // Set the box number
-            this.value = result.boxNumber;
-
-            if (result.shouldSetTime) {
-              // Check if time start already has a value
-              const timeStartInput = document.getElementById(`timeStart${rowId}`);
-              const timeEndInput = document.getElementById(`timeEnd${rowId}`);
-
-              if (timeStartInput && timeEndInput) {
-                const now = new Date();
-                const hours = String(now.getHours()).padStart(2, '0');
-                const minutes = String(now.getMinutes()).padStart(2, '0');
-                const currentTime = `${hours}:${minutes}`;
-
-                if (timeStartInput.value && !timeEndInput.value) {
-                  // Set end time
-                  timeEndInput.value = currentTime;
-                  timeEndInput.dispatchEvent(new Event('change'));
-                } else if (!timeStartInput.value) {
-                  // Set start time
-                  timeStartInput.value = currentTime;
-                  timeStartInput.dispatchEvent(new Event('change'));
-                }
-              }
-            }
-          } else {
-            // Clear invalid input
-            this.value = '';
+      // Validate on change/blur
+      function validateBoxNumberInput(input) {
+        const value = input.value.trim();
+        const rowId = input.closest('tr').getAttribute('data-row-id');
+        // Check for empty
+        if (!value) {
+          showErrorModal('Box number is required.');
+          input.focus();
+          return false;
+        }
+        // Check for duplicate
+        for (let i = 1; i <= 20; i++) {
+          if (i == rowId) continue;
+          const other = document.getElementById(`boxNo${i}`);
+          if (other && other.value.trim() === value) {
+            showErrorModal(`Lot number ${value} already scanned.`);
+            input.focus();
+            return false;
           }
         }
+        // Passed validation
+        input.classList.remove('is-invalid');
+        return true;
+      }
+      input.addEventListener('change', function() {
+        validateBoxNumberInput(this);
       });
-
-      // Handle Enter key on box number input
+      input.addEventListener('blur', function() {
+        validateBoxNumberInput(this);
+      });
+      // Handle Enter key on box number input (gun scanner)
       input.addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
           e.preventDefault();
           const value = this.value;
           const rowId = this.closest('tr').getAttribute('data-row-id');
-
           const result = parseBoxNumberInput(value, rowId);
           if (result) {
             // Set the box number
             this.value = result.boxNumber;
-
+            this.select(); // Ensure next scan/typing replaces the value
             if (result.shouldSetTime) {
               // Check if time start already has a value
               const timeStartInput = document.getElementById(`timeStart${rowId}`);
               const timeEndInput = document.getElementById(`timeEnd${rowId}`);
-
               if (timeStartInput && timeEndInput) {
                 const now = new Date();
                 const hours = String(now.getHours()).padStart(2, '0');
                 const minutes = String(now.getMinutes()).padStart(2, '0');
                 const currentTime = `${hours}:${minutes}`;
-
                 if (timeStartInput.value && !timeEndInput.value) {
                   // Set end time
                   timeEndInput.value = currentTime;
                   timeEndInput.dispatchEvent(new Event('change'));
+                  // Move focus to next box number input
+                  const nextBoxNoInput = document.getElementById(`boxNo${parseInt(rowId) + 1}`);
+                  if (nextBoxNoInput && !nextBoxNoInput.disabled) {
+                    nextBoxNoInput.focus();
+                  }
                 } else if (!timeStartInput.value) {
                   // Set start time
                   timeStartInput.value = currentTime;
@@ -2603,14 +2545,32 @@ try {
           }
         }
       });
-
-      // Original change event for auto-save
-      input.addEventListener('change', function() {
+    });
+    // Prevent moving to time start/end if box number is invalid
+    document.querySelectorAll('.time-input').forEach(input => {
+      input.addEventListener('focus', function(e) {
         const rowId = this.closest('tr').getAttribute('data-row-id');
-        // Trigger auto-save after a short delay to ensure all fields are updated
-        setTimeout(() => {
-          autoSaveRow(rowId);
-        }, 500);
+        const boxNoInput = document.getElementById(`boxNo${rowId}`);
+        if (boxNoInput && !boxNoInput.value.trim()) {
+          showErrorModal('Box number is required before entering time.');
+          boxNoInput.focus();
+          e.preventDefault();
+        } else {
+          // Check for duplicate as well
+          let isDuplicate = false;
+          for (let i = 1; i <= 20; i++) {
+            if (i == rowId) continue;
+            const other = document.getElementById(`boxNo${i}`);
+            if (other && other.value.trim() === boxNoInput.value.trim()) {
+              showErrorModal(`Lot number ${boxNoInput.value.trim()} already scanned.`);
+              boxNoInput.focus();
+              e.preventDefault();
+              isDuplicate = true;
+              break;
+            }
+          }
+          if (isDuplicate) return;
+        }
       });
     });
 
