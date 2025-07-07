@@ -696,3 +696,32 @@ input[id^="userCode"].is-invalid {
 .suggestion-item:hover {
   background-color: #e9ecef !important;
 }
+
+/* UserCode autosuggest styles */
+.employee-validation .autosuggest-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.employee-validation .autosuggest-wrapper input[type="text"] {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+[id^="userCodeSuggestions"] {
+  position: absolute !important;
+  top: 100% !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 1050 !important;
+  max-height: 200px !important;
+  overflow-y: auto !important;
+  border: 1px solid #ced4da !important;
+  border-radius: 0.375rem !important;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+  background: #fff !important;
+  display: none;
+  margin-top: -1px !important;
+  pointer-events: auto !important;
+}

@@ -3329,15 +3329,11 @@ try {
       initializeDowntimeFormValidation();
 
       // Add event listeners to downtime management buttons
-      document.querySelectorAll('[id^="downtime"]').forEach(button => {
-        if (button.id !== 'downtimeModal' && button.id !== 'downtimeInput' &&
-          button.id !== 'downtimeValidationMessage' && button.id !== 'downtimeModalLabel' &&
-          button.id !== 'downtimeRowNumber' && button.id !== 'downtimeModalLotNumber') {
-          button.addEventListener('click', function() {
-            const rowId = this.closest('tr').getAttribute('data-row-id');
-            openDowntimeModal(rowId);
-          });
-        }
+      document.querySelectorAll('.btn-outline-secondary[id^="downtime"]').forEach(button => {
+        button.addEventListener('click', function() {
+          const rowId = this.closest('tr').getAttribute('data-row-id');
+          openDowntimeModal(rowId);
+        });
       });
 
       document.getElementById('addDowntimeBtn').addEventListener('click', addDowntimeRecord);

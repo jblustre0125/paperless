@@ -85,7 +85,29 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                            ORDER BY JigName";
             $res = $db3->execute($suggestQuery, ['%' . $searchTerm . '%']);
 
+            $response['suggestions'] = $res ?: [];
+        } else {
+            $response['suggestions'] = [];
+        }
 
+        echo json_encode($response);
+        exit;
+    }
+
+    // Handle userCode autosuggest request
+    if (isset($_POST['action']) && $_POST['action'] === 'suggest_userCode') {
+        $searchTerm = trim($_POST['searchTerm'] ?? '');
+
+        if (!empty($searchTerm)) {
+            // Query for userCode suggestions - extract numbers only from ProductionCode
+            $suggestQuery = "SELECT ProductionCode, 
+                                   SUBSTRING(ProductionCode, PATINDEX('%[0-9]%', ProductionCode), 
+                                            LEN(ProductionCode) - PATINDEX('%[0-9]%', ProductionCode) + 1) AS NumberOnly
+                           FROM GenOperator 
+                           WHERE IsActive = 1 AND IsLoggedIn = 0 
+                           AND ProductionCode LIKE ?
+                           ORDER BY NumberOnly";
+            $res = $db1->execute($suggestQuery, ['%' . $searchTerm . '%']);
 
             $response['suggestions'] = $res ?: [];
         } else {
@@ -347,8 +369,11 @@ foreach ($tabData as $checkpointName => $rows) {
                                 <button type="button" class="tab-button btn btn-secondary mb-1"
                                     onclick="openTab(event, 'Process<?php echo $i; ?>')">Process <?php echo $i; ?></button>
                                 <div class="employee-validation">
-                                    <input type="text" class="form-control form-control-md" id="userCode<?php echo $i; ?>"
-                                        name="userCode<?php echo $i; ?>" placeholder="SA Code">
+                                    <div class="autosuggest-wrapper">
+                                        <input type="text" class="form-control form-control-md" id="userCode<?php echo $i; ?>"
+                                            name="userCode<?php echo $i; ?>" placeholder="SA Code" autocomplete="off">
+                                        <div id="userCodeSuggestions<?php echo $i; ?>" class="bg-white"></div>
+                                    </div>
                                     <button type="button" class="btn btn-secondary btn-sm scan-btn" onclick="startScanning(<?php echo $i; ?>)">Scan ID</button>
                                     <div id="validationMessage<?php echo $i; ?>" class="validation-message mt-1"></div>
                                 </div>
@@ -356,7 +381,13 @@ foreach ($tabData as $checkpointName => $rows) {
                         <?php endfor; ?>
                     </div>
                 </div>
-                <button type="button" class="btn btn-secondary btn-sm" onclick="setAllTestValues(event)">Set Test Values</button>
+                <!-- Development button - comment out for production -->
+                <button type="button" class="btn btn-warning btn-sm position-fixed"
+                    style="top: 80px; right: 20px; z-index: 1050; opacity: 0.8; font-size: 0.75rem;"
+                    onclick="setAllTestValues(event)"
+                    title="Development: Fill all fields with test data">
+                    <i class="bi bi-bug"></i> Set Test Values
+                </button>
             </div>
             <!-- Match EXACTLY the same container structure as the body table -->
             <div class="container-fluid px-2 py-0">
@@ -578,6 +609,9 @@ foreach ($tabData as $checkpointName => $rows) {
             // Initialize Jig autosuggest functionality
             initializeJigAutosuggest();
 
+            // Initialize userCode autosuggest functionality
+            initializeUserCodeAutosuggest();
+
             function getCameraConstraints() {
                 return {
                     video: {
@@ -774,12 +808,12 @@ foreach ($tabData as $checkpointName => $rows) {
                     if (!jigIdValue) {
                         jigIdInput.classList.remove('is-valid');
                         jigIdInput.classList.add('is-invalid');
-                        showErrorModal("<ul><li>Enter jig number or select from the list.</li></ul>");
+                        showErrorModal("<ul><li>Enter or select jig from the list</li></ul>");
                         return;
                     } else if (!selectedJigId) {
                         jigIdInput.classList.remove('is-valid');
                         jigIdInput.classList.add('is-invalid');
-                        showErrorModal("<ul><li>Invalid jig number.</li></ul>");
+                        showErrorModal("<ul><li>Invalid jig number</li></ul>");
                         return;
                     } else {
                         jigIdInput.classList.remove('is-invalid');
@@ -809,7 +843,7 @@ foreach ($tabData as $checkpointName => $rows) {
                 }
 
                 if (hasInvalidInputs) {
-                    showErrorModal("<ul><li>Enter valid SA codes for all processes.</li></ul>");
+                    showErrorModal("<ul><li>Enter valid SA codes for all processes</li></ul>");
                     return;
                 }
 
@@ -965,7 +999,7 @@ foreach ($tabData as $checkpointName => $rows) {
                         });
                 } catch (error) {
                     console.error('Error:', error);
-                    showErrorModal("<ul><li>Error validating employee IDs.</li></ul>");
+                    showErrorModal("<ul><li>Error validating SA codes.</li></ul>");
                 }
             });
 
@@ -1333,6 +1367,169 @@ foreach ($tabData as $checkpointName => $rows) {
                 })
                 .catch(error => {
                     console.error('Error validating Jig:', error);
+                });
+        }
+
+        // UserCode autosuggest and validation functions
+        let userCodeSuggestionsTimeout = {};
+
+        function initializeUserCodeAutosuggest() {
+            // Initialize for all userCode inputs (up to 4)
+            for (let i = 1; i <= 4; i++) {
+                const userCodeInput = document.getElementById(`userCode${i}`);
+                const suggestionsDiv = document.getElementById(`userCodeSuggestions${i}`);
+
+                if (!userCodeInput) continue;
+
+                // Add keyboard input restriction for numbers only
+                userCodeInput.addEventListener('keydown', function(e) {
+                    // Allow: backspace, delete, tab, escape, enter, and navigation keys
+                    if ([8, 9, 27, 13, 46, 37, 38, 39, 40].indexOf(e.keyCode) !== -1 ||
+                        // Allow Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+                        (e.keyCode === 65 && e.ctrlKey === true) ||
+                        (e.keyCode === 67 && e.ctrlKey === true) ||
+                        (e.keyCode === 86 && e.ctrlKey === true) ||
+                        (e.keyCode === 88 && e.ctrlKey === true)) {
+                        return;
+                    }
+
+                    // Allow numbers 0-9
+                    if ((e.keyCode >= 48 && e.keyCode <= 57) || (e.keyCode >= 96 && e.keyCode <= 105)) {
+                        return;
+                    }
+
+                    // Prevent all other keys
+                    e.preventDefault();
+                });
+
+                // Handle input for autosuggest
+                userCodeInput.addEventListener('input', function() {
+                    const searchTerm = this.value.trim();
+
+                    // Clear previous timeout
+                    if (userCodeSuggestionsTimeout[i]) {
+                        clearTimeout(userCodeSuggestionsTimeout[i]);
+                    }
+
+                    // Hide suggestions if input is empty
+                    if (searchTerm.length === 0) {
+                        suggestionsDiv.style.display = 'none';
+                        this.classList.remove('is-valid', 'is-invalid');
+                        return;
+                    }
+
+                    // Show suggestions after 300ms delay
+                    userCodeSuggestionsTimeout[i] = setTimeout(() => {
+                        fetchUserCodeSuggestions(searchTerm, i);
+                    }, 300);
+                });
+
+                // Handle suggestion selection using event delegation
+                suggestionsDiv.addEventListener('click', function(e) {
+                    const suggestionItem = e.target.closest('.suggestion-item');
+                    if (suggestionItem) {
+                        const productionCode = suggestionItem.dataset.productionCode;
+                        const numberOnly = suggestionItem.dataset.numberOnly;
+
+                        userCodeInput.value = productionCode;
+                        suggestionsDiv.style.display = 'none';
+
+                        // Trigger input event to update validation
+                        userCodeInput.dispatchEvent(new Event('input', {
+                            bubbles: true
+                        }));
+
+                        // Validate the selected userCode
+                        validateUserCode(productionCode, i);
+                    }
+                });
+
+                // Hide suggestions when clicking outside
+                document.addEventListener('click', function(e) {
+                    if (!userCodeInput.contains(e.target) && !suggestionsDiv.contains(e.target)) {
+                        suggestionsDiv.style.display = 'none';
+                    }
+                });
+
+                // Handle blur event for validation
+                userCodeInput.addEventListener('blur', function() {
+                    setTimeout(() => {
+                        if (this.value.trim()) {
+                            validateUserCode(this.value.trim(), i);
+                        }
+                    }, 200);
+                });
+
+                // Clear validation classes when input is cleared
+                userCodeInput.addEventListener('input', function() {
+                    if (this.value.trim() === '') {
+                        this.classList.remove('is-valid', 'is-invalid');
+                    }
+                });
+            }
+        }
+
+        function fetchUserCodeSuggestions(searchTerm, processIndex) {
+            fetch(window.location.href, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `action=suggest_userCode&searchTerm=${encodeURIComponent(searchTerm)}`
+                })
+                .then(res => res.json())
+                .then(data => {
+                    displayUserCodeSuggestions(data.suggestions, processIndex);
+                })
+                .catch(error => {
+                    console.error('Error fetching userCode suggestions:', error);
+                });
+        }
+
+        function displayUserCodeSuggestions(suggestions, processIndex) {
+            const suggestionsDiv = document.getElementById(`userCodeSuggestions${processIndex}`);
+
+            if (!suggestions || suggestions.length === 0) {
+                suggestionsDiv.style.display = 'none';
+                return;
+            }
+
+            let html = '';
+            suggestions.forEach(user => {
+                html += `<div class="suggestion-item" 
+                              data-number-only="${user.NumberOnly}" 
+                              data-production-code="${user.ProductionCode}">
+                           <strong>${user.NumberOnly}</strong> 
+                           <small class="text-muted">(${user.ProductionCode})</small>
+                        </div>`;
+            });
+
+            suggestionsDiv.innerHTML = html;
+            suggestionsDiv.style.display = 'block';
+        }
+
+        function validateUserCode(userCode, processIndex) {
+            fetch(window.location.href, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `action=validate_employee&employeeCode=${encodeURIComponent(userCode)}&processIndex=${processIndex}`
+                })
+                .then(res => res.json())
+                .then(data => {
+                    const userCodeInput = document.getElementById(`userCode${processIndex}`);
+
+                    if (data.valid) {
+                        userCodeInput.classList.remove('is-invalid');
+                        userCodeInput.classList.add('is-valid');
+                    } else {
+                        userCodeInput.classList.remove('is-valid');
+                        userCodeInput.classList.add('is-invalid');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error validating userCode:', error);
                 });
         }
     </script>
