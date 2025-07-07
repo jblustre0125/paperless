@@ -471,7 +471,7 @@ foreach ($tabData as $checkpointName => $rows) {
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title">Scan Employee ID</h5>
+                        <h5 class="modal-title">Scan SA Code</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body text-center">
@@ -1060,6 +1060,10 @@ foreach ($tabData as $checkpointName => $rows) {
         // Function to clear form data from session storage
         function clearFormData() {
             sessionStorage.removeItem('dorFormData');
+            sessionStorage.removeItem('dorDorData');
+            sessionStorage.removeItem('dorRefreshData');
+            sessionStorage.removeItem('dorHomeData');
+            sessionStorage.removeItem('activeTab');
         }
 
         // Add this new function for setting all test values
@@ -1147,7 +1151,7 @@ foreach ($tabData as $checkpointName => $rows) {
 
             // If at least one input is filled, show a confirmation dialog
             if (isFilled) {
-                const confirmLeave = confirm("Are you sure you want to delete this DOR record?");
+                const confirmLeave = confirm("Are you sure you want to delete this DOR?");
                 if (!confirmLeave) {
                     return; // Stop navigation if the user cancels
                 }
@@ -1169,7 +1173,7 @@ foreach ($tabData as $checkpointName => $rows) {
                         clearFormData();
                         window.location.href = data.redirectUrl;
                     } else {
-                        alert(data.errors?.[0] || "Failed to delete DOR record.");
+                        alert(data.errors?.[0] || "Failed to delete DOR.");
                     }
                 });
         }

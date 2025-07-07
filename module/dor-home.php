@@ -305,7 +305,7 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
 
         <div class="mb-3">
             <label for="txtQty" class="form-label-lg fw-bold">Quantity</label>
-            <input type="number" class="form-control form-control-lg" id="txtQty" name="txtQty" min="1" placeholder="Tap to scan ID tag" required
+            <input type="number" class="form-control form-control-lg" id="txtQty" name="txtQty" min="1" placeholder="Enter box quantity" required
                 value="<?php echo $_POST["txtQty"] ?? ''; ?>">
         </div>
 
