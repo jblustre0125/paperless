@@ -29,11 +29,13 @@ unset($_SESSION['login_error']); // Clear after showing
             <div class="card-body">
                 <form id="myForm" method="POST" action="../controller/dor-leader-login.php">
                     <div class="mb-4">
-                        <label for="codeInput" class="form-label">Employee ID</label>
-
-                        <input type="text" name="production_code" id="codeInput" class="form-control py-2 mb-3" placeholder="Enter your Production Code">
-
-                        <button type="button" class="btn btn-outline-secondary" id="scanToggleBtn">Scan ID</button>
+                        <label for="codeInput" class="form-label">Leader's Module</label>
+                        <div class="input-group">
+                            <input type="text" name="production_code" id="codeInput" class="form-control py-2" placeholder="Enter your production code">
+                            <button type="button" class="btn btn-outline-secondary" id="scanToggleBtn">
+                                <i class="bi bi-upc-scan"></i> Scan
+                            </button>
+                        </div>
                     </div>
                     <div class="d-grid gap-2">
                         <button type="submit" class="btn btn-primary btn-lg" name="btnLogin" id="btnLogin">Login</button>
@@ -58,7 +60,7 @@ unset($_SESSION['login_error']); // Clear after showing
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Scan Employee ID</h5>
+                    <h5 class="modal-title">Scan SA Code</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body text-center">
@@ -78,12 +80,20 @@ unset($_SESSION['login_error']); // Clear after showing
             const scannerModal = new bootstrap.Modal(document.getElementById("qrScannerModal"));
             const video = document.getElementById("qr-video");
             const canvas = document.createElement("canvas");
-            const ctx = canvas.getContext("2d", { willReadFrequently: true });
+            const ctx = canvas.getContext("2d", {
+                willReadFrequently: true
+            });
             let scanning = false;
             let activeInput = null;
 
             function getCameraConstraints() {
-                return { video: { facingMode: { ideal: "environment" } } };
+                return {
+                    video: {
+                        facingMode: {
+                            ideal: "environment"
+                        }
+                    }
+                };
             }
 
             function startScanning() {
@@ -91,7 +101,11 @@ unset($_SESSION['login_error']); // Clear after showing
                 navigator.mediaDevices.getUserMedia(getCameraConstraints())
                     .then(setupVideoStream)
                     .catch(() => {
-                        navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+                        navigator.mediaDevices.getUserMedia({
+                                video: {
+                                    facingMode: "user"
+                                }
+                            })
                             .then(setupVideoStream)
                             .catch(() => alert("Camera access denied or not available."));
                     });
@@ -141,7 +155,9 @@ unset($_SESSION['login_error']); // Clear after showing
             }
 
             document.getElementById("scanToggleBtn").addEventListener("click", async () => {
-                const granted = await navigator.mediaDevices.getUserMedia({ video: true })
+                const granted = await navigator.mediaDevices.getUserMedia({
+                        video: true
+                    })
                     .then(stream => {
                         stream.getTracks().forEach(track => track.stop());
                         return true;
