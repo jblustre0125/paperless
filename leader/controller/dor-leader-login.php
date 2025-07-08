@@ -54,7 +54,8 @@ if ($currentHostname === 'NBCP-LT-144') {
     $hostQuery = "SELECT HostnameId, Hostname, IsLoggedIn, IsActive FROM GenHostname WHERE IPAddress = ?";
     $hostData = $db->execute($hostQuery, [$ip]);
 }
-
+$hostQuery = "SELECT HostnameId, Hostname, IsLoggedIn, IsActive FROM GenHostname WHERE IPAddress = ?";
+    $hostData = $db->execute($hostQuery, [$ip]);
 //Validate tablet data
 if (empty($hostData)) {
     $error = "Tablet not registered with IP: " . htmlspecialchars($ip);

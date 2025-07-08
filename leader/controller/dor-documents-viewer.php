@@ -40,21 +40,21 @@ function getModelName($modelId) {
                 !empty($row['ITEM_ID'])
             ) {
                 $modelName = strtoupper(trim($row['ITEM_ID']));
-                error_log("✅ Found exact match for MODEL_ID $modelId: $modelName");
+                error_log("Found exact match for MODEL_ID $modelId: $modelName");
                 return $modelName;
             }
         }
 
         // If nothing matched, log full result for debugging
-        error_log("❌ No exact MODEL_ID match found for $modelId. Full result:");
+        error_log(" No exact MODEL_ID match found for $modelId. Full result:");
         error_log(print_r($res, true));
     } else {
-        error_log("❌ No results returned from RdGenModel for MODEL_ID: $modelId");
+        error_log(" No results returned from RdGenModel for MODEL_ID: $modelId");
     }
 
     // Fallback
     $fallback = "MODEL_$modelId";
-    error_log("⚠️ Using fallback model name: $fallback");
+    error_log("Using fallback model name: $fallback");
     return $fallback;
 }
 
