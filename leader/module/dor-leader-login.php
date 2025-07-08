@@ -11,7 +11,7 @@ unset($_SESSION['login_error']); // Clear after showing
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>DOR Leader Login</title>
-    <link rel="icon" type="image/png" href="../img/dor-1024.png">
+    <link rel="icon" type="image/png" href="../../img/dor-1024.png">
     <link rel="stylesheet" href="../../css/bootstrap.min.css" />
     <link rel="stylesheet" href="../../css/index.css" />
     <link rel="manifest" href="../../manifest.json">
@@ -29,7 +29,7 @@ unset($_SESSION['login_error']); // Clear after showing
             <div class="card-body">
                 <form id="myForm" method="POST" action="../controller/dor-leader-login.php">
                     <div class="mb-4">
-                        <label for="codeInput" class="form-label">Leader's Module</label>
+                        <label for="codeInput" class="form-label">Production Code</label>
                         <div class="input-group">
                             <input type="text" name="production_code" id="codeInput" class="form-control py-2" placeholder="Enter your production code">
                             <button type="button" class="btn btn-outline-secondary" id="scanToggleBtn">
