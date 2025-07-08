@@ -21,6 +21,9 @@ body {
   padding: 0;
   background: white;
   padding-bottom: 10px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .tab-nav {
@@ -256,6 +259,8 @@ input[id^="userCode"] {
   line-height: 1.4;
   padding: 0.375rem 0.75rem;
   min-height: calc(1.5em + 0.75rem + calc(var(--bs-border-width) * 2));
+  text-align: center;
+  margin: 0 auto;
 }
 
 /* Placeholder text styling for userCode inputs */
@@ -276,8 +281,10 @@ input[id^="userCode"]::placeholder {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 4px;
   width: 130px;
+  text-align: center;
 }
 
 /* Scan button styles */
@@ -286,6 +293,7 @@ input[id^="userCode"]::placeholder {
   text-align: center;
   padding: 0.25rem 0.5rem;
   font-size: 0.875rem;
+  margin: 0 auto;
 }
 
 /* Employee validation button styles */
@@ -312,6 +320,15 @@ input[id^="userCode"]::placeholder {
 /* Process tab styles */
 .d-flex.flex-column.align-items-center .tab-button {
   margin-bottom: 4px;
+}
+
+/* Ensure the process tab container is properly centered */
+.d-flex.flex-column.align-items-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
 /* Modal styles */
@@ -524,9 +541,13 @@ input[id^="userCode"].is-invalid {
   box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.15) !important;
 }
 
-/* Remove the old validation message styles */
+/* Validation message styles */
 .validation-message {
-  display: none;
+  display: block;
+  text-align: center;
+  width: 100%;
+  font-size: 0.75rem;
+  margin-top: 2px;
 }
 
 /* Tab content styles */
@@ -674,4 +695,33 @@ input[id^="userCode"].is-invalid {
 }
 .suggestion-item:hover {
   background-color: #e9ecef !important;
+}
+
+/* UserCode autosuggest styles */
+.employee-validation .autosuggest-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.employee-validation .autosuggest-wrapper input[type="text"] {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+[id^="userCodeSuggestions"] {
+  position: absolute !important;
+  top: 100% !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 1050 !important;
+  max-height: 200px !important;
+  overflow-y: auto !important;
+  border: 1px solid #ced4da !important;
+  border-radius: 0.375rem !important;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+  background: #fff !important;
+  display: none;
+  margin-top: -1px !important;
+  pointer-events: auto !important;
 }

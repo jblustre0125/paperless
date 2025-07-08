@@ -742,3 +742,40 @@ body {
 #currentOperators .text-muted {
   font-style: italic;
 }
+
+/* Row saved indicator */
+.table-dor tbody tr.row-saved {
+  background-color: #d4edda !important;
+  transition: background-color 0.3s ease;
+}
+
+.table-dor tbody tr.row-saved td {
+  border-color: #c3e6cb !important;
+}
+
+/* Row saving indicator */
+.table-dor tbody tr.row-saving {
+  background-color: #fff3cd !important;
+  transition: background-color 0.3s ease;
+}
+
+.table-dor tbody tr.row-saving td {
+  border-color: #ffeaa7 !important;
+}
+
+/* Auto-save status indicator */
+.row-save-status {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #28a745;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.row-saved .row-save-status {
+  opacity: 1;
+}

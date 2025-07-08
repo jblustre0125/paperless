@@ -38,8 +38,9 @@ if (isset($_GET['mode']) && $_GET['mode'] === 'operator') {
     <div class="text-center mt-5">
         <h2 class="mb-4">Choose Mode</h2>
         <div class="d-grid gap-3 col-6 mx-auto">
-            <a href="?mode=operator" class="btn btn-outline-primary btn-lg">Operator Mode</a>
-            <a href="adm-dashboard.php" class="btn btn-outline-secondary btn-lg">Admin Dashboard</a>
+            <a href="?mode=operator" class="btn btn-primary btn-lg">Operator Mode</a>
+            <a href="../leader/module/dor-leader-login.php" class="btn btn-warning btn-lg">Leader Dashboard</a>
+            <a href="adm-dashboard.php" class="btn btn-secondary btn-lg">Admin Dashboard</a>
         </div>
     </div>
 </body>

@@ -92,7 +92,7 @@ if (isset($_GET['logOut'])) {
                             <?= isset($_SESSION['hostname']) ? testInput($_SESSION['hostname']) : 'Tablet Name'; ?>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item text-danger fw-bold" href="#" onclick="exitApplication(event)">Exit Application</a></li>
+                            <li><a class="dropdown-item text-danger fw-bold text-center" href="#" onclick="exitApplication(event)">Exit Application</a></li>
                         </ul>
                     </li>
                 </ul>
