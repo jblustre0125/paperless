@@ -48,6 +48,10 @@ class DbOp
             die(print_r(sqlsrv_errors(), true));
         }
     }
+    public function getLastError() {
+    // If using MySQLi:
+    return $this->conn->errorInfo();
+}
 
     public function execute($query, $params = [], $com = 0)
     {

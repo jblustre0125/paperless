@@ -1,16 +1,22 @@
 <?php
 require_once '../../config/dbop.php';
+
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+define('LEADER_PROCESS_INDEX', 5);
+
 $db = new dbOp(1);
 
-
-//Get hostname_id
+// Get hostname_id
 $hostname_id = isset($_GET['hostname_id']) ? (int)$_GET['hostname_id'] : 0;
 if ($hostname_id <= 0) {
     echo "Invalid HostnameId.";
     exit;
 }
 
-//Get latest AtoDor record
+// Get latest AtoDor record
 $sql = "SELECT TOP 1 RecordId, DorTypeId FROM AtoDor WHERE HostnameId = ? ORDER BY RecordId DESC";
 $result = $db->execute($sql, [$hostname_id]);
 
@@ -22,112 +28,109 @@ if (!is_array($result) || count($result) === 0) {
 $recordId = $result[0]['RecordId'];
 $dorTypeId = $result[0]['DorTypeId'];
 
-//Get checkpoint definitions
+// Get checkpoints
 $sql = "SELECT CheckpointId, SequenceId, CheckpointName, CriteriaNotGood, CriteriaGood
         FROM GenDorCheckpointDefinition
         WHERE DorTypeId = ? AND IsActive = 1
         ORDER BY SequenceId";
 $checkpoints = $db->execute($sql, [$dorTypeId]);
 
-// Get operator responses (grouped by ProcessIndex)
+// Get operator responses
 $sql = "SELECT EmployeeCode, CheckpointId, CheckpointResponse, ProcessIndex
         FROM AtoDorCheckpointDefinition
         WHERE RecordId = ? AND IsLeader = 0
         ORDER BY ProcessIndex, CheckpointId";
 $operatorRaw = $db->execute($sql, [$recordId]);
 
-$operatorResponses = []; // [checkpointId][processIndex] = response
-$processIndexes = [];    // To track which indexes are used
+$operatorResponses = [];
+$processIndexes = [];
 foreach ($operatorRaw as $row) {
     $cpId = $row['CheckpointId'];
     $procIdx = $row['ProcessIndex'];
-    $resp = $row['CheckpointResponse'];
-    $operatorResponses[$cpId][$procIdx] = $resp;
-
+    $operatorResponses[$cpId][$procIdx] = $row['CheckpointResponse'];
     if (!in_array($procIdx, $processIndexes)) {
         $processIndexes[] = $procIdx;
     }
 }
-sort($processIndexes); // Ensure consistent display order
+sort($processIndexes);
 
-//Get leader responses
+// Get leader responses
 $sql = "SELECT CheckpointId, CheckpointResponse
         FROM AtoDorCheckpointDefinition
-        WHERE RecordId = ? AND IsLeader = 1 AND ProcessIndex = 5";
-$leaderRaw = $db->execute($sql, [$recordId]);
+        WHERE RecordId = ? AND IsLeader = 1 AND ProcessIndex = ?";
+$leaderRaw = $db->execute($sql, [$recordId, LEADER_PROCESS_INDEX]);
 $leaderResponses = [];
 foreach ($leaderRaw as $row) {
     $leaderResponses[$row['CheckpointId']] = $row['CheckpointResponse'];
 }
+$isTab0Saved = count($leaderResponses) > 0;
 
-function saveLeaderCheckpointResponses($db, $recordId, $employeeCode, $responses): bool
-{
+
+// ========== AJAX/POST Submission Handler ========== //
+
+function sendJsonResponse($success, $message = '') {
+    header('Content-Type: application/json');
+    echo json_encode(['success' => $success, 'message' => $message]);
+    exit;
+}
+
+function saveLeaderCheckpointResponses($db, $recordId, $employeeCode, $responses): array {
     if (!$recordId || !$employeeCode || empty($responses)) {
-        return false;
+        return ['success' => false, 'message' => 'Missing data'];
     }
 
     foreach ($responses as $checkpointId => $response) {
-        // Normalize and validate response
         $response = strtoupper(trim($response));
         if (!in_array($response, ['OK', 'NA', 'NG'])) {
-            continue; // Skip invalid
+            continue;
         }
 
-        // Check if a leader response already exists
+        // Check for existing response
         $exists = $db->execute(
-            "SELECT COUNT(*) AS cnt FROM AtoDorCheckpointDefinition WHERE RecordId = ? AND CheckpointId = ? AND IsLeader = 1",
-            [$recordId, $checkpointId]
+            "SELECT COUNT(*) AS cnt FROM AtoDorCheckpointDefinition WHERE RecordId = ? AND CheckpointId = ? AND IsLeader = 1 AND ProcessIndex = ?",
+            [$recordId, $checkpointId, LEADER_PROCESS_INDEX]
         );
 
         if (!empty($exists[0]['cnt'])) {
-            // Update existing
-            $db->execute(
-                "UPDATE AtoDorCheckpointDefinition SET CheckpointResponse = ? WHERE RecordId = ? AND CheckpointId = ? AND IsLeader = 1",
-                [$response, $recordId, $checkpointId]
-            );
-        } else {
-            // Insert new
-            $db->execute(
-                "INSERT INTO AtoDorCheckpointDefinition (RecordId, CheckpointId, ProcessIndex, EmployeeCode, CheckpointResponse, IsLeader)
-                 VALUES (?, ?, 5, ?, ?, 1)",
-                [$recordId, $checkpointId, $employeeCode, $response]
-            );
+            continue; // ❌ Do NOT update
         }
+
+        // Insert new leader response
+        $db->execute(
+            "INSERT INTO AtoDorCheckpointDefinition (RecordId, CheckpointId, ProcessIndex, EmployeeCode, CheckpointResponse, IsLeader)
+             VALUES (?, ?, ?, ?, ?, 1)",
+            [$recordId, $checkpointId, LEADER_PROCESS_INDEX, $employeeCode, $response]
+        );
     }
 
-    return true;
+    return ['success' => true, 'message' => 'Leader responses saved successfully'];
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['btnVisual'])) {
-    $leaderResponses = $_POST['leader'] ?? [];
-    $recordId = $_POST['record_id'];
-    $productionCode = $_SESSION['production_code'] ?? null;
+// AJAX handler
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_save'])) {
+    $employeeCode = $_SESSION['production_code'] ?? null;
+    $json = $_POST['leader'] ?? [];
+    $responses = json_decode($json, true);
 
-    if (!$productionCode) {
-        echo "Missing employee code for leader.";
+    if (!$employeeCode || !$recordId) {
+        sendJsonResponse(false, 'Missing employee/session data');
+    }
+
+    $result = saveLeaderCheckpointResponses($db, $recordId, $employeeCode, $responses);
+    sendJsonResponse($result['success'], $result['message']);
+}
+
+// Fallback: regular form submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['btnVisual'])) {
+    $employeeCode = $_SESSION['production_code'] ?? null;
+    $responses = $_POST['leader'] ?? [];
+
+    if (!$employeeCode || !$recordId) {
+        echo "Missing data.";
         exit;
     }
 
-    foreach ($leaderResponses as $checkpointId => $response) {
-        $exists = $db->execute(
-            "SELECT COUNT(*) AS cnt FROM AtoDorCheckpointDefinition WHERE RecordId = ? AND CheckpointId = ? AND IsLeader = 1",
-            [$recordId, $checkpointId]
-        );
-
-        if (!empty($exists[0]['cnt'])) {
-            $db->execute(
-                "UPDATE AtoDorCheckpointDefinition SET CheckpointResponse = ? WHERE RecordId = ? AND CheckpointId = ? AND IsLeader = 1",
-                [$response, $recordId, $checkpointId]
-            );
-        } else {
-            $db->execute(
-                "INSERT INTO AtoDorCheckpointDefinition (RecordId, CheckpointId, ProcessIndex, EmployeeCode, CheckpointResponse, IsLeader)
-                 VALUES (?, ?, 5, ?, ?, 1)",
-                [$recordId, $checkpointId, $employeeCode, $response]
-            );
-        }
-    }
-
+    saveLeaderCheckpointResponses($db, $recordId, $employeeCode, $responses);
 
     $nextTab = (int)($_POST['current_tab_index'] ?? 0) + 1;
     header("Location: ?hostname_id={$hostname_id}&tab={$nextTab}");
