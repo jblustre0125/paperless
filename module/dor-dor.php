@@ -868,16 +868,6 @@ try {
                         $employeeCodes[] = $employeeCode;
                       }
 
-                      // Add sample employee codes for row 2 to demonstrate 2x2 layout
-                      /* if ($i === 2) {
-                        $employeeCodes = ['2503-005', '2503-004', 'FMB-0826', 'FMB-0570'];
-                      } */
-
-                      // Debug: Check what employee codes are being processed
-                      /* if ($i === 2) {
-                        echo "<!-- Debug: Row $i has " . count($employeeCodes) . " employee codes -->";
-                      } */
-
                       // Display employee codes as badges
                       foreach ($employeeCodes as $code) {
                         echo "<small class='badge bg-light text-dark border'>" . htmlspecialchars($code) . "</small>";
@@ -899,9 +889,6 @@ try {
 
                       // We define a sample downtime record set for row 2 for demonstration
                       $downtimeRecords = [];
-                      /* if ($i === 2) {
-                        $downtimeRecords = ['Machine Setup', 'Material Change', 'Break Time', 'Quality Check'];
-                      } */
 
                       // If there are no actual downtime records, we create invisible placeholders.
                       if (empty($downtimeRecords)) {
@@ -932,70 +919,6 @@ try {
       </div>
     </div>
   </form>
-
-  <!-- <button type="button" class="btn btn-primary floating-legends-btn drawer-style" data-bs-toggle="modal" data-bs-target="#legendsModal">
-    <i class="bi bi-info-circle"></i>
-  </button>
-
-  <div class="modal fade" id="legendsModal" tabindex="-1" aria-labelledby="legendsModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-      <div class="modal-content">
-        <div class="modal-header" id="legendsModalHeader">
-          <h5 class="modal-title" id="legendsModalLabel">LEGENDS</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body" id="legendsModalBody">
-          <div class="legend-content">
-            <div class="legend-row">
-              <div class="legend-group">
-                <div><strong>A. Jig Alarm</strong></div>
-                <div><span class="legend-code">TS</span> - Tape Sensor</div>
-                <div><span class="legend-code">TC</span> - Toggle Clamp</div>
-                <div><span class="legend-code">W1</span> - Wire 1 LED not ON</div>
-                <div><span class="legend-code">W2</span> - Wire 2 LED not ON</div>
-                <div><span class="legend-code">ST</span> - Stop tape trigger</div>
-                <div><span class="legend-code">CT</span> - Connector trigger</div>
-              </div>
-              <div class="legend-group">
-                <div><strong>B. Abnormality</strong></div>
-                <div><span class="legend-code">WS</span> - Wrong Setting</div>
-                <div><span class="legend-code">CC</span> - Counter complete</div>
-                <div><span class="legend-code">DP</span> - Drop Parts</div>
-                <div><span class="legend-code">E</span> - Excess parts</div>
-                <div><span class="legend-code">L</span> - Lacking parts</div>
-                <div><span class="legend-code">IN</span> - Incoming NG parts</div>
-                <div><span class="legend-code">IP</span> - In process defects</div>
-                <div><span class="legend-code">FOC</span> - For confirmation harness</div>
-              </div>
-              <div class="legend-group">
-                <div><strong>C. Remarks</strong></div>
-                <div><span class="legend-code">FC</span> - For Continue</div>
-                <div><span class="legend-code">C</span> - Continuation</div>
-                <div><span class="legend-code">AM</span> - Affected of AM</div>
-              </div>
-              <div class="legend-group">
-                <div><strong>D. Action Taken</strong></div>
-                <div><span class="legend-code">RJ</span> - Reset jig counter</div>
-                <div><span class="legend-code">RH</span> - Reset jig then recheck Spcs.</div>
-                <div><span class="legend-code">RP</span> - Check affected drop parts</div>
-                <div><span class="legend-code">RL</span> - Return excess parts</div>
-                <div><span class="legend-code">RLS</span> - Return excess then sort</div>
-                <div><span class="legend-code">CP</span> - Change part</div>
-                <div><span class="legend-code">CPS</span> - Change part then sort</div>
-                <div><span class="legend-code">HP</span> - Hold affected part</div>
-                <div><span class="legend-code">HB</span> - Hold affected box</div>
-                <div><span class="legend-code">HL</span> - Hold affected lot</div>
-                <div><span class="legend-code">RC</span> - Rework then check</div>
-                <div><span class="legend-code">RM</span> - Request rework check</div>
-                <div><span class="legend-code">COG</span> - Confirm as GOOD</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div> -->
-
 
   <!-- QR Code Scanner Modal -->
   <div class="modal fade" id="qrScannerModal" tabindex="-1" aria-labelledby="qrScannerLabel" aria-hidden="true">
@@ -3474,7 +3397,7 @@ try {
     function updateCurrentDowntimeDisplay() {
       const recordsDiv = document.getElementById('currentDowntimeRecords');
       if (currentDowntimeRecords.length === 0) {
-        recordsDiv.innerHTML = '<p class="text-muted text-center mb-0">No downtime records added yet.</p>';
+        recordsDiv.innerHTML = '<p class="text-muted text-center mb-0">No downtime records.</p>';
         return;
       }
       let html = '<div class="row g-2">';

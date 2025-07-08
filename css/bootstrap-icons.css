@@ -75,3 +75,43 @@
 .bi-x-circle-fill::before {
   content: "\f622";
 }
+
+.bi-pencil-square::before {
+  content: "\f4cb";
+}
+
+.bi-trash3::before {
+  content: "\f5e1";
+}
+
+.bi-plus-circle::before {
+  content: "\f4fe";
+}
+
+.bi-diagram-3::before {
+  content: "\f2d0";
+}
+
+.bi-person::before {
+  content: "\f4d7";
+}
+
+.bi-tablet::before {
+  content: "\f5a0";
+}
+
+.bi-box-arrow-right::before {
+  content: "\f1c3";
+}
+
+.bi-chevron-double-left::before {
+  content: "\f27f";
+}
+
+.bi-chevron-double-right::before {
+  content: "\f280";
+}
+
+.bi-inbox::before {
+  content: "\f3c7";
+}

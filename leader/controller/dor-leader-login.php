@@ -40,10 +40,22 @@ $ip = getUserIP();
 $productionCode = isset($_POST['production_code']) ? strtoupper(trim($_POST['production_code'])) : '';
 $error = '';
 
-//Validate tablet IP
-$hostQuery = "SELECT HostnameId, Hostname, IsLoggedIn, IsActive FROM GenHostname WHERE IPAddress = ?";
-$hostData = $db->execute($hostQuery, [$ip]);
+// Get current hostname
+$currentHostname = gethostname();
 
+// Bypass for NBCP-LT-144 to use NBCP-TAB-001
+if ($currentHostname === 'NBCP-LT-144') {
+    $hostQuery = "SELECT HostnameId, Hostname, IsLoggedIn, IsActive FROM GenHostname WHERE Hostname = 'NBCP-TAB-005'";
+    $hostData = $db->execute($hostQuery);
+} elseif ($currentHostname === 'NBCP-LT-145') {
+    $hostQuery = "SELECT HostnameId, Hostname, IsLoggedIn, IsActive FROM GenHostname WHERE Hostname = 'NBCP-TAB-006'";
+    $hostData = $db->execute($hostQuery);
+} else {
+    $hostQuery = "SELECT HostnameId, Hostname, IsLoggedIn, IsActive FROM GenHostname WHERE IPAddress = ?";
+    $hostData = $db->execute($hostQuery, [$ip]);
+}
+
+//Validate tablet data
 if (empty($hostData)) {
     $error = "Tablet not registered with IP: " . htmlspecialchars($ip);
 } elseif ((int)$hostData[0]['IsActive'] !== 1) {
@@ -53,7 +65,6 @@ if (empty($hostData)) {
 //Authenticate leader (only if tablet is valid)
 if (empty($error)) {
     $userQuery = "
-
         SELECT OperatorId, ProductionCode, EmployeeCode, EmployeeName, IsLeader, IsSrLeader, IsActive 
         FROM GenOperator 
         WHERE LTRIM(RTRIM(ProductionCode)) = ?
@@ -82,14 +93,14 @@ if (empty($error)) {
             // All checks passed: log in
             session_regenerate_id(true);
 
-            $_SESSION['user_id']        = $userData[0]['OperatorId'];
-             $_SESSION['production_code']  = $userData[0]['ProductionCode'];
-            $_SESSION['employee_code']  = $userData[0]['EmployeeCode'];
-            $_SESSION['employee_name']  = $userData[0]['EmployeeName'];
-            $_SESSION['is_leader']      = $userData[0]['IsLeader'];
-            $_SESSION['is_sr_leader']   = $userData[0]['IsSrLeader'];
-            $_SESSION['hostnameId']     = $hostData[0]['HostnameId'];
-            $_SESSION['hostname']       = $hostData[0]['Hostname'];
+            $_SESSION['user_id'] = $userData[0]['OperatorId'];
+            $_SESSION['production_code'] = $userData[0]['ProductionCode'];
+            $_SESSION['employee_code'] = $userData[0]['EmployeeCode'];
+            $_SESSION['employee_name'] = $userData[0]['EmployeeName'];
+            $_SESSION['is_leader'] = $userData[0]['IsLeader'];
+            $_SESSION['is_sr_leader'] = $userData[0]['IsSrLeader'];
+            $_SESSION['hostnameId'] = $hostData[0]['HostnameId'];
+            $_SESSION['hostname'] = $hostData[0]['Hostname'];
 
             // Mark tablet as logged in
             $updateQuery = "UPDATE GenHostname SET IsLoggedIn = 1, IsLeader = 1 WHERE HostnameId = ?";
