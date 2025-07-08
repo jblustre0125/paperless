@@ -1,0 +1,6 @@
+Starting sync at 2025-07-06 16:50:55
+No AtoDorDetail found for RecordHeaderId 29
+Updated RecordHeaderId 30 with: [SA1947, SA705, , ] (MP=2)
+No AtoDorDetail found for RecordHeaderId 31
+Updated RecordHeaderId 32 with: [SA1947, SA705, , ] (MP=2)
+Sync completed. 2 rows updated.

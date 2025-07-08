@@ -6,7 +6,9 @@ require_once '../../config/dbop.php';
 
 $db = new DbOp(1);
 // Get Hostname ID from query string
-$hostname_id = isset($_GET['hostname_id']) ? (int)$_GET['hostname_id'] : 0;
+$hostname_id = isset($_GET['hostname_id']) ? (int)$_GET['hostname_id']
+    : (isset($_POST['hostname_id']) ? (int)$_POST['hostname_id'] : 0);
+
 if ($hostname_id <= 0) {
     echo "Invalid Hostname ID.";
     exit;
@@ -118,15 +120,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['btnProceed'])) {
 
     // Show result
     if (!empty($errors)) {
-        foreach ($errors as $error) {
-            echo "<div class='alert alert-danger'>$error</div>";
-        }
+        $_SESSION['flash_error'] = implode(', ', $errors);
     } else {
-        echo "<div class='alert alert-success'>Visual checkpoints saved successfully.</div>";
-
-        // Move to next tab
-        $nextTab = (int)($_POST['current_tab_index'] ?? 0) + 1;
-        header("Location: ?hostname_id={$hostname_id}&tab={$nextTab}");
-        exit;
+        $_SESSION['flash_success'] = "Visual checkpoints saved successfully.";
     }
+
+    // Stay on the same tab (do not increment)
+    $currentTab = (int)($_POST['current_tab_index'] ?? 0);
+
+    header("Location: ?hostname_id={$hostname_id}&tab={$currentTab}");
+    exit;
 }
