@@ -112,17 +112,44 @@ if (isset($_GET['logOut'])) {
 
             // Show confirmation dialog
             if (confirm('Are you sure you want to exit the application?')) {
-                // Update database and show exit page
+                // Update database logout status
                 fetch('?logOut=1')
-                    .then(response => response.text())
-                    .then(html => {
-                        document.open();
-                        document.write(html);
-                        document.close();
+                    .then(response => {
+                        // Try to exit the Android app
+                        try {
+                            if (window.AndroidApp && typeof window.AndroidApp.exitApp === 'function') {
+                                window.AndroidApp.exitApp();
+                            } else if (window.Android && typeof window.Android.exitApp === 'function') {
+                                window.Android.exitApp();
+                            } else {
+                                // Fallback: close window or show manual close message
+                                window.close();
+                                if (!window.closed) {
+                                    alert('Please close this application manually.');
+                                }
+                            }
+                        } catch (e) {
+                            console.error('Error exiting app:', e);
+                            alert('Please close this application manually.');
+                        }
                     })
                     .catch(error => {
-                        console.error('Error:', error);
-                        alert('Please close this window manually.');
+                        console.error('Error updating logout status:', error);
+                        // Still try to exit the app even if database update fails
+                        try {
+                            if (window.AndroidApp && typeof window.AndroidApp.exitApp === 'function') {
+                                window.AndroidApp.exitApp();
+                            } else if (window.Android && typeof window.Android.exitApp === 'function') {
+                                window.Android.exitApp();
+                            } else {
+                                window.close();
+                                if (!window.closed) {
+                                    alert('Please close this application manually.');
+                                }
+                            }
+                        } catch (e) {
+                            alert('Please close this application manually.');
+                        }
                     });
             }
         }

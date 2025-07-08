@@ -7,15 +7,7 @@ header("Cache-Control: post-check=0, pre-check=0", false);
 header("Pragma: no-cache");
 header("Expires: Sat, 26 Jul 1997 05:00:00 GMT");
 
-// Secure session start
-session_set_cookie_params([
-    'lifetime' => 0,
-    'path' => '/',
-    'domain' => $_SERVER['HTTP_HOST'],
-    'secure' => isset($_SERVER['HTTPS']),
-    'httponly' => true,
-    'samesite' => 'Strict'
-]);
+// Start session
 session_start();
 
 require_once '../../config/dbop.php';
@@ -34,25 +26,32 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_POST['btnLogin'])) {
     exit;
 }
 
-
 $db = new DbOp(1);
 $ip = getUserIP();
+
 $productionCode = isset($_POST['production_code']) ? strtoupper(trim($_POST['production_code'])) : '';
 $error = '';
 
-// Get current hostname
-$currentHostname = gethostname();
+// Check IP first in database
+$hostQuery2 = "SELECT HostnameId, Hostname, IsLoggedIn, IsActive, IsLeader FROM GenHostname WHERE IpAddress = ?";
+$hostData2 = $db->execute($hostQuery2, [$ip], 1);
 
-// Bypass for NBCP-LT-144 to use NBCP-TAB-001
-if ($currentHostname === 'NBCP-LT-144') {
-    $hostQuery = "SELECT HostnameId, Hostname, IsLoggedIn, IsActive FROM GenHostname WHERE Hostname = 'NBCP-TAB-005'";
-    $hostData = $db->execute($hostQuery);
-} elseif ($currentHostname === 'NBCP-LT-145') {
-    $hostQuery = "SELECT HostnameId, Hostname, IsLoggedIn, IsActive FROM GenHostname WHERE Hostname = 'NBCP-TAB-006'";
-    $hostData = $db->execute($hostQuery);
+// If IP not found in database, use gethostname() for dev workstation
+if (empty($hostData2)) {
+    $currentHostname = gethostname();
+    if ($currentHostname === 'NBCP-LT-144') {
+        $hostQuery = "SELECT HostnameId, Hostname, IsLoggedIn, IsActive, IsLeader FROM GenHostname WHERE Hostname = 'NBCP-TAB-005'";
+        $hostData = $db->execute($hostQuery);
+    } elseif ($currentHostname === 'NBCP-LT-145') {
+        $hostQuery = "SELECT HostnameId, Hostname, IsLoggedIn, IsActive, IsLeader FROM GenHostname WHERE Hostname = 'NBCP-TAB-006'";
+        $hostData = $db->execute($hostQuery);
+    } else {
+        // Hostname is neither NBCP-LT-144 nor NBCP-LT-145 - throw error
+        $error = "Unauthorized device: " . htmlspecialchars($currentHostname);
+    }
 } else {
-    $hostQuery = "SELECT HostnameId, Hostname, IsLoggedIn, IsActive FROM GenHostname WHERE IPAddress = ?";
-    $hostData = $db->execute($hostQuery, [$ip]);
+    $hostQuery = "SELECT HostnameId, Hostname, IsLoggedIn, IsActive, IsLeader FROM GenHostname WHERE IpAddress = ?";
+    $hostData = $db->execute($hostQuery, [$ip], 1);
 }
 
 //Validate tablet data
@@ -67,48 +66,38 @@ if (empty($error)) {
     $userQuery = "
         SELECT OperatorId, ProductionCode, EmployeeCode, EmployeeName, IsLeader, IsSrLeader, IsActive 
         FROM GenOperator 
-        WHERE LTRIM(RTRIM(ProductionCode)) = ?
+        WHERE ProductionCode = ? AND (IsLeader = 1 OR IsSrLeader = 1)
     ";
-    $userData = $db->execute($userQuery, [$productionCode]);
+    $userData = $db->execute($userQuery, [$productionCode], 1);
 
     if (empty($userData)) {
-        $error = "Production Code [" . htmlspecialchars($productionCode) . "] not found.";
+        $error = "Invalid production code.";
     } elseif ((int)$userData[0]['IsActive'] !== 1) {
-        $error = "Your account is inactive.";
-    } elseif ((int)$userData[0]['IsLeader'] !== 1 && (int)$userData[0]['IsSrLeader'] !== 1) {
-        $error = "You don't have leader privileges.";
+        $error = "Account is deactivated. Please contact IT or Production Supervisor.";
     } else {
-        // Tablet is logged in already, prevent others but allow same leader to re-log
-        if ((int)$hostData[0]['IsLoggedIn'] === 1) {
-            if (
-                isset($_SESSION['production_code']) &&
-                $_SESSION['production_code'] !== $productionCode
-            ) {
-                $error = "Tablet is already in use by another leader.";
-            }
-            // else: same leader can re-login without blocking
-        }
+        session_regenerate_id(true);
 
-        if (empty($error)) {
-            // All checks passed: log in
-            session_regenerate_id(true);
+        $_SESSION['user_id'] = $userData[0]['OperatorId'];
+        $_SESSION['production_code'] = $userData[0]['ProductionCode'];
+        $_SESSION['employee_code'] = $userData[0]['EmployeeCode'];
+        $_SESSION['employee_name'] = $userData[0]['EmployeeName'];
+        $_SESSION['is_leader'] = $userData[0]['IsLeader'];
+        $_SESSION['is_sr_leader'] = $userData[0]['IsSrLeader'];
+        $_SESSION['hostnameId'] = $hostData[0]['HostnameId'];
+        $_SESSION['hostname'] = $hostData[0]['Hostname'];
 
-            $_SESSION['user_id'] = $userData[0]['OperatorId'];
-            $_SESSION['production_code'] = $userData[0]['ProductionCode'];
-            $_SESSION['employee_code'] = $userData[0]['EmployeeCode'];
-            $_SESSION['employee_name'] = $userData[0]['EmployeeName'];
-            $_SESSION['is_leader'] = $userData[0]['IsLeader'];
-            $_SESSION['is_sr_leader'] = $userData[0]['IsSrLeader'];
-            $_SESSION['hostnameId'] = $hostData[0]['HostnameId'];
-            $_SESSION['hostname'] = $hostData[0]['Hostname'];
+        // Mark tablet as logged in
+        $updateQuery = "UPDATE GenHostname SET IsLoggedIn = 1 WHERE HostnameId = ?";
+        $db->execute($updateQuery, [$hostData[0]['HostnameId']]);
 
-            // Mark tablet as logged in
-            $updateQuery = "UPDATE GenHostname SET IsLoggedIn = 1, IsLeader = 1 WHERE HostnameId = ?";
-            $db->execute($updateQuery, [$hostData[0]['HostnameId']]);
+        // Update operator login status
+        $updateOperatorQuery = "UPDATE GenOperator SET IsLoggedIn = 1 WHERE OperatorId = ?";
+        $db->execute($updateOperatorQuery, [$userData[0]['OperatorId']]);
 
-            header('Location: ../module/dor-leader-dashboard.php');
-            exit();
-        }
+        // Clear any output buffer before redirect
+        ob_end_clean();
+        header('Location: ../module/dor-leader-dashboard.php');
+        exit();
     }
 }
 
@@ -117,5 +106,5 @@ session_unset();
 session_destroy();
 session_start();
 $_SESSION['login_error'] = $error;
-header('Location: dor-leader-login.php');
+header('Location: ../module/dor-leader-login.php');
 exit();

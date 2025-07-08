@@ -421,11 +421,9 @@ if ($models === false) {
                         </select>
                     </div>
                     <div class="col-md-2 d-flex align-items-end">
-                        <button type="submit" class="btn btn-outline-primary me-2">
-                            <i class="bi bi-search"></i> Search
+                        <button type="submit" class="btn btn-outline-primary me-2">Search
                         </button>
-                        <a href="dor-model.php" class="btn btn-outline-secondary">
-                            <i class="bi bi-arrow-clockwise"></i> Reset
+                        <a href="dor-model.php" class="btn btn-outline-secondary">Reset
                         </a>
                     </div>
                 </form>

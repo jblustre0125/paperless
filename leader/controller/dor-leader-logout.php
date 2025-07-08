@@ -26,8 +26,14 @@ $db = new DbOp(1);
 if (isset($_GET['exit'])) {
     // Update the tablet's logged in status to 0
     if (isset($_SESSION['hostnameId']) && !empty($_SESSION['hostnameId'])) {
-        $updateQuery = "UPDATE GenHostname SET IsLoggedIn = 0, IsLeader = 0 WHERE HostnameId = ?";
+        $updateQuery = "UPDATE GenHostname SET IsLoggedIn = 0 WHERE HostnameId = ?";
         $db->execute($updateQuery, [$_SESSION['hostnameId']]);
+    }
+
+    // Update the operator's logged in status to 0
+    if (isset($_SESSION['user_id']) && !empty($_SESSION['user_id'])) {
+        $updateQuery = "UPDATE GenOperator SET IsLoggedIn = 0 WHERE OperatorId = ?";
+        $db->execute($updateQuery, [$_SESSION['user_id']]);
     }
 
     // Clear all session data
@@ -83,8 +89,13 @@ if (isset($_GET['exit'])) {
 // Check if user is logged in and has hostnameId
 if (isset($_SESSION['hostnameId']) && !empty($_SESSION['hostnameId'])) {
     // Update GenHostname table to set IsLoggedIn = 0
-    $updateQuery = "UPDATE GenHostname SET IsLoggedIn = 0, IsLeader = 0 WHERE HostnameId = ?";
+    $updateQuery = "UPDATE GenHostname SET IsLoggedIn = 0 WHERE HostnameId = ?";
     $db->execute($updateQuery, [$_SESSION['hostnameId']]);
+}
+
+if (isset($_SESSION['user_id']) && !empty($_SESSION['user_id'])) {
+    $updateQuery = "UPDATE GenOperator SET IsLoggedIn = 0 WHERE OperatorId = ?";
+    $db->execute($updateQuery, [$_SESSION['user_id']]);
 }
 
 // Clear all session data

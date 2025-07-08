@@ -5,25 +5,8 @@
     header("Pragma: no-cache");
     header("Expires: Sat, 26 Jul 1997 05:00:00 GMT"); // Date in the past
 
-    if (session_status() !== PHP_SESSION_ACTIVE) {
-        session_set_cookie_params([
-            'lifetime' => 0,
-            'path' => '/',
-            'domain' => $_SERVER['HTTP_HOST'],
-            'secure' => isset($_SERVER['HTTPS']),
-            'httponly' => true,
-            'samesite' => 'Strict'
-        ]);
-        session_start();
-
-        // Regenerate session ID periodically for security
-        if (!isset($_SESSION['created'])) {
-            $_SESSION['created'] = time();
-        } else if (time() - $_SESSION['created'] > 1800) {
-            session_regenerate_id(true);
-            $_SESSION['created'] = time();
-        }
-    }
+    // Simple session start - same as login controller
+    session_start();
 
     require_once __DIR__ . "/../../config/header.php";
     require_once __DIR__ . "/../../config/dbop.php";
@@ -175,8 +158,45 @@
 
                 // Show confirmation dialog
                 if (confirm('Are you sure you want to exit the application?')) {
-                    // Redirect to logout controller with exit parameter
-                    window.location.href = '../controller/dor-leader-logout.php?exit=1';
+                    // Update database logout status
+                    fetch('../controller/dor-leader-logout.php?exit=1')
+                        .then(response => {
+                            // Try to exit the Android app
+                            try {
+                                if (window.AndroidApp && typeof window.AndroidApp.exitApp === 'function') {
+                                    window.AndroidApp.exitApp();
+                                } else if (window.Android && typeof window.Android.exitApp === 'function') {
+                                    window.Android.exitApp();
+                                } else {
+                                    // Fallback: close window or show manual close message
+                                    window.close();
+                                    if (!window.closed) {
+                                        alert('Please close this application manually.');
+                                    }
+                                }
+                            } catch (e) {
+                                console.error('Error exiting app:', e);
+                                alert('Please close this application manually.');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error updating logout status:', error);
+                            // Still try to exit the app even if database update fails
+                            try {
+                                if (window.AndroidApp && typeof window.AndroidApp.exitApp === 'function') {
+                                    window.AndroidApp.exitApp();
+                                } else if (window.Android && typeof window.Android.exitApp === 'function') {
+                                    window.Android.exitApp();
+                                } else {
+                                    window.close();
+                                    if (!window.closed) {
+                                        alert('Please close this application manually.');
+                                    }
+                                }
+                            } catch (e) {
+                                alert('Please close this application manually.');
+                            }
+                        });
                 }
             }
         </script>

@@ -31,7 +31,7 @@ unset($_SESSION['login_error']); // Clear after showing
                     <div class="mb-4">
                         <label for="codeInput" class="form-label">Production Code</label>
                         <div class="input-group">
-                            <input type="text" name="production_code" id="codeInput" class="form-control py-2" placeholder="Enter your production code">
+                            <input type="text" name="production_code" id="codeInput" class="form-control py-2" placeholder="Enter your production code" required>
                             <button type="button" class="btn btn-outline-secondary" id="scanToggleBtn">
                                 <i class="bi bi-upc-scan"></i> Scan
                             </button>
@@ -39,6 +39,7 @@ unset($_SESSION['login_error']); // Clear after showing
                     </div>
                     <div class="d-grid gap-2">
                         <button type="submit" class="btn btn-primary btn-lg" name="btnLogin" id="btnLogin">Login</button>
+                        <button type="button" class="btn btn-danger btn-lg" onclick="exitApplication()">Exit Application</button>
                     </div>
                 </form>
 
@@ -179,6 +180,48 @@ unset($_SESSION['login_error']); // Clear after showing
 
             document.getElementById("qrScannerModal").addEventListener("hidden.bs.modal", stopScanning);
         });
+
+        function exitApplication() {
+            // First update database logout status
+            fetch('../controller/dor-leader-logout.php?exit=1')
+                .then(response => {
+                    // Try to exit the Android app
+                    try {
+                        if (window.AndroidApp && typeof window.AndroidApp.exitApp === 'function') {
+                            window.AndroidApp.exitApp();
+                        } else if (window.Android && typeof window.Android.exitApp === 'function') {
+                            window.Android.exitApp();
+                        } else {
+                            // Fallback: close window or show manual close message
+                            window.close();
+                            if (!window.closed) {
+                                alert('Please close this application manually.');
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Error exiting app:', e);
+                        alert('Please close this application manually.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error updating logout status:', error);
+                    // Still try to exit the app even if database update fails
+                    try {
+                        if (window.AndroidApp && typeof window.AndroidApp.exitApp === 'function') {
+                            window.AndroidApp.exitApp();
+                        } else if (window.Android && typeof window.Android.exitApp === 'function') {
+                            window.Android.exitApp();
+                        } else {
+                            window.close();
+                            if (!window.closed) {
+                                alert('Please close this application manually.');
+                            }
+                        }
+                    } catch (e) {
+                        alert('Please close this application manually.');
+                    }
+                });
+        }
     </script>
 </body>
 
