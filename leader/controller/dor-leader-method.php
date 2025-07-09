@@ -28,18 +28,23 @@ class Method
         return $db->execute($sql);
     }
 
-    
+
     public function getOnlineTablets($excludeHostnameId = null)
     {
-        $query = "SELECT 
-                        h.HostnameId,
-                        h.Hostname,
-                        h.IsActive,
-                        h.IsLoggedin,
-                        a.RecordId
-                    FROM GenHostname h
-                    LEFT JOIN AtoDor a ON h.HostnameId = a.HostnameId
-                    WHERE h.IsLoggedin = 1";
+        $query = "
+        SELECT 
+            h.HostnameId,
+            h.Hostname,
+            h.IsActive,
+            h.IsLoggedin,
+            a.RecordId
+        FROM GenHostname h
+        LEFT JOIN AtoDor a 
+            ON h.HostnameId = a.HostnameId 
+            AND a.DorDate = CAST(GETDATE() AS DATE)
+        WHERE h.IsLoggedin = 1
+          AND ISNULL(h.IsLeader, 0) = 0
+    ";
 
         $params = [];
 
@@ -50,6 +55,7 @@ class Method
 
         return $this->db->execute($query, $params);
     }
+
 
     public function updateTabletStatus($hostnameId, $status)
     {
