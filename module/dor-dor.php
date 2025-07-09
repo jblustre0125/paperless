@@ -10,11 +10,117 @@ $db1 = new DbOp(1);
 
 $errorPrompt = '';
 
+// --- BEGIN: Ensure dorRecordId is always set like leader view ---
+if (!isset($_SESSION['dorRecordId']) || $_SESSION['dorRecordId'] <= 0) {
+  $hostnameId = $_SESSION['hostnameId'] ?? null;
+
+  if ($hostnameId) {
+    $sql = "SELECT TOP 1 RecordId FROM AtoDor WHERE HostnameId = ? ORDER BY RecordId DESC";
+    $result = $db1->execute($sql, [$hostnameId], 1);
+    if (!empty($result)) {
+      $_SESSION['dorRecordId'] = $result[0]['RecordId'];
+    }
+  }
+}
+// --- END: Ensure dorRecordId is always set ---
+
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
   ob_end_clean();
   header('Content-Type: application/json; charset=utf-8');
 
   $response = ['success' => false, 'errors' => []];
+
+  // Handle load existing data request - MUST BE FIRST
+  if (isset($_POST['action']) && $_POST['action'] === 'load_existing_data') {
+    // Clear ALL output buffers and set headers
+    while (ob_get_level()) {
+      ob_end_clean();
+    }
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-cache, must-revalidate');
+
+    $response = ['success' => false, 'errors' => []];
+    $recordId = $_SESSION['dorRecordId'] ?? 0;
+
+    if ($recordId <= 0) {
+      $response['success'] = false;
+      $response['errors'][] = "Invalid record ID: " . $recordId;
+      echo json_encode($response);
+      exit;
+    }
+
+    try {
+      // Get all header records for this DOR
+      $getHeadersSp = "SELECT RecordHeaderId, BoxNumber, TimeStart, TimeEnd, Duration FROM AtoDorHeader WHERE RecordId = ? ORDER BY RecordHeaderId ASC";
+      $headers = $db1->execute($getHeadersSp, [$recordId], 1);
+
+      $existingData = [];
+
+      foreach ($headers as $header) {
+        $headerId = $header['RecordHeaderId'];
+        $boxNo = $header['BoxNumber'];
+
+        // Get detail record for operators
+        $getDetailSp = "SELECT OperatorCode1, OperatorCode2, OperatorCode3, OperatorCode4 FROM AtoDorDetail WHERE RecordHeaderId = ?";
+        $detail = $db1->execute($getDetailSp, [$headerId], 1);
+
+        $operators = [];
+        if (!empty($detail)) {
+          $detailRow = $detail[0];
+          $operators = array_filter([
+            $detailRow['OperatorCode1'] ?? null,
+            $detailRow['OperatorCode2'] ?? null,
+            $detailRow['OperatorCode3'] ?? null,
+            $detailRow['OperatorCode4'] ?? null
+          ]);
+        }
+
+        // Format time for display (convert datetime to HH:mm)
+        $timeStart = '';
+        $timeEnd = '';
+        if (!empty($header['TimeStart'])) {
+          // Handle both string and DateTime objects
+          if (is_string($header['TimeStart'])) {
+            $timeStart = date('H:i', strtotime($header['TimeStart']));
+          } elseif ($header['TimeStart'] instanceof DateTime) {
+            $timeStart = $header['TimeStart']->format('H:i');
+          } else {
+            $timeStart = date('H:i', strtotime($header['TimeStart']->format('Y-m-d H:i:s')));
+          }
+        }
+        if (!empty($header['TimeEnd'])) {
+          // Handle both string and DateTime objects
+          if (is_string($header['TimeEnd'])) {
+            $timeEnd = date('H:i', strtotime($header['TimeEnd']));
+          } elseif ($header['TimeEnd'] instanceof DateTime) {
+            $timeEnd = $header['TimeEnd']->format('H:i');
+          } else {
+            $timeEnd = date('H:i', strtotime($header['TimeEnd']->format('Y-m-d H:i:s')));
+          }
+        }
+
+        $existingData[] = [
+          'boxNo' => $boxNo,
+          'timeStart' => $timeStart,
+          'timeEnd' => $timeEnd,
+          'duration' => $header['Duration'] ?? 0,
+          'operators' => implode(',', $operators)
+        ];
+      }
+
+      $response['success'] = true;
+      $response['data'] = $existingData;
+    } catch (Exception $e) {
+      $response['success'] = false;
+      $response['errors'][] = "Database error: " . $e->getMessage();
+    } catch (Error $e) {
+      $response['success'] = false;
+      $response['errors'][] = "Fatal error: " . $e->getMessage();
+    }
+
+    echo json_encode($response);
+    exit;
+  }
 
   // Handle operator validation request
   if (isset($_POST['action']) && $_POST['action'] === 'validate_operator') {
@@ -40,7 +146,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     echo json_encode($response);
     exit;
   }
-
 
   // Handle delete row request
   if (isset($_POST['action']) && $_POST['action'] === 'delete_row') {
@@ -746,6 +851,8 @@ try {
 } catch (Throwable $e) {
   $preCardFile = '';
 }
+
+
 ?>
 
 <!DOCTYPE html>
@@ -1184,8 +1291,11 @@ try {
 
   <script>
     document.addEventListener("DOMContentLoaded", function() {
-      // Restore form data from session storage
-      restoreFormData();
+      // Load existing data from database first, then restore session data
+      loadExistingDataFromDatabase().then(() => {
+        // Restore form data from session storage after database data is loaded
+        restoreFormData();
+      });
 
       const scannerModal = new bootstrap.Modal(document.getElementById("qrScannerModal"));
       const video = document.getElementById("qr-video");
@@ -1747,23 +1857,24 @@ try {
       try {
         const formData = JSON.parse(savedData);
 
-        // Restore all form inputs
+        // Only restore data for rows that are empty (not already populated from database)
         for (let i = 1; i <= 20; i++) {
           const boxNoInput = document.getElementById(`boxNo${i}`);
           const timeStartInput = document.getElementById(`timeStart${i}`);
           const timeEndInput = document.getElementById(`timeEnd${i}`);
           const operatorsInput = document.getElementById(`operators${i}`);
 
-          if (boxNoInput && formData[`boxNo${i}`]) {
+          // Only restore if the field is empty (database data takes precedence)
+          if (boxNoInput && formData[`boxNo${i}`] && !boxNoInput.value.trim()) {
             boxNoInput.value = formData[`boxNo${i}`];
           }
-          if (timeStartInput && formData[`timeStart${i}`]) {
+          if (timeStartInput && formData[`timeStart${i}`] && !timeStartInput.value.trim()) {
             timeStartInput.value = formData[`timeStart${i}`];
           }
-          if (timeEndInput && formData[`timeEnd${i}`]) {
+          if (timeEndInput && formData[`timeEnd${i}`] && !timeEndInput.value.trim()) {
             timeEndInput.value = formData[`timeEnd${i}`];
           }
-          if (operatorsInput && formData[`operators${i}`]) {
+          if (operatorsInput && formData[`operators${i}`] && !operatorsInput.value.trim()) {
             operatorsInput.value = formData[`operators${i}`];
           }
         }
@@ -2842,6 +2953,95 @@ try {
     document.addEventListener('DOMContentLoaded', function() {
       updateDORSummary();
     });
+
+    // Function to load existing data from database
+    function loadExistingDataFromDatabase() {
+      const formData = new FormData();
+      formData.append('action', 'load_existing_data');
+
+      return fetch(window.location.href, {
+          method: 'POST',
+          body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success && data.data) {
+            // Populate form with existing data
+            data.data.forEach((rowData, index) => {
+              const rowNumber = index + 1;
+              if (rowNumber <= 20) { // Ensure we don't exceed 20 rows
+                const boxNoInput = document.getElementById(`boxNo${rowNumber}`);
+                const timeStartInput = document.getElementById(`timeStart${rowNumber}`);
+                const timeEndInput = document.getElementById(`timeEnd${rowNumber}`);
+                const operatorsInput = document.getElementById(`operators${rowNumber}`);
+
+                if (boxNoInput) boxNoInput.value = rowData.boxNo || '';
+                if (timeStartInput) timeStartInput.value = rowData.timeStart || '';
+                if (timeEndInput) timeEndInput.value = rowData.timeEnd || '';
+                if (operatorsInput) operatorsInput.value = rowData.operators || '';
+
+                // Update duration display
+                const durationSpan = document.getElementById(`duration${rowNumber}`);
+                if (durationSpan) {
+                  durationSpan.textContent = rowData.duration || '';
+                }
+
+                // Update operator badges
+                updateOperatorBadges(rowNumber, rowData.operators);
+              }
+            });
+
+            // Update row states and summary after loading data
+            updateRowStates();
+            updateDORSummary();
+          }
+          return data; // Return the data for chaining
+        })
+        .catch(error => {
+          console.error('Error loading existing data:', error);
+          return {
+            success: false,
+            error: error
+          }; // Return error for chaining
+        });
+    }
+
+    // Function to update operator badges display
+    function updateOperatorBadges(rowNumber, operatorsString) {
+      const operatorListDiv = document.getElementById(`operatorList${rowNumber}`);
+      if (operatorListDiv && operatorsString) {
+        const operatorCodes = operatorsString.split(',').map(code => code.trim()).filter(code => code);
+        operatorListDiv.innerHTML = '';
+
+        operatorCodes.forEach(code => {
+          const badge = document.createElement('small');
+          badge.className = 'badge bg-light text-dark border me-1 mb-1';
+          badge.textContent = code;
+          operatorListDiv.appendChild(badge);
+        });
+
+        // Update downtime placeholders to match operator count
+        updateDowntimePlaceholders(rowNumber, operatorCodes.length);
+      }
+    }
+
+    // Function to update downtime placeholders
+    function updateDowntimePlaceholders(rowId, operatorCount) {
+      const downtimeDiv = document.getElementById(`downtimeInfo${rowId}`);
+      if (downtimeDiv) {
+        // Remove existing placeholders
+        const existingPlaceholders = downtimeDiv.querySelectorAll('.placeholder-badge');
+        existingPlaceholders.forEach(placeholder => placeholder.remove());
+
+        // Add new placeholders to match operator count
+        for (let i = 0; i < operatorCount; i++) {
+          const placeholder = document.createElement('small');
+          placeholder.className = 'badge placeholder-badge';
+          placeholder.innerHTML = '&nbsp;';
+          downtimeDiv.appendChild(placeholder);
+        }
+      }
+    }
   </script>
 
   <script>
