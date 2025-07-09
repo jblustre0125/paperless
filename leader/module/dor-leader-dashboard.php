@@ -79,7 +79,7 @@
                                 Reports
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="reportDropdown">
-                                <li><a href="" class="dropdown-item">DOR</a></li>
+                                <li><a href="dor-report.php" class="dropdown-item">DOR</a></li>
                             </ul>
                         </li>
 
