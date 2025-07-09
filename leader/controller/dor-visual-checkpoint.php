@@ -57,13 +57,13 @@ $checkpointControlMap = [
     5 => ['WF', 'WOF']
 ];
 
-function getShiftTime()
-{
-    $hour = (int)date('H');
-    if ($hour >= 6 && $hour < 14) return 'Morning';
-    if ($hour >= 14 && $hour < 22) return 'Afternoon';
-    return 'Night';
-}
+// function getShiftTime()
+// {
+//     $hour = (int)date('H');
+//     if ($hour >= 7 && $hour < 14) return 'Morning';
+//     if ($hour >= 14 && $hour < 22) return 'Afternoon';
+//     return 'Night';
+// }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['btnProceed'])) {
     $recordId = $_POST['record_id'] ?? 0;
@@ -77,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['btnProceed'])) {
         exit;
     }
 
-    $shift = getShiftTime();
+    // $shift = getShiftTime();
     $errors = [];
 
     if (isset($_POST['visual']) && is_array($_POST['visual'])) {
@@ -89,14 +89,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['btnProceed'])) {
             $owarimono = trim($tabData['Owarimono'] ?? '');
 
             // Validation
-            if ($shift === 'Morning' && $hatsumono === '') {
-                $errors[] = "Hatsumono is required for checkpoint $checkpointId during Morning shift.";
-                continue;
-            }
-            if ($shift === 'Night' && $owarimono === '') {
-                $errors[] = "Owarimono is required for checkpoint $checkpointId during Night shift.";
-                continue;
-            }
+            // if ($shift === 'Morning' && $hatsumono === '') {
+            //     $errors[] = "Hatsumono is required for checkpoint $checkpointId during Morning shift.";
+            //     continue;
+            // }
+            // if ($shift === 'Night' && $owarimono === '') {
+            //     $errors[] = "Owarimono is required for checkpoint $checkpointId during Night shift.";
+            //     continue;
+            // }
 
             // Check if the record exists
             $sqlCheck = "SELECT RecordDetailId FROM AtoDorCheckpointVisual WHERE RecordId = ? AND CheckpointId = ?";

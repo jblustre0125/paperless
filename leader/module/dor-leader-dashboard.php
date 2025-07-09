@@ -27,6 +27,7 @@
         exit;
     }
 
+
     ?>
     <!DOCTYPE html>
     <html lang="en">
@@ -73,6 +74,15 @@
                                     </a></li>
                             </ul>
                         </li>
+                        <li class="nav-item dropdown">
+                            <a href="#" id="reportDropdown" class="nav-link dropdown-toggle fs-5" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Reports
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="reportDropdown">
+                                <li><a href="" class="dropdown-item">DOR</a></li>
+                            </ul>
+                        </li>
+
                     </ul>
 
                     <!-- Device Name Display -->
@@ -102,6 +112,18 @@
             </div>
         </nav>
         <script src="../../js/bootstrap.bundle.min.js"></script>
+        <?php if (!empty($_SESSION['flash_message'])): ?>
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    showToast("<?= addslashes($_SESSION['flash_message']) ?>", "warning");
+                });
+            </script>
+            <?php unset($_SESSION['flash_message']); ?>
+        <?php endif; ?>
+
+
+        <div id="toast-container" class="position-fixed top-0 end-0 p-3" style="z-index: 1080;"></div>
+
         <div class="container mt-5">
             <!-- Running Lines -->
             <h4 class="mb-3">Running Lines</h4>
@@ -135,6 +157,46 @@
         </div>
 
         <script>
+            function showToast(message, type = 'success') {
+                const toastContainer = document.getElementById('toast-container');
+                const toastId = 'toast-' + Date.now();
+
+                const toast = document.createElement('div');
+                toast.id = toastId;
+                toast.className = `toast show align-items-center text-white bg-${type}`;
+                toast.style.width = '300px';
+                toast.style.marginBottom = '10px';
+                toast.setAttribute('role', 'alert');
+                toast.setAttribute('aria-live', 'assertive');
+                toast.setAttribute('aria-atomic', 'true');
+
+                toast.innerHTML = `
+      <div class="d-flex">
+        <div class="toast-body">
+          ${message}
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
+    `;
+
+                toastContainer.appendChild(toast);
+
+                // Auto-remove after 5 seconds
+                setTimeout(() => {
+                    const toastElement = document.getElementById(toastId);
+                    if (toastElement) {
+                        toastElement.classList.remove('show');
+                        setTimeout(() => toastElement.remove(), 500);
+                    }
+                }, 5000);
+
+                // Add click to dismiss
+                toast.querySelector('.btn-close').addEventListener('click', function() {
+                    toast.classList.remove('show');
+                    setTimeout(() => toast.remove(), 500);
+                });
+            }
+
             function loadTabletList() {
                 fetch('../ajax/dor-load-tablet.php')
                     .then(response => {

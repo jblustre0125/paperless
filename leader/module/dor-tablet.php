@@ -51,8 +51,6 @@ $drawingFile = $drawing ?? '';
 $prepCardFile = $prepCard ?? '';
 $workInstructFile = $workInstruction ?? '';
 
-
-
 ?>
 <?php if (isset($_SESSION['flash_success'])): ?>
     <script>

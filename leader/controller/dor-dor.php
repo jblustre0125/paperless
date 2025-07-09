@@ -354,7 +354,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data = json_decode(file_get_contents("php://input"), true);
-    file_put_contents(__DIR__ . '/log.txt', print_r($data, true));
+    //file_put_contents(__DIR__ . '/log.txt', print_r($data, true));
     $type = $data['type'] ?? null;
 
     switch ($type) {
