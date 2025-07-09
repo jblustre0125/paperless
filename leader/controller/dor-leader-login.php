@@ -53,7 +53,8 @@ if (empty($hostData2)) {
     $hostQuery = "SELECT HostnameId, Hostname, IsLoggedIn, IsActive, IsLeader FROM GenHostname WHERE IpAddress = ?";
     $hostData = $db->execute($hostQuery, [$ip], 1);
 }
-
+$hostQuery = "SELECT HostnameId, Hostname, IsLoggedIn, IsActive FROM GenHostname WHERE IPAddress = ?";
+    $hostData = $db->execute($hostQuery, [$ip]);
 //Validate tablet data
 if (empty($hostData)) {
     $error = "Tablet not registered with IP: " . htmlspecialchars($ip);
