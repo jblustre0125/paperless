@@ -9,10 +9,10 @@ session_set_cookie_params([
 ob_start();
 session_start();
 
-file_put_contents('debug-session.log', print_r([
-    'SESSION' => $_SESSION,
-    'POST' => $_POST
-], true));
+// file_put_contents('debug-session.log', print_r([
+//     'SESSION' => $_SESSION,
+//     'POST' => $_POST
+// ], true));
 
 $title = "DOR Dashboard";
 
@@ -156,7 +156,6 @@ $workInstructFile = $workInstruction ?? '';
         <nav class="navbar navbar-expand navbar-light bg-light shadow-sm fixed-top">
             <div class="container-fluid py-2">
                 <div class="d-flex justify-content-between align-items-center flex-wrap w-100">
-
                     <!-- Left group: File viewers -->
                     <div class="d-flex gap-2 flex-wrap">
                         <button type="button"

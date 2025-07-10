@@ -142,4 +142,22 @@ function getWorkInstruction($dorTypeId, $modelId, $processNumber = 1) {
     error_log("No Work Instruction found for Model: $modelName, DorType: $dorType, Process: $processLetter");
     return "";
 }
+if (isset($_GET['json']) && $_GET['json'] == '1') {
+    header('Content-Type: application/json');
+
+    $jsonWorkInstructions = [];
+    foreach ($workInstructions as $procIdx => $url) {
+        $jsonWorkInstructions[] = [
+            'operator' => $procIdx, // Use numeric labels like 1, 2, 3
+            'url' => $url
+        ];
+    }
+
+    echo json_encode([
+        'drawing' => $drawing,
+        'prepCard' => $prepCard,
+        'files' => $jsonWorkInstructions
+    ]);
+    exit;
+} 
 ?>
