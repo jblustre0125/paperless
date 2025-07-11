@@ -266,7 +266,7 @@ $workInstructFile = $workInstruction ?? '';
                                         $good = trim($cp['CriteriaGood']);
                                         $notGood = trim($cp['CriteriaNotGood']);
                                         $colspanGood = empty($notGood) ? 2 : 1;
-                                        $leaderDefault = $leaderResponses[$checkpointId] ?? 'OK';
+                                        $leaderDefault = $leaderResponses[$checkpointId] ?? null;
                                 ?>
                                         <tr>
                                             <?php if ($index === 0): ?>
@@ -315,7 +315,6 @@ $workInstructFile = $workInstruction ?? '';
                                                 <?php
                                                 $radioName = "leader[$checkpointId]";
                                                 $hasResponse = isset($leaderResponses[$checkpointId]);
-                                                $leaderDefault = $leaderResponses[$checkpointId] ?? 'OK';
                                                 ?>
 
                                                 <?php if ($hasResponse): ?>
@@ -357,16 +356,9 @@ $workInstructFile = $workInstruction ?? '';
                     </div>
                     <button type="submit" name="btnVisual" id="hiddenVisual" style="display: none;">Submit</button>
                 </div>
-
-
-
                 <div class="tab-pane fade" id="tab-1" role="tabpanel">
-
-
-
                     <div class="mt-5">
                         <?php $tabNames = ['Hatsumono', 'Nakamono', 'Owarimono']; ?>
-
                         <!-- Sub-tabs -->
                         <ul class="nav nav-tabs" id="visualCheckpointTab" role="tablist">
                             <?php foreach ($tabNames as $index => $tab):
@@ -654,11 +646,12 @@ $workInstructFile = $workInstruction ?? '';
 
                                         $modalId = "operatorModal_" . htmlspecialchars($recordHeaderId);
                                     ?>
-                                        <tr data-row-id="<?= $recordHeaderIdSafe ?>">
+                                        <tr data-row-id="<?= $recordHeaderIdSafe ?>"
+                                            data-mp-requirement="<?= htmlspecialchars($header['MP'] ?? 1) ?>"
+                                            data-model-name="<?= htmlspecialchars($header['ITEM_ID'] ?? '') ?>">
                                             <td class="text-center align-middle" style="width: 5%;">
                                                 <?= $i ?> <i class="bi bi-qr-code-scan ms-1"></i>
                                             </td>
-
                                             <td style="width: 15%;">
                                                 <input type="text" class="form-control text-center scan-box-no"
                                                     id="boxNo<?= $i ?>" name="boxNo<?= $i ?>"
@@ -722,7 +715,7 @@ $workInstructFile = $workInstruction ?? '';
                                                 // Map AtoDorDetail by RecordHeaderId
                                                 $details = [];
                                                 foreach ($atoDorDetails as $row) {
-                                                    $details[$row['RecordHeaderId']] = $row;
+                                                    $details[$row['RecordHeaderId']][] = $row;
                                                 }
 
                                                 // Map DowntimeId => downtime data
@@ -751,26 +744,30 @@ $workInstructFile = $workInstruction ?? '';
                                                     <div class="downtime-info d-flex flex-wrap justify-content-center"
                                                         id="downtimeInfo<?= $recordHeaderIdSafe ?>">
                                                         <?php
-                                                        $detail = $details[$recordHeaderId] ?? null;
-                                                        $downtimeId = $detail['DowntimeId'] ?? null;
-                                                        $actionTakenId = $detail['ActionTakenId'] ?? null;
+                                                        $allDetails = $details[$recordHeaderId] ?? [];
 
-                                                        $downtimeCode = $downtimeMap[$downtimeId]['DowntimeCode'] ?? null;
-                                                        $actionTakenTitle = $actionTakenMap[$actionTakenId]['ActionDescription'] ?? 'No Description';
+                                                        if (empty($allDetails)) {
+                                                            echo '<small class="badge bg-secondary text-white me-1 mb-1">No Downtime</small>';
+                                                        } else {
+                                                            foreach ($allDetails as $detail) {
+                                                                $downtimeId = $detail['DowntimeId'] ?? null;
+                                                                $actionTakenId = $detail['ActionTakenId'] ?? null;
+
+                                                                $downtimeCode = $downtimeMap[$downtimeId]['DowntimeCode'] ?? null;
+                                                                $actionTakenTitle = $actionTakenMap[$actionTakenId]['ActionDescription'] ?? 'No Description';
+
+                                                                if ($downtimeCode) {
+                                                                    echo '<small class="badge bg-danger text-white me-1 mb-1" title="' . htmlspecialchars($actionTakenTitle) . '">'
+                                                                        . htmlspecialchars($downtimeCode) .
+                                                                        '</small>';
+                                                                }
+                                                            }
+                                                        }
                                                         ?>
-
-                                                        <?php if ($downtimeCode): ?>
-                                                            <small class="badge bg-danger text-white me-1 mb-1"
-                                                                title="<?= htmlspecialchars($actionTakenTitle) ?>">
-                                                                <?= htmlspecialchars($downtimeCode) ?>
-                                                            </small>
-                                                        <?php else: ?>
-                                                            <small class="badge bg-secondary text-white me-1 mb-1">No Downtime</small>
-                                                        <?php endif; ?>
                                                     </div>
-
                                                 </div>
                                             </td>
+
 
                                             <td class="text-center align-middle" style="width: 5%;">
                                                 <button type="button" class="btn btn-outline-danger btn-sm delete-row"
@@ -962,13 +959,13 @@ $workInstructFile = $workInstruction ?? '';
         //console.log("Loaded downtimeMap:", window.downtimeMap);
     </script>
 
-<script src="../../js/pdf.min.js"></script>
-<script src="../../js/hammer.min.js"></script>
-<script src="../../js/bootstrap.bundle.min.js"></script>
-<script src="../js/dor-downtime.js"></script>
-<script src="../js/dor-operator.js"></script>
-<script src="../js/dor-tab.js"></script>
-<script src="../js/viewer.js"></script>
+    <script src="../../js/pdf.min.js"></script>
+    <script src="../../js/hammer.min.js"></script>
+    <script src="../../js/bootstrap.bundle.min.js"></script>
+    <script src="../js/dor-downtime.js"></script>
+    <script src="../js/dor-operator.js"></script>
+    <script src="../js/dor-tab.js"></script>
+    <script src="../js/viewer.js"></script>
 
 </body>
 

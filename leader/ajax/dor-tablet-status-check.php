@@ -1,0 +1,16 @@
+<?php
+require_once __DIR__ . "/../../config/dbop.php";
+require_once "../controller/dor-leader-method.php";
+session_start();
+
+if (empty($_SESSION['user_id']) || empty($_SESSION['production_code'])) {
+    http_response_code(403);
+    exit('Unauthorized');
+}
+
+$method = new Method(1);
+$currentTabletId = $_SESSION['hostnameId'] ?? null;
+$hostnames = $method->getOnlineTablets($currentTabletId);
+
+echo count($hostnames);
+?>

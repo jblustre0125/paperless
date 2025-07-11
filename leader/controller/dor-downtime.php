@@ -36,27 +36,40 @@ class DorDowntime
 
     public function saveDowntime($recordHeaderId, $data)
     {
-        // First check if record exists
-        $checkQuery = "SELECT RecordDetailId FROM AtoDorDetail WHERE RecordHeaderId = ?";
+        // Fetch operator codes from the latest row
+        $opQuery = "SELECT TOP 1 OperatorCode1, OperatorCode2, OperatorCode3, OperatorCode4
+                FROM AtoDorDetail 
+                WHERE RecordHeaderId = ? 
+                ORDER BY RecordDetailId DESC";
+
+        $operatorSet = $this->db->execute($opQuery, [$recordHeaderId]);
+
+        $op1 = $operatorSet[0]['OperatorCode1'] ?? null;
+        $op2 = $operatorSet[0]['OperatorCode2'] ?? null;
+        $op3 = $operatorSet[0]['OperatorCode3'] ?? null;
+        $op4 = $operatorSet[0]['OperatorCode4'] ?? null;
+
+        // Check if a null/placeholder row exists (no DowntimeId)
+        $checkQuery = "SELECT TOP 1 RecordDetailId FROM AtoDorDetail 
+                   WHERE RecordHeaderId = ? AND DowntimeId IS NULL 
+                   ORDER BY RecordDetailId ASC";
         $existing = $this->db->execute($checkQuery, [$recordHeaderId]);
 
-        if (empty($existing)) {
-            // Insert new record if it doesn't exist
-            $query = "INSERT INTO AtoDorDetail (
-                RecordHeaderId, DowntimeId, ActionTakenId, 
-                TimeStart, TimeEnd, Duration, Pic, RemarksId
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-        } else {
-            // Update existing record
-            $query = "UPDATE AtoDorDetail SET 
-                DowntimeId = ?, ActionTakenId = ?, 
-                TimeStart = ?, TimeEnd = ?, Duration = ?, 
-                Pic = ?, RemarksId = ?
-                WHERE RecordHeaderId = ?";
-        }
+        if (!empty($existing)) {
+            // ✅ Update existing null row
+            $recordDetailId = $existing[0]['RecordDetailId'];
 
-        $params = $existing
-            ? [
+            $updateQuery = "UPDATE AtoDorDetail SET 
+            DowntimeId = ?, 
+            ActionTakenId = ?, 
+            TimeStart = ?, 
+            TimeEnd = ?, 
+            Duration = ?, 
+            Pic = ?, 
+            RemarksId = ? 
+        WHERE RecordDetailId = ?";
+
+            $params = [
                 $data['DowntimeId'],
                 $data['ActionTakenId'],
                 $data['TimeStart'],
@@ -64,10 +77,25 @@ class DorDowntime
                 $data['Duration'],
                 $data['Pic'],
                 $data['RemarksId'],
-                $recordHeaderId
-            ]
-            : [
+                $recordDetailId
+            ];
+
+            return $this->db->execute($updateQuery, $params)
+                ? ['success' => true, 'updated' => true]
+                : ['success' => false, 'message' => 'Update failed'];
+        } else {
+            // ✅ Insert new row if no null row exists
+            $insertQuery = "INSERT INTO AtoDorDetail (
+            RecordHeaderId, OperatorCode1, OperatorCode2, OperatorCode3, OperatorCode4,
+            DowntimeId, ActionTakenId, TimeStart, TimeEnd, Duration, Pic, RemarksId
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+            $params = [
                 $recordHeaderId,
+                $op1,
+                $op2,
+                $op3,
+                $op4,
                 $data['DowntimeId'],
                 $data['ActionTakenId'],
                 $data['TimeStart'],
@@ -77,12 +105,9 @@ class DorDowntime
                 $data['RemarksId']
             ];
 
-        try {
-            $result = $this->db->execute($query, $params);
-            return ['success' => $result !== false];
-        } catch (Exception $e) {
-            error_log("Database error: " . $e->getMessage());
-            return ['success' => false, 'message' => $e->getMessage()];
+            return $this->db->execute($insertQuery, $params)
+                ? ['success' => true, 'inserted' => true]
+                : ['success' => false, 'message' => 'Insert failed'];
         }
     }
 }
@@ -94,7 +119,7 @@ $actionTakenOptions = $controller->getActionList();
 $remarksOptions = $controller->getRemarksList();
 $atoDorDetails = $controller->AtoDor();
 
-// 🔁 Handle POST (AJAX)
+//Handle POST (AJAX)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     header('Content-Type: application/json');
 
@@ -121,15 +146,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Validate required fields
             $required = ['DowntimeId', 'ActionTakenId', 'TimeStart', 'TimeEnd'];
+
             foreach ($required as $field) {
-                if (empty($downtimeData[$field])) {
+                if (!isset($downtimeData[$field]) || trim((string)$downtimeData[$field]) === '' || $downtimeData[$field] === '0') {
                     echo json_encode([
                         'success' => false,
-                        'message' => "Missing required field: $field"
+                        'message' => "Downtime not saved: missing or empty field '$field'."
                     ]);
                     exit;
                 }
             }
+
 
             // 🔧 Fix data format before saving
             $today = date('Y-m-d');
