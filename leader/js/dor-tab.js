@@ -32,7 +32,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const toast = document.createElement("div");
     toast.id = toastId;
-    toast.className = `toast show align-items-center ${type === "custom" ? "bg-white text-dark border" : `text-white bg-${type}`}`;
+    toast.className = `toast show align-items-center ${
+      type === "custom" ? "bg-white text-dark border" : `text-white bg-${type}`
+    }`;
     toast.style.width = "320px";
     toast.style.marginBottom = "10px";
     toast.setAttribute("role", "alert");
@@ -246,18 +248,18 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function disableDimensionCheckInputs() {
     const tab2 = document.getElementById("tab-2");
-    if(!tab2) return;
-    tab2.querySelectorAll("input").forEach(input => {
-        input.disabled = true;
+    if (!tab2) return;
+    tab2.querySelectorAll("input").forEach((input) => {
+      input.disabled = true;
     });
   }
 
-  function enableDiemsnionCheckInputs(){
+  function enableDiemsnionCheckInputs() {
     const tab2 = document.getElementById("tab-2");
-    if(!tab2) return;
-    tab2.querySelectorAll("input").forEach(input => {
-        input.disabled = false;
-    })
+    if (!tab2) return;
+    tab2.querySelectorAll("input").forEach((input) => {
+      input.disabled = false;
+    });
   }
 
   btnNext?.addEventListener("click", async function (e) {
@@ -313,61 +315,50 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     // Final Submit: Tab 3
- if (currentTabIndex === tabPanes.length - 1) {
-  showToast("Are you sure you want to submit the form?", "custom", {
-    confirm: true,
-    onConfirm: async () => {
-      try {
-        btnNext.disabled = true;
-        btnNext.innerHTML =
-          '<span class="spinner-border spinner-border-sm"></span> Submitting...';
+    if (currentTabIndex === tabPanes.length - 1) {
+      showToast("Are you sure you want to submit the form?", "custom", {
+        confirm: true,
+        onConfirm: async () => {
+          try {
+            btnNext.disabled = true;
+            btnNext.innerHTML =
+              '<span class="spinner-border spinner-border-sm"></span> Submitting...';
 
-        const formData = new FormData(form);
-        formData.append("btnSubmit", "1");
+            const formData = new FormData(form);
+            formData.append("btnSubmit", "1");
 
-        const response = await fetch(window.location.href, {
-          method: "POST",
-          body: formData,
-        });
+            const response = await fetch(window.location.href, {
+              method: "POST",
+              body: formData,
+              headers: {
+                "X-Requested-With": "XMLHttpRequest",
+              },
+            });
 
-        if (response.redirected) {
-          window.location.href = "dor-leader-dashboard.php";
-          return;
-        }
+            // Show success toast
+            showToast("Form submitted successfully!", "success");
 
-        const text = await response.text();
-        let result;
-        try {
-          result = JSON.parse(text);
-        } catch (e) {
-          throw new Error("Invalid server response format");
-        }
+            // Redirect after toast is visible
+            setTimeout(() => {
+              window.location.href = "dor-leader-dashboard.php";
+            }, 1500);
+          } catch (error) {
+            console.error("Submit error:", error);
+            showToast(`Error: ${error.message}`, "danger");
 
-        if (!result.success) {
-          throw new Error(result.message || "Submission failed");
-        }
-
-        showToast("Form submitted successfully!");
-        setTimeout(() => {
-          window.location.href = "dor-leader-dashboard.php";
-        }, 1500);
-      } catch (error) {
-        console.error("Submit error:", error);
-        showToast(`Error: ${error.message}`, "danger");
-        btnNext.disabled = false;
-        btnNext.textContent = "Submit";
-      }
-    },
-    onCancel: () => {
-      // Do nothing if cancelled
-    },
-    duration: 10000, // Optional: customize how long the toast stays
-  });
-
-  return;
-}
-
-
+            // Still redirect even after error
+            setTimeout(() => {
+              window.location.href = "dor-leader-dashboard.php";
+            }, 1500);
+          }
+        },
+        onCancel: () => {
+          console.log("Form submission canceled.");
+        },
+        duration: 10000,
+      });
+      return;
+    }
   });
 
   btnBack?.addEventListener("click", function (e) {
@@ -382,21 +373,31 @@ document.addEventListener("DOMContentLoaded", function () {
   tabContent.style.display = "block";
 
   const wiKey = `wiConfirmed_${recordId}`;
-  
-  if(currentTabIndex === 2 && !sessionStorage.getItem(wiKey)){
+
+  if (currentTabIndex === 2 && !sessionStorage.getItem(wiKey)) {
     disableDimensionCheckInputs();
 
-    showToast("You must open the Work Instruction before entering data.", "custom", {
+    showToast(
+      "You must open the Work Instruction before entering data.",
+      "custom",
+      {
         confirm: true,
         onConfirm: () => {
-            sessionStorage.setItem(wiKey, "1");
-            enableDiemsnionCheckInputs();
-            showToast("Work Instruction confimed. You may now input data", "success");
+          sessionStorage.setItem(wiKey, "1");
+          enableDiemsnionCheckInputs();
+          showToast(
+            "Work Instruction confimed. You may now input data",
+            "success"
+          );
         },
         onCancel: () => {
-            showToast("Access to Dimension Check is restricted until Work Instruction is confirmed.", "danger");
-        }
-    });
+          showToast(
+            "Access to Dimension Check is restricted until Work Instruction is confirmed.",
+            "danger"
+          );
+        },
+      }
+    );
   }
 
   if (document.getElementById("tab-0")?.classList.contains("read-only")) {

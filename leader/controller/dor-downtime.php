@@ -38,8 +38,8 @@ class DorDowntime
     {
         // Fetch operator codes from the latest row
         $opQuery = "SELECT TOP 1 OperatorCode1, OperatorCode2, OperatorCode3, OperatorCode4
-                FROM AtoDorDetail 
-                WHERE RecordHeaderId = ? 
+                FROM AtoDorDetail
+                WHERE RecordHeaderId = ?
                 ORDER BY RecordDetailId DESC";
 
         $operatorSet = $this->db->execute($opQuery, [$recordHeaderId]);
@@ -50,8 +50,8 @@ class DorDowntime
         $op4 = $operatorSet[0]['OperatorCode4'] ?? null;
 
         // Check if a null/placeholder row exists (no DowntimeId)
-        $checkQuery = "SELECT TOP 1 RecordDetailId FROM AtoDorDetail 
-                   WHERE RecordHeaderId = ? AND DowntimeId IS NULL 
+        $checkQuery = "SELECT TOP 1 RecordDetailId FROM AtoDorDetail
+                   WHERE RecordHeaderId = ? AND DowntimeId IS NULL
                    ORDER BY RecordDetailId ASC";
         $existing = $this->db->execute($checkQuery, [$recordHeaderId]);
 
@@ -59,14 +59,14 @@ class DorDowntime
             // ✅ Update existing null row
             $recordDetailId = $existing[0]['RecordDetailId'];
 
-            $updateQuery = "UPDATE AtoDorDetail SET 
-            DowntimeId = ?, 
-            ActionTakenId = ?, 
-            TimeStart = ?, 
-            TimeEnd = ?, 
-            Duration = ?, 
-            Pic = ?, 
-            RemarksId = ? 
+            $updateQuery = "UPDATE AtoDorDetail SET
+            DowntimeId = ?,
+            ActionTakenId = ?,
+            TimeStart = ?,
+            TimeEnd = ?,
+            Duration = ?,
+            Pic = ?,
+            RemarksId = ?
         WHERE RecordDetailId = ?";
 
             $params = [
@@ -84,7 +84,7 @@ class DorDowntime
                 ? ['success' => true, 'updated' => true]
                 : ['success' => false, 'message' => 'Update failed'];
         } else {
-            // ✅ Insert new row if no null row exists
+            // Insert new row if no null row exists
             $insertQuery = "INSERT INTO AtoDorDetail (
             RecordHeaderId, OperatorCode1, OperatorCode2, OperatorCode3, OperatorCode4,
             DowntimeId, ActionTakenId, TimeStart, TimeEnd, Duration, Pic, RemarksId
@@ -123,12 +123,17 @@ $atoDorDetails = $controller->AtoDor();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     header('Content-Type: application/json');
 
+    // Try JSON input first
     $rawInput = file_get_contents('php://input');
-    // file_put_contents('debug_input.json', $rawInput); // Debug input log
-
     $data = json_decode($rawInput, true);
-    $type = $data['type'] ?? null;
 
+    // Fallback to $_POST for form-based submission
+    if (!is_array($data)) {
+        $data = $_POST;
+    }
+
+    // Determine type
+    $type = $data['type'] ?? ($_POST['btnSubmit'] ?? null);
     switch ($type) {
         case 'saveDowntime':
             if (!isset($data['recordHeaderId']) || !isset($data['downtimeData'])) {
@@ -148,7 +153,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $required = ['DowntimeId', 'ActionTakenId', 'TimeStart', 'TimeEnd'];
 
             foreach ($required as $field) {
-                if (!isset($downtimeData[$field]) || trim((string)$downtimeData[$field]) === '' || $downtimeData[$field] === '0') {
+                if (
+                    !isset($downtimeData[$field]) ||
+                    trim((string)$downtimeData[$field]) === '' ||
+                    $downtimeData[$field] === '0'
+                ) {
                     echo json_encode([
                         'success' => false,
                         'message' => "Downtime not saved: missing or empty field '$field'."
@@ -157,13 +166,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
-
-            // 🔧 Fix data format before saving
+            // Format Time fields
             $today = date('Y-m-d');
             $downtimeData['TimeStart'] = $today . ' ' . $downtimeData['TimeStart'] . ':00';
             $downtimeData['TimeEnd'] = $today . ' ' . $downtimeData['TimeEnd'] . ':00';
 
-            // Convert "HH:MM" duration to int minutes
+            // Convert duration to minutes
             if (strpos($downtimeData['Duration'], ':') !== false) {
                 list($h, $m) = explode(':', $downtimeData['Duration']);
                 $downtimeData['Duration'] = ((int)$h * 60) + (int)$m;
@@ -171,13 +179,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $downtimeData['Duration'] = (int) $downtimeData['Duration'];
             }
 
+            // Save to DB
             $result = $controller->saveDowntime($recordHeaderId, $downtimeData);
             echo json_encode($result);
             exit;
-    }
 
-    echo json_encode(['success' => false, 'message' => 'Invalid request type']);
-    exit;
+        case 'submitForm':
+            // Final tab form submission handler
+            echo json_encode([
+                'success' => true,
+                'message' => 'Form submitted successfully.'
+            ]);
+            exit;
+
+        default:
+            echo json_encode([
+                'success' => false,
+                'message' => 'Invalid request type',
+                'received_type' => $type,
+                'received_data' => $data
+            ]);
+            exit;
+    }
 }
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && ($_GET['type'] ?? '') === 'fetchSingle') {
     header('Content-Type: application/json');

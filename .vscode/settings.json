@@ -1,3 +1,53 @@
 {
-  "liveServer.settings.port": 5502
+  // 🖌️ UI & Font
+  "workbench.colorTheme": "One Dark Pro Night Flat",
+  "workbench.iconTheme": "material-icon-theme",
+  "editor.fontFamily": "'Fira Code', Poppins, Consolas, monospace",
+  "editor.fontLigatures": "'calt', 'liga', 'clig', 'ss01'",
+  "editor.fontWeight": "300",
+  "editor.fontSize": 12,
+  "editor.lineHeight": 22,
+
+  // 🧠 IntelliSense & Code Tools
+  "editor.suggestSelection": "first",
+  "editor.quickSuggestions": {
+    "other": true,
+    "comments": false,
+    "strings": true
+  },
+  "editor.hover.enabled": true,
+  "editor.parameterHints.enabled": true,
+
+  // 🧼 Formatting & Indentation
+  "editor.formatOnSave": true,
+  "editor.formatOnPaste": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+
+  // 🧩 Brackets & Guides
+  "editor.bracketPairColorization.enabled": true,
+  "editor.guides.bracketPairs": "active",
+  "editor.bracketPairColorization.independentColorPoolPerBracketType": true,
+
+  // ✍️ Editing Behavior
+  "editor.autoClosingBrackets": "always",
+  "editor.autoClosingQuotes": "always",
+  "editor.autoSurround": "languageDefined",
+  "editor.cursorSmoothCaretAnimation": "on", // ✅ this is now correctly set
+  "editor.smoothScrolling": true,
+  "editor.minimap.enabled": true,
+
+  // 💾 Files & Auto Save
+  "files.autoSave": "onWindowChange",
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+
+  // 🔍 Search & Navigation
+  "search.useGlobalIgnoreFiles": true,
+  "breadcrumbs.enabled": true,
+
+  // 🧪 Terminal
+  "terminal.integrated.fontFamily": "'Poppins', monospace",
+  "terminal.integrated.fontSize": 13
 }

@@ -1,22 +1,25 @@
 <?php
 require_once '../../config/dbop.php';
 
-class DorDor {
+class DorDor
+{
     private $db;
 
-    public function __construct($db = null) {
+    public function __construct($db = null)
+    {
         $this->db = new DbOp(1);
     }
 
-    public function getHeaders($hostnameId = null) {
-    $sql = "
-        SELECT 
-            h.RecordHeaderId, 
-            h.RecordId, 
-            h.BoxNumber, 
-            h.TimeStart, 
-            h.TimeEnd, 
-            h.Duration, 
+    public function getHeaders($hostnameId = null)
+    {
+        $sql = "
+        SELECT
+            h.RecordHeaderId,
+            h.RecordId,
+            h.BoxNumber,
+            h.TimeStart,
+            h.TimeEnd,
+            h.Duration,
             d.CreatedBy,
             m.ITEM_ID,
             m.MP
@@ -24,19 +27,20 @@ class DorDor {
         INNER JOIN AtoDor d ON h.RecordId = d.RecordId
         LEFT JOIN GenModel m ON d.ModelId = m.MODEL_ID
     ";
-    
-    $params = [];
-    if ($hostnameId !== null) {
-        $sql .= " WHERE d.HostnameId = ?";
-        $params[] = $hostnameId;
+
+        $params = [];
+        if ($hostnameId !== null) {
+            $sql .= " WHERE d.HostnameId = ?";
+            $params[] = $hostnameId;
+        }
+        $sql .= " ORDER BY h.RecordHeaderId ASC";
+
+        return $this->db->execute($sql, $params);
     }
-    $sql .= " ORDER BY h.RecordHeaderId ASC";
-
-    return $this->db->execute($sql, $params);
-}
 
 
-    public function getDetails() {
+    public function getDetails()
+    {
         $result = $this->db->execute("SELECT * FROM AtoDorDetail");
         $details = [];
         foreach ($result as $row) {
@@ -47,41 +51,46 @@ class DorDor {
         return $details;
     }
 
-    public function getActionTakenList() {
+    public function getActionTakenList()
+    {
         $result = $this->db->execute("SELECT ActionTakenId, ActionTakenCode, ActionTakenName FROM AtoActionTaken");
         return is_array($result) ? array_column($result, null, 'ActionTakenId') : [];
     }
 
-    public function getDowntimeList() {
+    public function getDowntimeList()
+    {
         $result = $this->db->execute("SELECT DowntimeId, DowntimeCategoryId, DowntimeCode, DowntimeName FROM GenDorDowntime");
         return is_array($result) ? array_column($result, null, 'DowntimeId') : [];
     }
 
-    public function getOperatorMap() {
+    public function getOperatorMap()
+    {
         $result = $this->db->execute("SELECT ProductionCode, EmployeeCode, EmployeeName FROM GenOperator WHERE IsActive = 1");
         return is_array($result) ? array_column($result, 'EmployeeName', 'ProductionCode') : [];
     }
 
-    public function getMPByRecordHeaderId($recordHeaderId) {
-    $sql = "
+    public function getMPByRecordHeaderId($recordHeaderId)
+    {
+        $sql = "
         SELECT gm.MP
         FROM AtoDorHeader h
         JOIN AtoDor d ON h.RecordId = d.RecordId
         JOIN GenModel gm ON d.ModelId = gm.MODEL_ID
         WHERE h.RecordHeaderId = ?
     ";
-    $result = $this->db->execute($sql, [$recordHeaderId]);
-    
-    file_put_contents("php://stderr", print_r([
-        'recordHeaderId' => $recordHeaderId,
-        'queryResult' => $result
-    ], true));
-    
-    return $result[0]['MP'] ?? null;
-}
+        $result = $this->db->execute($sql, [$recordHeaderId]);
+
+        file_put_contents("php://stderr", print_r([
+            'recordHeaderId' => $recordHeaderId,
+            'queryResult' => $result
+        ], true));
+
+        return $result[0]['MP'] ?? null;
+    }
 
 
-    public function saveOperators($recordHeaderId, $employeeCodes) {
+    public function saveOperators($recordHeaderId, $employeeCodes)
+    {
         if (empty($recordHeaderId) || !is_array($employeeCodes)) return false;
         $employeeCodes = array_values(array_unique(array_filter($employeeCodes)));
         $mpRequired = $this->getMPByRecordHeaderId($recordHeaderId);
@@ -154,6 +163,3 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     echo json_encode(['success' => false, 'message' => 'Invalid request']);
     exit;
 }
-
-
-

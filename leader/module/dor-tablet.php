@@ -13,7 +13,6 @@ session_start();
 //     'SESSION' => $_SESSION,
 //     'POST' => $_POST
 // ], true));
-
 $title = "DOR Dashboard";
 
 require_once '../controller/dor-checkpoint-definition.php';
@@ -158,36 +157,25 @@ $workInstructFile = $workInstruction ?? '';
                 <div class="d-flex justify-content-between align-items-center flex-wrap w-100">
                     <!-- Left group: File viewers -->
                     <div class="d-flex gap-2 flex-wrap">
-                        <button type="button"
-                            class="btn btn-secondary btn-lg nav-btn-group btn-nav-fixed"
-                            id="btnDrawing"
-                            data-file="<?= htmlspecialchars($drawingFile) ?>"
-                            aria-label="Open Drawing">
+                        <button type="button" class="btn btn-secondary btn-lg nav-btn-group btn-nav-fixed" id="btnDrawing"
+                            data-file="<?= htmlspecialchars($drawingFile) ?>" aria-label="Open Drawing">
                             Drawing
                         </button>
 
-                        <button type="button"
-                            class="btn btn-secondary btn-lg nav-btn-group btn-nav-fixed"
-                            id="btnWorkInstruction"
-                            data-file="<?= htmlspecialchars($workInstructFile) ?>"
-                            aria-label="Open Work Instruction">
+                        <button type="button" class="btn btn-secondary btn-lg nav-btn-group btn-nav-fixed" id="btnWorkInstruction"
+                            data-file="<?= htmlspecialchars($workInstructFile) ?>" aria-label="Open Work Instruction">
                             <span class="short-label">WI</span>
                             <span class="long-label">Work Instruction</span>
                         </button>
 
-                        <button type="button"
-                            class="btn btn-secondary btn-lg nav-btn-group btn-nav-fixed"
-                            id="btnPrepCard"
-                            data-file="<?= htmlspecialchars($prepCardFile) ?>"
-                            aria-label="Open Preparation Card">
+                        <button type="button" class="btn btn-secondary btn-lg nav-btn-group btn-nav-fixed" id="btnPrepCard"
+                            data-file="<?= htmlspecialchars($prepCardFile) ?>" aria-label="Open Preparation Card">
                             <span class="short-label">Prep Card</span>
                             <span class="long-label">Preparation Card</span>
                         </button>
 
-                        <button type="button"
-                            class="btn btn-secondary btn-lg nav-btn-group btn-nav-fixed"
-                            onclick="window.location.href='dor-leader-dashboard.php'"
-                            aria-label="Go to Operator Tablets">
+                        <button type="button" class="btn btn-secondary btn-lg nav-btn-group btn-nav-fixed"
+                            onclick="window.location.href='dor-leader-dashboard.php'" aria-label="Go to Operator Tablets">
                             <span class="short-label">Opt Tab</span>
                             <span class="long-label">Operator Tablets</span>
                         </button>
@@ -200,17 +188,12 @@ $workInstructFile = $workInstruction ?? '';
 
                     <!-- Right group: Navigation -->
                     <div class="d-flex gap-2 flex-wrap">
-                        <button type="button"
-                            class="btn btn-secondary btn-lg nav-btn-group btn-nav-fixed"
-                            id="btnBack"
+                        <button type="button" class="btn btn-secondary btn-lg nav-btn-group btn-nav-fixed" id="btnBack"
                             aria-label="Go Back">
                             Back
                         </button>
 
-                        <button type="submit"
-                            class="btn btn-primary btn-lg nav-btn-group btn-nav-fixed"
-                            name="btnNext"
-                            id="btnNext"
+                        <button type="submit" class="btn btn-primary btn-lg nav-btn-group btn-nav-fixed" name="btnNext" id="btnNext"
                             aria-label="Proceed to Next Checkpoint">
                             <span class="short-label">Next</span>
                             <span class="long-label">Proceed to Next Checkpoint</span>
@@ -223,7 +206,8 @@ $workInstructFile = $workInstruction ?? '';
 
 
         <!-- PDF Viewer Container -->
-        <div id="pdfModal" style="display:none; position:fixed; top:10%; left:10%; width:80%; height:80%; background:#fff; z-index:1000; box-shadow: 0 0 20px rgba(0,0,0,0.5); overflow:auto;">
+        <div id="pdfModal"
+            style="display:none; position:fixed; top:10%; left:10%; width:80%; height:80%; background:#fff; z-index:1000; box-shadow: 0 0 20px rgba(0,0,0,0.5); overflow:auto;">
             <div style="text-align:right; padding:10px;">
                 <button onclick="closePDFViewer()">Close</button>
             </div>
@@ -234,12 +218,18 @@ $workInstructFile = $workInstruction ?? '';
         <div class="container-fluid py-0 m-0">
             <!-- CheckpointA -->
             <div class="tab-content fixed-top" style="margin-top: 30px; display:none;" id="dorTabContent">
-                <div class="tab-pane fade <?php if ($tabIndex == 0) echo 'show active '; ?><?php if ($isTab0Saved) echo 'read-only'; ?>" id="tab-0" role="tabpanel">
+                <div <?php
+                        $tabIndex = isset($_GET['tab']) ? intval($_GET['tab']) : 0;
+                        $isTab0Saved = isset($isTab0Saved) ? $isTab0Saved : false;
+                        ?>
+                    class="tab-pane fade <?php if ($tabIndex == 0) echo 'show active '; ?><?php if ($isTab0Saved) echo 'read-only'; ?>"
+                    id="tab-0" role="tabpanel">
                     <div class="table-container" style="max-height:90vh; overflow-y: auto; margin-top: 10px;">
                         <table class="table table-bordered text-center align-middle w-100">
                             <thead class="table-light text-center  sticky-table">
                                 <tr>
-                                    <th class="fs-6" colspan="<?= 6 + count($processIndexes) ?>">A. Required Item and Jig Condition VS Work Instruction</th>
+                                    <th class="fs-6" colspan="<?= 6 + count($processIndexes) ?>">A. Required Item and Jig Condition VS
+                                        Work Instruction</th>
                                 </tr>
                                 <tr>
                                     <th class="fs-6 text-start" rowspan="2" style="width: 25%;">Checkpoints</th>
@@ -275,7 +265,8 @@ $workInstructFile = $workInstruction ?? '';
                                                 </td>
                                             <?php endif; ?>
 
-                                            <td class="fs-6" colspan="<?= $colspanGood; ?>" style="width: <?= $colspanGood === 2 ? '30%' : '15%' ?>;">
+                                            <td class="fs-6" colspan="<?= $colspanGood; ?>"
+                                                style="width: <?= $colspanGood === 2 ? '30%' : '15%' ?>;">
                                                 <?= htmlspecialchars($good); ?>
                                             </td>
 
@@ -299,8 +290,7 @@ $workInstructFile = $workInstruction ?? '';
                                                         $title = "$debugInfo: No data";
                                                     }
                                                     ?>
-                                                    <td class="fs-6 text-center"
-                                                        style="width: <?= floor(30 / count($processIndexes)) ?>%;"
+                                                    <td class="fs-6 text-center" style="width: <?= floor(30 / count($processIndexes)) ?>%;"
                                                         title="<?= htmlspecialchars($title) ?>">
                                                         <?= $displayResponse ?>
                                                     </td>
@@ -330,16 +320,13 @@ $workInstructFile = $workInstruction ?? '';
                                                         <span class="<?= $badgeClass ?>"><?= htmlspecialchars($leaderDefault) ?></span>
                                                     </div>
                                                 <?php else: ?>
-                                                    <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap overflow-auto" style="white-space: nowrap;">
+                                                    <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap overflow-auto"
+                                                        style="white-space: nowrap;">
                                                         <?php foreach (['OK', 'NA', 'NG'] as $val): ?>
                                                             <div class="form-check d-flex align-items-center m-0" style="gap: 4px;">
-                                                                <input
-                                                                    type="radio"
-                                                                    name="<?= $radioName ?>"
-                                                                    id="leader-<?= $checkpointId ?>-<?= strtolower($val) ?>"
-                                                                    class="form-check-input"
-                                                                    value="<?= $val ?>"
-                                                                    <?= ($leaderDefault === $val) ? 'checked' : '' ?>>
+                                                                <input type="radio" name="<?= $radioName ?>"
+                                                                    id="leader-<?= $checkpointId ?>-<?= strtolower($val) ?>" class="form-check-input"
+                                                                    value="<?= $val ?>" <?= ($leaderDefault === $val) ? 'checked' : '' ?>>
                                                                 <label class="form-check-label m-0" for="leader-<?= $checkpointId ?>-<?= strtolower($val) ?>">
                                                                     <?= $val ?>
                                                                 </label>
@@ -364,13 +351,8 @@ $workInstructFile = $workInstruction ?? '';
                             <?php foreach ($tabNames as $index => $tab):
                                 $tabId = strtolower($tab); ?>
                                 <li class="nav-item" role="presentation">
-                                    <button class="nav-link <?= $index === 0 ? 'active' : '' ?>"
-                                        id="<?= $tabId ?>-tab"
-                                        data-bs-toggle="tab"
-                                        data-bs-target="#<?= $tabId ?>"
-                                        type="button"
-                                        role="tab"
-                                        aria-controls="<?= $tabId ?>"
+                                    <button class="nav-link <?= $index === 0 ? 'active' : '' ?>" id="<?= $tabId ?>-tab" data-bs-toggle="tab"
+                                        data-bs-target="#<?= $tabId ?>" type="button" role="tab" aria-controls="<?= $tabId ?>"
                                         aria-selected="<?= $index === 0 ? 'true' : 'false' ?>">
                                         <?= $tab ?>
                                     </button>
@@ -380,12 +362,11 @@ $workInstructFile = $workInstruction ?? '';
                         <div class="tab-content mt-4" id="visualCheckpointTabContent">
                             <?php foreach ($tabNames as $index => $tab):
                                 $tabId = strtolower($tab); ?>
-                                <div class="tab-pane fade <?= $index === 0 ? 'show active' : '' ?>"
-                                    id="<?= $tabId ?>"
-                                    role="tabpanel"
+                                <div class="tab-pane fade <?= $index === 0 ? 'show active' : '' ?>" id="<?= $tabId ?>" role="tabpanel"
                                     aria-labelledby="<?= $tabId ?>-tab">
                                     <input type="hidden" name="record_id" value="<?= htmlspecialchars($recordId) ?>">
-                                    <input type="hidden" name="production_code" value="<?= htmlspecialchars($_SESSION['production_code'] ?? '') ?>">
+                                    <input type="hidden" name="production_code"
+                                        value="<?= htmlspecialchars($_SESSION['production_code'] ?? '') ?>">
                                     <div class="table-wrapper mt-3" style="border: solid 1px #ddd">
                                         <table class="table table-bordered text-center align-middle">
                                             <thead class="table-light sticky-table">
@@ -420,7 +401,8 @@ $workInstructFile = $workInstruction ?? '';
                                                                 </td>
                                                             <?php endif; ?>
 
-                                                            <td class="fs-6" colspan="<?= empty($v['CriteriaNotGood']) ? 2 : 1 ?>" style="min-width: 100px;">
+                                                            <td class="fs-6" colspan="<?= empty($v['CriteriaNotGood']) ? 2 : 1 ?>"
+                                                                style="min-width: 100px;">
                                                                 <?= htmlspecialchars($v['CriteriaGood']) ?>
                                                             </td>
 
@@ -435,9 +417,7 @@ $workInstructFile = $workInstruction ?? '';
                                                                     <div class="d-flex flex-wrap gap-2 justify-content-center">
                                                                         <?php foreach ($options as $opt): ?>
                                                                             <div class="form-check form-check-inline">
-                                                                                <input type="radio" class="form-check-input"
-                                                                                    name="<?= $name ?>"
-                                                                                    value="<?= $opt ?>"
+                                                                                <input type="radio" class="form-check-input" name="<?= $name ?>" value="<?= $opt ?>"
                                                                                     id="<?= $name ?>_<?= strtolower(str_replace(' ', '', $opt)) ?>"
                                                                                     <?= $value === $opt ? 'checked' : '' ?>>
                                                                                 <label class="form-check-label"
@@ -448,7 +428,8 @@ $workInstructFile = $workInstruction ?? '';
                                                                         <?php endforeach; ?>
                                                                     </div>
                                                                 <?php else: ?>
-                                                                    <input type="text" name="<?= $name ?>" class="form-control" value="<?= htmlspecialchars($value) ?>">
+                                                                    <input type="text" name="<?= $name ?>" class="form-control"
+                                                                        value="<?= htmlspecialchars($value) ?>">
                                                                 <?php endif; ?>
                                                             </td>
                                                         </tr>
@@ -456,7 +437,8 @@ $workInstructFile = $workInstruction ?? '';
                                                 <?php endforeach; ?>
                                             </tbody>
                                         </table>
-                                        <button type="submit" name="btnProceed" id="btnProceed" class="btn btn-primary float-end">Submit</button>
+                                        <button type="submit" name="btnProceed" id="btnProceed"
+                                            class="btn btn-primary float-end">Submit</button>
                                     </div>
                                 </div>
                             <?php endforeach; ?>
@@ -496,8 +478,7 @@ $workInstructFile = $workInstruction ?? '';
                                                     $key = ucfirst($section) . $j;
                                                     $value = $row[$key] ?? ($_POST["{$section}_value_{$j}"][$i] ?? '');
                                                     ?>
-                                                    <input type="number" class="form-control"
-                                                        name="<?= $section ?>_value_<?= $j ?>[<?= $i ?>]"
+                                                    <input type="number" class="form-control" name="<?= $section ?>_value_<?= $j ?>[<?= $i ?>]"
                                                         value="<?= htmlspecialchars($value) ?>" />
                                                 </td>
                                             <?php endfor; ?>
@@ -513,8 +494,7 @@ $workInstructFile = $workInstruction ?? '';
                                                 <div class="d-flex flex-column align-items-center gap-1">
                                                     <?php foreach (['OK', 'NA', 'NG'] as $opt): ?>
                                                         <label class="form-check-label small w-100 text-center">
-                                                            <input type="radio" class="form-check-input me-1"
-                                                                name="judge_<?= $section ?>_<?= $i ?>"
+                                                            <input type="radio" class="form-check-input me-1" name="judge_<?= $section ?>_<?= $i ?>"
                                                                 value="<?= $opt ?>"
                                                                 <?= (($_POST["judge_{$section}_{$i}"] ?? $record[ucfirst($section) . $i . "Judge"] ?? '') === $opt) ? 'checked' : '' ?>>
                                                             <?= $opt ?>
@@ -539,7 +519,8 @@ $workInstructFile = $workInstruction ?? '';
                 <div class="tab-pane fade" id="tab-3" role="tabpanel">
                     <div class="dor-table-container mt-3" style="max-height: 90vh; overflow-y: auto; position: relative;">
                         <!-- Sticky header clone -->
-                        <div class="sticky-header" style="position: sticky; top: 0; z-index: 10; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                        <div class="sticky-header"
+                            style="position: sticky; top: 0; z-index: 10; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
                             <table class="table table-bordered table-dor mb-0 w-100">
                                 <thead class="table-light text-center sticky-table">
                                     <tr>
@@ -653,23 +634,22 @@ $workInstructFile = $workInstruction ?? '';
                                                 <?= $i ?> <i class="bi bi-qr-code-scan ms-1"></i>
                                             </td>
                                             <td style="width: 15%;">
-                                                <input type="text" class="form-control text-center scan-box-no"
-                                                    id="boxNo<?= $i ?>" name="boxNo<?= $i ?>"
-                                                    value="<?= htmlspecialchars($header['BoxNumber'] ?? '') ?>" disabled>
+                                                <input type="text" class="form-control text-center scan-box-no" id="boxNo<?= $i ?>"
+                                                    name="boxNo<?= $i ?>" value="<?= htmlspecialchars($header['BoxNumber'] ?? '') ?>" disabled>
                                                 <input type="hidden" id="modelName<?= $i ?>" name="modelName<?= $i ?>">
                                                 <input type="hidden" id="lotNumber<?= $i ?>" name="lotNumber<?= $i ?>">
                                             </td>
 
                                             <td style="width: 12%;">
-                                                <input type="text" class="form-control text-center time-input"
-                                                    id="timeStart<?= $i ?>" name="timeStart<?= $i ?>"
+                                                <input type="text" class="form-control text-center time-input" id="timeStart<?= $i ?>"
+                                                    name="timeStart<?= $i ?>"
                                                     value="<?= isset($header['TimeStart']) ? date('H:i', $header['TimeStart'] instanceof \DateTime ? $header['TimeStart']->getTimestamp() : strtotime($header['TimeStart'])) : '' ?>"
                                                     placeholder="HH:mm" maxlength="5" pattern="[0-9]{2}:[0-9]{2}" disabled>
                                             </td>
 
                                             <td style="width: 12%;">
-                                                <input type="text" class="form-control text-center time-input"
-                                                    id="timeEnd<?= $i ?>" name="timeEnd<?= $i ?>"
+                                                <input type="text" class="form-control text-center time-input" id="timeEnd<?= $i ?>"
+                                                    name="timeEnd<?= $i ?>"
                                                     value="<?= isset($header['TimeEnd']) ? date('H:i', $header['TimeEnd'] instanceof \DateTime ? $header['TimeEnd']->getTimestamp() : strtotime($header['TimeEnd'])) : '' ?>"
                                                     placeholder="HH:mm" maxlength="5" pattern="[0-9]{2}:[0-9]{2}" disabled>
                                             </td>
@@ -682,15 +662,14 @@ $workInstructFile = $workInstruction ?? '';
 
                                             <td class="text-center align-middle" style="width: 22%;">
                                                 <div class="d-flex flex-column align-items-center">
-                                                    <button type="button"
-                                                        class="btn btn-outline-primary btn-sm btn-operator mb-1"
-                                                        data-bs-toggle="modal"
-                                                        data-bs-target="#operatorModal<?= $recordHeaderId ?>"
+                                                    <button type="button" class="btn btn-outline-primary btn-sm btn-operator mb-1"
+                                                        data-bs-toggle="modal" data-bs-target="#operatorModal<?= $recordHeaderId ?>"
                                                         data-record-id="operator<?= $recordHeaderId ?>">
                                                         <i class="bi bi-person-plus"></i> View Operators
                                                     </button>
 
-                                                    <div class="operator-codes d-flex flex-wrap justify-content-center" id="operatorList<?= $recordHeaderId ?>">
+                                                    <div class="operator-codes d-flex flex-wrap justify-content-center"
+                                                        id="operatorList<?= $recordHeaderId ?>">
                                                         <?php foreach (array_unique($employeeCodes) as $code):
                                                             $name = $operatorMap[$code] ?? 'No operators'; ?>
                                                             <small class="badge bg-light text-dark border me-1 mb-1"
@@ -733,10 +712,8 @@ $workInstructFile = $workInstruction ?? '';
                                                 }
                                                 ?>
                                                 <div class="d-flex flex-column align-items-center">
-                                                    <button type="button"
-                                                        class="btn btn-outline-secondary btn-sm p-1 mb-1 downtime-trigger"
-                                                        data-bs-toggle="modal"
-                                                        data-bs-target="#downtimeModal<?= $recordHeaderIdSafe ?>"
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm p-1 mb-1 downtime-trigger"
+                                                        data-bs-toggle="modal" data-bs-target="#downtimeModal<?= $recordHeaderIdSafe ?>"
                                                         data-record-id="<?= $recordHeaderIdSafe ?>">
                                                         <i class="bi bi-clock-history"></i> View Downtime
                                                     </button>
@@ -770,8 +747,8 @@ $workInstructFile = $workInstruction ?? '';
 
 
                                             <td class="text-center align-middle" style="width: 5%;">
-                                                <button type="button" class="btn btn-outline-danger btn-sm delete-row"
-                                                    data-row-id="<?= $i ?>" title="Delete Row">
+                                                <button type="button" class="btn btn-outline-danger btn-sm delete-row" data-row-id="<?= $i ?>"
+                                                    title="Delete Row">
                                                     <span style="font-size: 1.2rem; font-weight: bold;">×</span>
                                                 </button>
                                             </td>
@@ -779,11 +756,8 @@ $workInstructFile = $workInstruction ?? '';
 
                                         <!-- Operator Modal -->
                                         <?php ob_start(); ?>
-                                        <div class="modal fade operator-modal"
-                                            id="operatorModal<?= $recordHeaderId ?>"
-                                            tabindex="-1"
-                                            aria-labelledby="operatorModalLabel<?= $recordHeaderId ?>"
-                                            aria-hidden="true"
+                                        <div class="modal fade operator-modal" id="operatorModal<?= $recordHeaderId ?>" tabindex="-1"
+                                            aria-labelledby="operatorModalLabel<?= $recordHeaderId ?>" aria-hidden="true"
                                             data-record-id="<?= $recordHeaderId ?>">
 
                                             <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -792,19 +766,22 @@ $workInstructFile = $workInstruction ?? '';
                                                         <h5 class="modal-title" id="operatorModalLabel<?= $recordHeaderId ?>">
                                                             Manage Operators for Row #<?= htmlspecialchars($i) ?>
                                                         </h5>
-                                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                                                            aria-label="Close"></button>
                                                     </div>
 
                                                     <div class="modal-body">
                                                         <div class="mb-3">
-                                                            <input type="text" class="form-control operator-search" placeholder="Search operator name or code...">
+                                                            <input type="text" class="form-control operator-search"
+                                                                placeholder="Search operator name or code...">
                                                             <div class="search-results mt-2"></div>
                                                         </div>
 
                                                         <div class="current-operators d-flex flex-wrap gap-3 justify-content-start">
                                                             <?php foreach (array_unique($employeeCodes) as $code):
                                                                 $name = $operatorMap[$code] ?? 'No operator'; ?>
-                                                                <div class="card border-primary operator-card" data-code="<?= htmlspecialchars($code) ?>" style="min-width: 160px;">
+                                                                <div class="card border-primary operator-card" data-code="<?= htmlspecialchars($code) ?>"
+                                                                    style="min-width: 160px;">
                                                                     <div class="card-body text-center p-2">
                                                                         <h6 class="card-title mb-1"><?= htmlspecialchars($name) ?></h6>
                                                                         <small class="text-muted"><?= htmlspecialchars($code) ?></small>
@@ -816,15 +793,13 @@ $workInstructFile = $workInstruction ?? '';
                                                             <?php endforeach; ?>
                                                         </div>
 
-                                                        <input type="hidden"
-                                                            class="updated-operators"
+                                                        <input type="hidden" class="updated-operators"
                                                             id="operatorsHidden<?= htmlspecialchars($recordHeaderId) ?>"
                                                             value="<?= htmlspecialchars(implode(',', $employeeCodes)) ?>">
                                                     </div>
 
                                                     <div class="modal-footer">
-                                                        <button type="button"
-                                                            class="btn btn-success btn-save-operators"
+                                                        <button type="button" class="btn btn-success btn-save-operators"
                                                             data-record-id="<?= $recordHeaderId ?>">
                                                             Save Changes
                                                         </button>
@@ -835,11 +810,8 @@ $workInstructFile = $workInstruction ?? '';
                                         </div>
 
                                         <!-- Downtime Modal -->
-                                        <div class="modal fade"
-                                            id="downtimeModal<?= $recordHeaderId ?>"
-                                            tabindex="-1"
-                                            aria-labelledby="downtimeModalLabel<?= $recordHeaderId ?>"
-                                            aria-hidden="true"
+                                        <div class="modal fade" id="downtimeModal<?= $recordHeaderId ?>" tabindex="-1"
+                                            aria-labelledby="downtimeModalLabel<?= $recordHeaderId ?>" aria-hidden="true"
                                             data-record-id="<?= $recordHeaderId ?>">
 
                                             <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -848,7 +820,8 @@ $workInstructFile = $workInstruction ?? '';
                                                         <h5 class="modal-title" id="downtimeModalLabel<?= $recordHeaderId ?>">
                                                             Manage Downtime for Row #<?= htmlspecialchars($i) ?>
                                                         </h5>
-                                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                                                            aria-label="Close"></button>
                                                     </div>
 
                                                     <div class="modal-body">
@@ -864,10 +837,12 @@ $workInstructFile = $workInstruction ?? '';
                                                                 <tbody>
                                                                     <tr>
                                                                         <td>
-                                                                            <input type="text" class="form-control text-center time-start" placeholder="HH:mm" maxlength="5" pattern="[0-9]{2}:[0-9]{2}" id="timeStart<?= $recordHeaderId ?>" />
+                                                                            <input type="text" class="form-control text-center time-start" placeholder="HH:mm"
+                                                                                maxlength="5" pattern="[0-9]{2}:[0-9]{2}" id="timeStart<?= $recordHeaderId ?>" />
                                                                         </td>
                                                                         <td>
-                                                                            <input type="text" class="form-control text-center time-end" placeholder="HH:mm" maxlength="5" pattern="[0-9]{2}:[0-9]{2}" id="timeEnd<?= $recordHeaderId ?>" />
+                                                                            <input type="text" class="form-control text-center time-end" placeholder="HH:mm"
+                                                                                maxlength="5" pattern="[0-9]{2}:[0-9]{2}" id="timeEnd<?= $recordHeaderId ?>" />
                                                                         </td>
                                                                         <td>
                                                                             <span id="duration<?= $recordHeaderId ?>" class="badge bg-secondary">00:00</span>
@@ -883,7 +858,8 @@ $workInstructFile = $workInstruction ?? '';
                                                                 <option value="">-- Select Downtime --</option>
                                                                 <?php foreach ($downtimeOptions as $d): ?>
                                                                     <option value="<?= $d['DowntimeId'] ?>">
-                                                                        <?= htmlspecialchars($d['DowntimeCode']) ?> - <?= htmlspecialchars($d['DowntimeName']) ?>
+                                                                        <?= htmlspecialchars($d['DowntimeCode']) ?> -
+                                                                        <?= htmlspecialchars($d['DowntimeName']) ?>
                                                                     </option>
                                                                 <?php endforeach; ?>
                                                             </select>
@@ -896,7 +872,8 @@ $workInstructFile = $workInstruction ?? '';
                                                                 <option value="">-- Select Action Taken --</option>
                                                                 <?php foreach ($actionTakenOptions as $a): ?>
                                                                     <option value="<?= $a['ActionTakenId'] ?>">
-                                                                        <?= htmlspecialchars($a['ActionTakenCode']) ?> - <?= htmlspecialchars($a['ActionTakenName']) ?>
+                                                                        <?= htmlspecialchars($a['ActionTakenCode']) ?> -
+                                                                        <?= htmlspecialchars($a['ActionTakenName']) ?>
                                                                     </option>
                                                                 <?php endforeach; ?>
                                                             </select>
@@ -915,14 +892,15 @@ $workInstructFile = $workInstruction ?? '';
                                                         </div>
 
                                                         <div class="mb-3">
-                                                            <label for="picInput<?= $recordHeaderId ?>" class="form-label">PIC (Person In Charge)</label>
-                                                            <input type="text" id="picInput<?= $recordHeaderId ?>" class="form-control" placeholder="Enter PIC name">
+                                                            <label for="picInput<?= $recordHeaderId ?>" class="form-label">PIC (Person In
+                                                                Charge)</label>
+                                                            <input type="text" id="picInput<?= $recordHeaderId ?>" class="form-control"
+                                                                placeholder="Enter PIC name">
                                                         </div>
                                                     </div>
 
                                                     <div class="modal-footer">
-                                                        <button type="button"
-                                                            class="btn btn-danger btn-save-downtime"
+                                                        <button type="button" class="btn btn-danger btn-save-downtime"
                                                             data-record-id="<?= $recordHeaderId ?>">
                                                             Save Downtime
                                                         </button>
@@ -939,7 +917,6 @@ $workInstructFile = $workInstruction ?? '';
                             </table>
                         </div>
                     </div>
-                    <button type="submit" name="btnSubmit" id="hiddenSubmit" style="display: none;">Submit</button>
                 </div>
             </div>
         </div>
