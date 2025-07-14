@@ -45,28 +45,28 @@ if ($recordId !== null) {
 
 <!-- Modal Header -->
 <div class="modal-header">
-    <h5 class="modal-title">Downtime Details – <?= htmlspecialchars($hostname) ?></h5>
-    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+  <h5 class="modal-title">Downtime Details – <?= htmlspecialchars($hostname) ?></h5>
+  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 </div>
 
 <!-- Modal Body -->
 <div class="modal-body">
-    <table class="table table-bordered table-sm align-middle text-center">
-        <thead class="table-light">
-            <tr>
-                <th>#</th>
-                <th style="width: 15%;">Box No.</th>
-                <th style="width: 15%;">Start Time</th>
-                <th style="width: 15%;">End Time</th>
-                <th style="width: 10%;">Duration</th>
-                <th>Downtime</th>
-                <th>*</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php if (!empty($headers)): ?>
-                <?php foreach ($headers as $i => $header): ?>
-                    <?php
+  <table class="table table-bordered table-sm align-middle text-center">
+    <thead class="table-light">
+      <tr>
+        <th>#</th>
+        <th style="width: 15%;">Box No.</th>
+        <th style="width: 15%;">Start Time</th>
+        <th style="width: 15%;">End Time</th>
+        <th style="width: 10%;">Duration</th>
+        <th>Downtime</th>
+        <th>*</th>
+      </tr>
+    </thead>
+    <tbody>
+      <?php if (!empty($headers)): ?>
+      <?php foreach ($headers as $i => $header): ?>
+      <?php
                     $rhid = $header['RecordHeaderId'];
                     $boxNo = $header['BoxNumber'] ?? '';
 
@@ -108,39 +108,38 @@ if ($recordId !== null) {
                     $modalLabelId = "downtimeModalLabel_" . $rhid;
                     $modalContentId = "downtimeModalContent_" . $rhid;
                     ?>
-                    <tr>
-                        <td><?= $i + 1 ?></td>
-                        <td><input type="text" class="form-control text-center bg-light" value="<?= htmlspecialchars($boxNo) ?>" disabled></td>
-                        <td><input type="text" class="form-control text-center bg-light" value="<?= $start ?>" disabled></td>
-                        <td><input type="text" class="form-control text-center bg-light" value="<?= $end ?>" disabled></td>
-                        <td><?= htmlspecialchars($duration) ?></td>
-                        <td>
-                            <div class="d-flex flex-column align-items-center gap-2 py-2">
-                                <button class="btn btn-sm btn-outline-secondary"
-                                    data-bs-toggle="modal"
-                                    data-bs-target="#downtimeModal"
-                                    onclick="loadDowntimeContent(<?= $rhid ?>, <?= $i ?>)">
-                                    View Downtime
-                                </button>
-                                <div class="d-flex flex-wrap justify-content-center gap-1">
-                                    <?php foreach ($badges as $badge): ?>
-                                        <span class="badge bg-danger"><?= $badge ?></span>
-                                    <?php endforeach; ?>
-                                </div>
-                            </div>
-                        </td>
-                        <td>
-                            <button class="btn btn-sm btn-outline-danger" title="Remove">&times;</button>
-                        </td>
-                    </tr>
-                <?php endforeach; ?>
-            <?php else: ?>
-                <tr>
-                    <td colspan="7" class="text-center text-muted">No Downtime Details Found</td>
-                </tr>
-            <?php endif; ?>
-        </tbody>
-    </table>
+      <tr>
+        <td><?= $i + 1 ?></td>
+        <td><input type="text" class="form-control text-center bg-light" value="<?= htmlspecialchars($boxNo) ?>"
+            disabled></td>
+        <td><input type="text" class="form-control text-center bg-light" value="<?= $start ?>" disabled></td>
+        <td><input type="text" class="form-control text-center bg-light" value="<?= $end ?>" disabled></td>
+        <td><?= htmlspecialchars($duration) ?></td>
+        <td>
+          <div class="d-flex flex-column align-items-center gap-2 py-2">
+            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#downtimeModal"
+              onclick="loadDowntimeContent(<?= $rhid ?>, <?= $i ?>)">
+              View Downtime
+            </button>
+            <div class="d-flex flex-wrap justify-content-center gap-1">
+              <?php foreach ($badges as $badge): ?>
+              <span class="badge bg-danger"><?= $badge ?></span>
+              <?php endforeach; ?>
+            </div>
+          </div>
+        </td>
+        <td>
+          <button class="btn btn-sm btn-outline-danger" title="Remove">&times;</button>
+        </td>
+      </tr>
+      <?php endforeach; ?>
+      <?php else: ?>
+      <tr>
+        <td colspan="7" class="text-center text-muted">No Downtime Details Found</td>
+      </tr>
+      <?php endif; ?>
+    </tbody>
+  </table>
 </div>
 
 <script src="../../js/bootstrap.bundle.min.js"></script>

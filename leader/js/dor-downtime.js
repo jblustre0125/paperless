@@ -1,11 +1,7 @@
 document.addEventListener("DOMContentLoaded", function () {
-  // Initialize all modals and their event listeners
   initializeDowntimeModals();
-
-  // Save button handler
   document.body.addEventListener("click", handleSaveDowntime);
 
-  // Create toast container if it doesn't exist
   if (!document.getElementById("toast-container")) {
     const toastContainer = document.createElement("div");
     toastContainer.id = "toast-container";
@@ -16,6 +12,43 @@ document.addEventListener("DOMContentLoaded", function () {
     document.body.appendChild(toastContainer);
   }
 });
+
+function filterDropdown(input) {
+  const wrapper = input.closest(".searchable-dropdown");
+  const list = wrapper.querySelector(".dropdown-list");
+  const items = list.querySelectorAll("li");
+  const filter = input.value.toLowerCase();
+  let hasMatch = false;
+  list.style.display = "block";
+
+  items.forEach((item) => {
+    const text = item.textContent.toLowerCase();
+    item.style.display = text.includes(filter) ? "" : "none";
+    if (text.includes(filter)) hasMatch = true;
+  });
+
+  if (!hasMatch) list.style.display = "none";
+}
+
+function selectOption(li) {
+  const wrapper = li.closest(".searchable-dropdown");
+  const input = wrapper.querySelector('input[type="text"]');
+  const hidden = wrapper.querySelector('input[type="hidden"]');
+
+  input.value = li.textContent.trim();
+  hidden.value = li.dataset.id;
+  wrapper.querySelector(".dropdown-list").style.display = "none";
+
+  document.addEventListener("click", function (e) {
+    document
+      .querySelectorAll(".searchable-dropdown .dropdown-list")
+      .forEach((list) => {
+        if (!list.closest(".searchable-dropdown").contains(e.target)) {
+          list.style.display = "none";
+        }
+      });
+  });
+}
 
 function showToast(message, type = "success") {
   const toastContainer = document.getElementById("toast-container");
@@ -31,17 +64,14 @@ function showToast(message, type = "success") {
   toast.setAttribute("aria-atomic", "true");
 
   toast.innerHTML = `
-        <div class="d-flex">
-            <div class="toast-body">
-                ${message}
-            </div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-        </div>
-    `;
+    <div class="d-flex">
+        <div class="toast-body">${message}</div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+  `;
 
   toastContainer.appendChild(toast);
 
-  // Auto-remove after 5 seconds
   setTimeout(() => {
     const toastElement = document.getElementById(toastId);
     if (toastElement) {
@@ -50,19 +80,18 @@ function showToast(message, type = "success") {
     }
   }, 5000);
 
-  // Add click to dismiss
-  toast.querySelector(".btn-close").addEventListener("click", function () {
+  toast.querySelector(".btn-close").addEventListener("click", () => {
     toast.classList.remove("show");
     setTimeout(() => toast.remove(), 500);
   });
 }
 
 function initializeDowntimeModals() {
-  // Set up event listeners for all downtime triggers
   document.querySelectorAll(".downtime-trigger").forEach((button) => {
     button.addEventListener("click", function () {
       const recordHeaderId = this.dataset.recordId;
       setupTimeInputListeners(recordHeaderId);
+      setupCustomDropdowns(recordHeaderId);
     });
   });
 }
@@ -71,21 +100,16 @@ function setupTimeInputListeners(recordHeaderId) {
   const timeStart = document.getElementById(`timeStart${recordHeaderId}`);
   const timeEnd = document.getElementById(`timeEnd${recordHeaderId}`);
 
-  // Add input masking for time fields
   [timeStart, timeEnd].forEach((input) => {
-    input.addEventListener("input", function (e) {
-      // Enforce HH:MM format
+    input.addEventListener("input", function () {
       let value = this.value.replace(/\D/g, "");
       if (value.length > 2) {
         value = value.substring(0, 2) + ":" + value.substring(2, 4);
       }
       this.value = value;
-
-      // Update duration in real-time
       updateDuration(recordHeaderId);
     });
 
-    // Also update on blur in case user pastes content
     input.addEventListener("change", function () {
       updateDuration(recordHeaderId);
     });
@@ -101,7 +125,6 @@ function updateDuration(recordHeaderId) {
     const duration = calculateDuration(timeStart, timeEnd);
     durationSpan.textContent = duration;
 
-    // Visual feedback
     if (duration === "Invalid") {
       durationSpan.classList.remove("bg-success");
       durationSpan.classList.add("bg-danger");
@@ -124,27 +147,21 @@ function calculateDuration(start, end) {
   const [startH, startM] = start.split(":").map(Number);
   const [endH, endM] = end.split(":").map(Number);
 
-  // Convert to minutes
   const startMinutes = startH * 60 + startM;
   const endMinutes = endH * 60 + endM;
 
-  // Calculate difference
   let diff = endMinutes - startMinutes;
+  if (diff < 0) diff += 24 * 60;
 
-  // Handle overnight (if end time is next day)
-  if (diff < 0) {
-    diff += 24 * 60; // Add 24 hours
-  }
-
-  // Convert back to hours and minutes
   const hrs = Math.floor(diff / 60);
   const mins = diff % 60;
 
-  // Return formatted duration or "Invalid" if still negative
   return diff >= 0
     ? `${hrs.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}`
     : "Invalid";
 }
+
+// ... [ALL UNCHANGED CODE ABOVE] ...
 
 async function handleSaveDowntime(event) {
   if (!event.target.classList.contains("btn-save-downtime")) return;
@@ -154,59 +171,89 @@ async function handleSaveDowntime(event) {
     const modal = button.closest(".modal");
     const recordHeaderId = modal.dataset.recordId;
 
-    // Validate inputs
     const timeStart = document.getElementById(
       `timeStart${recordHeaderId}`
     ).value;
     const timeEnd = document.getElementById(`timeEnd${recordHeaderId}`).value;
 
     if (!timeStart || !timeEnd) {
-      throw new Error("Both start and end times are required");
+      throw new Error("Start and End times are required.");
     }
 
     const duration = calculateDuration(timeStart, timeEnd);
     if (duration === "Invalid") {
-      throw new Error("End time must be after start time");
+      throw new Error("End time must be after Start time.");
     }
 
-    // Collect all downtime data
+    const downtimeId = document.getElementById(
+      `downtimeSelect${recordHeaderId}`
+    )?.value;
+    const downtimeText = document.getElementById(
+      `downtimeInput${recordHeaderId}`
+    )?.value;
+    const downtimeDisplay = document
+      .querySelector(`#downtimeSelect${recordHeaderId}`)
+      .closest(".searchable-dropdown")
+      ?.querySelector('input[type="text"]')?.value;
+
+    const actionTakenId = document.getElementById(
+      `actionTakenSelect${recordHeaderId}`
+    )?.value;
+    const actionTakenText = document.getElementById(
+      `actionTakenInput${recordHeaderId}`
+    )?.value;
+
+    const remarksId = document.getElementById(
+      `remarksSelect${recordHeaderId}`
+    )?.value;
+    const remarksText = document.getElementById(
+      `remarksInput${recordHeaderId}`
+    )?.value;
+
     const downtimeData = {
-      DowntimeId: document.getElementById(`downtimeSelect${recordHeaderId}`)
-        .value,
-      ActionTakenId: document.getElementById(
-        `actionTakenSelect${recordHeaderId}`
-      ).value,
+      DowntimeId: downtimeId === "custom" ? "custom" : parseInt(downtimeId, 10),
+      ActionTakenId:
+        actionTakenId === "custom" ? "custom" : parseInt(actionTakenId, 10),
+      RemarksId: remarksId === "custom" ? "custom" : parseInt(remarksId, 10),
       TimeStart: timeStart,
       TimeEnd: timeEnd,
       Duration: duration,
-      Pic: document.getElementById(`picInput${recordHeaderId}`).value || null,
-      RemarksId:
-        document.getElementById(`remarksSelect${recordHeaderId}`).value || null,
+      Pic: document.getElementById(`picInput${recordHeaderId}`)?.value || null,
     };
 
-    // Send to server
+    if (downtimeId === "custom" && downtimeText) {
+      downtimeData.CustomDowntimeName = downtimeText;
+    }
+
+    if (actionTakenId === "custom" && actionTakenText) {
+      downtimeData.CustomActionName = actionTakenText;
+    }
+
+    if (remarksId === "custom" && remarksText) {
+      downtimeData.CustomRemarksName = remarksText;
+    }
+
     const response = await fetch("../controller/dor-downtime.php", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         type: "saveDowntime",
-        recordHeaderId: recordHeaderId,
-        downtimeData: downtimeData,
+        recordHeaderId,
+        downtimeData,
       }),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Server error: ${errorText}`);
-    }
-
     const result = await response.json();
+
     if (!result.success) {
-      throw new Error(result.error || "Failed to save downtime");
+      throw new Error(result.message || "Failed to save downtime");
     }
 
-    // Update UI on success
-    updateDowntimeBadge(recordHeaderId);
+    // SAFELY display the badge text
+    const downtimeLabel =
+      downtimeId === "custom" ? downtimeText : downtimeDisplay;
+    updateDowntimeBadge(recordHeaderId, downtimeLabel);
+
     bootstrap.Modal.getInstance(modal).hide();
     showToast("Downtime saved successfully!", "success");
   } catch (error) {
@@ -215,24 +262,66 @@ async function handleSaveDowntime(event) {
   }
 }
 
-function updateDowntimeBadge(recordHeaderId) {
+function updateDowntimeBadge(recordHeaderId, badgeTextOverride = null) {
   const badgeContainer = document.getElementById(
     `downtimeInfo${recordHeaderId}`
   );
-  if (badgeContainer) {
-    const downtimeSelect = document.getElementById(
-      `downtimeSelect${recordHeaderId}`
+  if (!badgeContainer) return;
+
+  const modal = document.getElementById(`downtimeModal${recordHeaderId}`);
+  if (!modal) return;
+
+  const wrapper = modal.querySelector(".searchable-dropdown");
+  if (!wrapper) return;
+
+  const textInput = wrapper.querySelector('input[type="text"]');
+  const hiddenInput = wrapper.querySelector('input[type="hidden"]');
+  if (!textInput || !hiddenInput || !hiddenInput.value.trim()) return;
+
+  const badgeText = badgeTextOverride || textInput.value.split(" - ")[0].trim();
+
+  const badgeExists = Array.from(badgeContainer.children).some(
+    (badge) => badge.textContent.trim() === badgeText
+  );
+  if (badgeExists) return;
+
+  const placeholder = badgeContainer.querySelector('[data-placeholder="true"]');
+  if (placeholder) placeholder.remove();
+
+  const newBadge = document.createElement("small");
+  newBadge.className = "badge bg-secondary text-white me-1 mb-1";
+  newBadge.textContent = badgeText;
+  badgeContainer.appendChild(newBadge);
+}
+
+function setupCustomDropdowns(recordHeaderId) {
+  ["downtime", "actionTaken", "remarks"].forEach((type) => {
+    const wrapper = document
+      .getElementById(`${type}Select${recordHeaderId}`)
+      ?.closest(".searchable-dropdown");
+    if (!wrapper) return;
+
+    const list = wrapper.querySelector(".dropdown-list");
+    const items = list.querySelectorAll("li");
+    const customInput = document.getElementById(
+      `${type}Input${recordHeaderId}`
     );
-    const selectedOption = downtimeSelect.options[downtimeSelect.selectedIndex];
 
-    const badgeText = selectedOption
-      ? selectedOption.text.split(" - ")[0]
-      : "No Downtime";
+    items.forEach((li) => {
+      li.addEventListener("click", () => {
+        const isCustom = li.dataset.id === "custom";
+        if (customInput) {
+          customInput.classList.toggle("d-none", !isCustom);
+          if (!isCustom) customInput.value = "";
+        }
 
-    const newBadge = document.createElement("small");
-    newBadge.className = "badge bg-danger text-white me-1 mb-1";
-    newBadge.textContent = badgeText;
+        const input = wrapper.querySelector('input[type="text"]');
+        const hidden = wrapper.querySelector('input[type="hidden"]');
 
-    badgeContainer.appendChild(newBadge);
-  }
+        input.value = li.textContent.trim();
+        hidden.value = li.dataset.id;
+        list.style.display = "none";
+      });
+    });
+  });
 }

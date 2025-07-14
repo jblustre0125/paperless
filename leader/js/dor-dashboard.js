@@ -166,7 +166,9 @@ function loadDowntimeContent(recordHeaderId, rowIndex) {
   loadingModal.show();
 
   // Fetch downtime content
-  fetch(`../controller/add-downtime.php?record_header_id=${recordHeaderId}&row=${rowIndex}`)
+  fetch(
+    `../controller/add-downtime.php?record_header_id=${recordHeaderId}&row=${rowIndex}`
+  )
     .then((res) => {
       if (!res.ok) throw new Error("Network response was not ok");
       return res.text();

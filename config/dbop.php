@@ -48,10 +48,23 @@ class DbOp
             die(print_r(sqlsrv_errors(), true));
         }
     }
-    public function getLastError() {
-    // If using MySQLi:
-    return $this->conn->errorInfo();
-}
+    public function getLastError()
+    {
+        // If using MySQLi:
+        return $this->conn->errorInfo();
+    }
+    public function lastInsertId()
+    {
+        $query = "SELECT SCOPE_IDENTITY() AS last_id";
+        $stmt = sqlsrv_query($this->conn, $query);
+        if ($stmt === false) {
+            die(print_r(sqlsrv_errors(), true));
+        }
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        sqlsrv_free_stmt($stmt);
+        return $row['last_id'];
+    }
+
 
     public function execute($query, $params = [], $com = 0)
     {
