@@ -233,6 +233,8 @@ async function handleSaveDowntime(event) {
       downtimeData.CustomRemarksName = remarksText;
     }
 
+    console.log("Sending downtime data:", downtimeData); // Debug log
+
     const response = await fetch("../controller/dor-downtime.php", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -243,7 +245,9 @@ async function handleSaveDowntime(event) {
       }),
     });
 
+    console.log("Response status:", response.status); // Debug log
     const result = await response.json();
+    console.log("Response result:", result); // Debug log
 
     if (!result.success) {
       throw new Error(result.message || "Failed to save downtime");
@@ -259,6 +263,44 @@ async function handleSaveDowntime(event) {
   } catch (error) {
     console.error("Error saving downtime:", error);
     showToast(`Error: ${error.message}`, "danger");
+  }
+}
+
+function loadDowntimeContent(recordHeaderId, rowIndex) {
+  // Support multiple modals: find the correct modal and content container for this recordHeaderId
+  const modalId = `downtimeModal${recordHeaderId}`;
+  const modalContentId = `downtimeModalContent${recordHeaderId}`;
+  const modal = document.getElementById(modalId);
+  const modalContent = document.getElementById(modalContentId);
+  if (modalContent) {
+    modalContent.innerHTML =
+      '<div class="text-center py-5"><div class="spinner-border"></div></div>';
+  }
+  // Fetch downtime detail via AJAX (reload modal content dynamically)
+  fetch(`../partials/downtime-modal.php?record_header_id=${recordHeaderId}`)
+    .then((res) => {
+      if (!res.ok) throw new Error("Failed to load downtime modal content");
+      return res.text();
+    })
+    .then((html) => {
+      if (modalContent) {
+        modalContent.innerHTML = html;
+        // After content is loaded, set up listeners and dropdowns
+        setupTimeInputListeners(recordHeaderId);
+        setupCustomDropdowns(recordHeaderId);
+      }
+    })
+    .catch((err) => {
+      if (modalContent) {
+        modalContent.innerHTML = `<div class='text-danger text-center py-5'>${err.message}</div>`;
+      }
+    });
+  // Show modal (Bootstrap 5)
+  if (modal) {
+    const bsModal = bootstrap.Modal.getOrCreateInstance(modal);
+    bsModal.show();
+    // Set modal context for save handler
+    modal.dataset.recordId = recordHeaderId;
   }
 }
 

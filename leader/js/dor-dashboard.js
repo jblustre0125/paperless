@@ -177,6 +177,9 @@ function loadDowntimeContent(recordHeaderId, rowIndex) {
       wrapper.innerHTML = html;
       loadingModal.hide();
       downtimeModal.show();
+      // Initialize modal logic for this recordHeaderId
+      setupTimeInputListeners(recordHeaderId);
+      setupCustomDropdowns(recordHeaderId);
     })
     .catch((err) => {
       // Show error state
@@ -284,4 +287,242 @@ document.addEventListener("click", function (e) {
     e.stopPropagation();
     openTab3Modal(btn.dataset.hostnameId, btn.dataset.recordId);
   }
+});
+
+// Downtime Modal Utility Functions
+function setupTimeInputListeners(recordHeaderId) {
+  const timeStart = document.getElementById(`timeStart${recordHeaderId}`);
+  const timeEnd = document.getElementById(`timeEnd${recordHeaderId}`);
+  [timeStart, timeEnd].forEach((input) => {
+    if (!input) return;
+    input.addEventListener("input", function () {
+      let value = this.value.replace(/\D/g, "");
+      if (value.length > 2) {
+        value = value.substring(0, 2) + ":" + value.substring(2, 4);
+      }
+      this.value = value;
+      updateDuration(recordHeaderId);
+    });
+    input.addEventListener("change", function () {
+      updateDuration(recordHeaderId);
+    });
+  });
+}
+
+function updateDuration(recordHeaderId) {
+  const timeStart = document.getElementById(
+    `timeStart${recordHeaderId}`
+  )?.value;
+  const timeEnd = document.getElementById(`timeEnd${recordHeaderId}`)?.value;
+  const durationSpan = document.getElementById(`duration${recordHeaderId}`);
+  if (!durationSpan) return;
+  if (isValidTime(timeStart) && isValidTime(timeEnd)) {
+    const duration = calculateDuration(timeStart, timeEnd);
+    durationSpan.textContent = duration;
+    if (duration === "Invalid") {
+      durationSpan.classList.remove("bg-success");
+      durationSpan.classList.add("bg-danger");
+    } else {
+      durationSpan.classList.remove("bg-secondary", "bg-danger");
+      durationSpan.classList.add("bg-success");
+    }
+  } else {
+    durationSpan.textContent = "00:00";
+    durationSpan.classList.remove("bg-success", "bg-danger");
+    durationSpan.classList.add("bg-secondary");
+  }
+}
+
+function isValidTime(time) {
+  return /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(time);
+}
+
+function calculateDuration(start, end) {
+  if (!start || !end) return "00:00";
+  const [startH, startM] = start.split(":").map(Number);
+  const [endH, endM] = end.split(":").map(Number);
+  const startMinutes = startH * 60 + startM;
+  const endMinutes = endH * 60 + endM;
+  let diff = endMinutes - startMinutes;
+  if (diff < 0) diff += 24 * 60;
+  const hrs = Math.floor(diff / 60);
+  const mins = diff % 60;
+  return diff >= 0
+    ? `${hrs.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}`
+    : "Invalid";
+}
+
+function filterDropdown(input) {
+  const wrapper = input.closest(".searchable-dropdown");
+  const list = wrapper.querySelector(".dropdown-list");
+  const items = list.querySelectorAll("li");
+  const filter = input.value.toLowerCase();
+  let hasMatch = false;
+  list.style.display = "block";
+  items.forEach((item) => {
+    const text = item.textContent.toLowerCase();
+    item.style.display = text.includes(filter) ? "" : "none";
+    if (text.includes(filter)) hasMatch = true;
+  });
+  if (!hasMatch) list.style.display = "none";
+}
+
+function selectOption(li) {
+  const wrapper = li.closest(".searchable-dropdown");
+  const input = wrapper.querySelector('input[type="text"]');
+  const hidden = wrapper.querySelector('input[type="hidden"]');
+  input.value = li.textContent.trim();
+  hidden.value = li.dataset.id;
+  wrapper.querySelector(".dropdown-list").style.display = "none";
+}
+
+function setupCustomDropdowns(recordHeaderId) {
+  ["downtime", "actionTaken", "remarks"].forEach((type) => {
+    const wrapper = document
+      .getElementById(`${type}Select${recordHeaderId}`)
+      ?.closest(".searchable-dropdown");
+    if (!wrapper) return;
+    const list = wrapper.querySelector(".dropdown-list");
+    const items = list.querySelectorAll("li");
+    const customInput = document.getElementById(
+      `${type}Input${recordHeaderId}`
+    );
+    items.forEach((li) => {
+      li.addEventListener("click", () => {
+        const isCustom = li.dataset.id === "custom";
+        if (customInput) {
+          customInput.classList.toggle("d-none", !isCustom);
+          if (!isCustom) customInput.value = "";
+        }
+        const input = wrapper.querySelector('input[type="text"]');
+        const hidden = wrapper.querySelector('input[type="hidden"]');
+        input.value = li.textContent.trim();
+        hidden.value = li.dataset.id;
+        list.style.display = "none";
+      });
+    });
+  });
+}
+
+function updateDowntimeBadge(recordHeaderId, badgeTextOverride = null) {
+  const badgeContainer = document.getElementById(
+    `downtimeInfo${recordHeaderId}`
+  );
+  if (!badgeContainer) return;
+  const modal = document.getElementById(`downtimeModal${recordHeaderId}`);
+  if (!modal) return;
+  const wrapper = modal.querySelector(".searchable-dropdown");
+  if (!wrapper) return;
+  const textInput = wrapper.querySelector('input[type="text"]');
+  const hiddenInput = wrapper.querySelector('input[type="hidden"]');
+  if (!textInput || !hiddenInput || !hiddenInput.value.trim()) return;
+  const badgeText = badgeTextOverride || textInput.value.split(" - ")[0].trim();
+  const badgeExists = Array.from(badgeContainer.children).some(
+    (badge) => badge.textContent.trim() === badgeText
+  );
+  if (badgeExists) return;
+  const placeholder = badgeContainer.querySelector('[data-placeholder="true"]');
+  if (placeholder) placeholder.remove();
+  const newBadge = document.createElement("small");
+  newBadge.className = "badge bg-secondary text-white me-1 mb-1";
+  newBadge.textContent = badgeText;
+  badgeContainer.appendChild(newBadge);
+}
+
+// Save downtime event handler
+function handleSaveDowntime(event) {
+  if (!event.target.classList.contains("btn-save-downtime")) return;
+  try {
+    const button = event.target;
+    const modal = button.closest(".modal");
+    const recordHeaderId = button.dataset.recordId;
+    const timeStart = document.getElementById(
+      `timeStart${recordHeaderId}`
+    )?.value;
+    const timeEnd = document.getElementById(`timeEnd${recordHeaderId}`)?.value;
+    if (!timeStart || !timeEnd)
+      throw new Error("Start and End times are required.");
+    const duration = calculateDuration(timeStart, timeEnd);
+    if (duration === "Invalid")
+      throw new Error("End time must be after Start time.");
+    const downtimeId = document.getElementById(
+      `downtimeSelect${recordHeaderId}`
+    )?.value;
+    const downtimeText = document.getElementById(
+      `downtimeInput${recordHeaderId}`
+    )?.value;
+    const downtimeDisplay = document
+      .querySelector(`#downtimeSelect${recordHeaderId}`)
+      ?.closest(".searchable-dropdown")
+      ?.querySelector('input[type="text"]')?.value;
+    const actionTakenId = document.getElementById(
+      `actionTakenSelect${recordHeaderId}`
+    )?.value;
+    const actionTakenText = document.getElementById(
+      `actionTakenInput${recordHeaderId}`
+    )?.value;
+    const remarksId = document.getElementById(
+      `remarksSelect${recordHeaderId}`
+    )?.value;
+    const remarksText = document.getElementById(
+      `remarksInput${recordHeaderId}`
+    )?.value;
+    const downtimeData = {
+      DowntimeId: downtimeId === "custom" ? "custom" : parseInt(downtimeId, 10),
+      ActionTakenId:
+        actionTakenId === "custom" ? "custom" : parseInt(actionTakenId, 10),
+      RemarksId: remarksId === "custom" ? "custom" : parseInt(remarksId, 10),
+      TimeStart: timeStart,
+      TimeEnd: timeEnd,
+      Duration: duration,
+      Pic: document.getElementById(`picInput${recordHeaderId}`)?.value || null,
+    };
+    if (downtimeId === "custom" && downtimeText)
+      downtimeData.CustomDowntimeName = downtimeText;
+    if (actionTakenId === "custom" && actionTakenText)
+      downtimeData.CustomActionName = actionTakenText;
+    if (remarksId === "custom" && remarksText)
+      downtimeData.CustomRemarksName = remarksText;
+    fetch("../controller/dor-downtime.php", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "saveDowntime",
+        recordHeaderId,
+        downtimeData,
+      }),
+    })
+      .then((response) => response.json())
+      .then((result) => {
+        if (!result.success)
+          throw new Error(result.message || "Failed to save downtime");
+        const downtimeLabel =
+          downtimeId === "custom" ? downtimeText : downtimeDisplay;
+        updateDowntimeBadge(recordHeaderId, downtimeLabel);
+        // Show success message inside the modal instead of closing it
+        const modalBody = modal.querySelector(".modal-body");
+        if (modalBody) {
+          modalBody
+            .querySelectorAll(".alert-success")
+            .forEach((e) => e.remove());
+          modalBody.prepend(alert);
+          setTimeout(() => {
+            alert.remove();
+          }, 3000);
+        }
+        showToast("Downtime saved successfully!", "success");
+      })
+      .catch((error) => {
+        console.error("Error saving downtime:", error);
+        showToast(`Error: ${error.message}`, "danger");
+      });
+  } catch (error) {
+    console.error("Error saving downtime:", error);
+    showToast(`Error: ${error.message}`, "danger");
+  }
+}
+
+// Event delegation for downtime save button
+document.addEventListener("DOMContentLoaded", function () {
+  document.body.addEventListener("click", handleSaveDowntime);
 });

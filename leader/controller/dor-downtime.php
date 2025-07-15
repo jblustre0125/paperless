@@ -37,11 +37,12 @@ class DorDowntime
     private function generateCode($prefix, $table, $column)
     {
         $sql = "SELECT MAX($column) AS MaxCode FROM $table WHERE $column LIKE ?";
-        $result = $this->db->execute($sql, ["$prefix-%"]);
+        $result = $this->db->execute($sql, ["$prefix-%"], 1);
 
         $max = 0;
-        if (!empty($result[0]['MaxCode'])) {
-            $lastPart = explode('-', $result[0]['MaxCode'])[1] ?? '0';
+        if (!empty($result) && isset($result[0]['MaxCode']) && $result[0]['MaxCode']) {
+            $parts = explode('-', $result[0]['MaxCode']);
+            $lastPart = $parts[1] ?? '0';
             $max = (int)$lastPart;
         }
 
@@ -50,80 +51,175 @@ class DorDowntime
 
     private function insertDowntime($name)
     {
-        $code = $this->generateCode('CU', 'GenDorDowntime', 'DowntimeCode');
+        $code = $this->generateCode('OTH', 'GenDorDowntime', 'DowntimeCode');
         $categoryId = 3;
 
+        error_log("insertDowntime: Attempting to insert - Name: '$name', Code: '$code', CategoryId: $categoryId");
+
         try {
+            // Try using OUTPUT clause to get the inserted ID directly
+            $sql = "INSERT INTO GenDorDowntime (DowntimeCategoryId, DowntimeCode, DowntimeName)
+                    OUTPUT INSERTED.DowntimeId
+                    VALUES (?, ?, ?)";
+
+            error_log("insertDowntime: Executing SQL with OUTPUT: $sql | Params: " . json_encode([$categoryId, $code, $name]));
+
+            $result = $this->db->execute($sql, [$categoryId, $code, $name], 1);
+
+            error_log("insertDowntime: OUTPUT result: " . print_r($result, true));
+
+            if (is_array($result) && !empty($result) && isset($result[0]['DowntimeId'])) {
+                $id = (int)$result[0]['DowntimeId'];
+                error_log("insertDowntime: SUCCESS with OUTPUT - ID: $id");
+                return $id;
+            }
+
+            // Fallback: Traditional insert then select
+            error_log("insertDowntime: OUTPUT failed, trying fallback insert");
+
             $success = $this->db->execute(
                 "INSERT INTO GenDorDowntime (DowntimeCategoryId, DowntimeCode, DowntimeName) VALUES (?, ?, ?)",
                 [$categoryId, $code, $name]
             );
 
-            if ($success) {
-                $id = $this->db->lastInsertId();
-                if (is_numeric($id)) {
-                    return (int)$id;
-                }
+            error_log("insertDowntime: Fallback insert result: " . print_r($success, true));
 
-                // fallback
-                $row = $this->db->execute("SELECT TOP 1 DowntimeId FROM GenDorDowntime WHERE DowntimeCode = ? ORDER BY DowntimeId DESC", [$code]);
-                return $row[0]['DowntimeId'] ?? true;
+            if ($success === false) {
+                error_log("insertDowntime: Fallback insert failed for code $code, name $name");
             }
 
+            if ($success !== false) {
+                // Fallback: query by the unique code we just inserted
+                $result = $this->db->execute(
+                    "SELECT DowntimeId FROM GenDorDowntime WHERE DowntimeCode = ?",
+                    [$code],
+                    1
+                );
+
+                error_log("insertDowntime: Fallback select result for code $code: " . print_r($result, true));
+
+                if (!empty($result) && isset($result[0]['DowntimeId'])) {
+                    $id = (int)$result[0]['DowntimeId'];
+                    error_log("insertDowntime: SUCCESS with fallback - ID: $id");
+                    return $id;
+                } else {
+                    error_log("insertDowntime: Fallback select did not find inserted row for code $code");
+                }
+            }
+
+            error_log("insertDowntime: FAILED - No ID returned for code $code, name $name");
             return null;
         } catch (Exception $e) {
-            error_log("Insert Downtime ERROR: " . $e->getMessage());
+            error_log("insertDowntime: EXCEPTION - " . $e->getMessage());
+            error_log("insertDowntime: Stack trace - " . $e->getTraceAsString());
             return null;
         }
     }
 
     private function insertAction($name)
     {
-        $code = $this->generateCode('CU', 'GenDorActionTaken', 'ActionTakenCode');
+        $code = $this->generateCode('OTH', 'GenDorActionTaken', 'ActionTakenCode');
+
+        error_log("insertAction: Attempting to insert - Name: '$name', Code: '$code'");
 
         try {
+            // Try using OUTPUT clause to get the inserted ID directly
+            $sql = "INSERT INTO GenDorActionTaken (ActionTakenCode, ActionTakenName)
+                 OUTPUT INSERTED.ActionTakenId
+                 VALUES (?, ?)";
+
+            error_log("insertAction: Executing SQL with OUTPUT: $sql | Params: " . json_encode([$code, $name]));
+
+            $result = $this->db->execute($sql, [$code, $name], 1);
+
+            error_log("insertAction: OUTPUT result: " . print_r($result, true));
+
+            if (!empty($result) && isset($result[0]['ActionTakenId'])) {
+                $id = (int)$result[0]['ActionTakenId'];
+                error_log("insertAction: SUCCESS with OUTPUT - ID: $id");
+                return $id;
+            }
+
+            // Fallback: Traditional insert then select
+            error_log("insertAction: OUTPUT failed, trying fallback insert");
+
             $success = $this->db->execute(
                 "INSERT INTO GenDorActionTaken (ActionTakenCode, ActionTakenName) VALUES (?, ?)",
                 [$code, $name]
             );
 
-            if ($success) {
-                $id = $this->db->lastInsertId();
-                if (is_numeric($id)) {
-                    return (int)$id;
-                }
+            error_log("insertAction: Fallback insert result: " . print_r($success, true));
 
-                $row = $this->db->execute("SELECT TOP 1 ActionTakenId FROM GenDorActionTaken WHERE ActionTakenCode = ? ORDER BY ActionTakenId DESC", [$code]);
-                return $row[0]['ActionTakenId'] ?? true;
+            if ($success === false) {
+                error_log("insertAction: Fallback insert failed for code $code, name $name");
             }
 
+            if ($success !== false) {
+                // Fallback: query by the unique code we just inserted
+                $result = $this->db->execute(
+                    "SELECT ActionTakenId FROM GenDorActionTaken WHERE ActionTakenCode = ?",
+                    [$code],
+                    1
+                );
+
+                error_log("insertAction: Fallback select result for code $code: " . print_r($result, true));
+
+                if (!empty($result) && isset($result[0]['ActionTakenId'])) {
+                    $id = (int)$result[0]['ActionTakenId'];
+                    error_log("insertAction: SUCCESS with fallback - ID: $id");
+                    return $id;
+                } else {
+                    error_log("insertAction: Fallback select did not find inserted row for code $code");
+                }
+            }
+
+            error_log("Insert Action failed: No ID returned for code $code, name $name");
             return null;
         } catch (Exception $e) {
             error_log("Insert Action ERROR: " . $e->getMessage());
+            error_log("insertAction: Stack trace - " . $e->getTraceAsString());
             return null;
         }
     }
 
     private function insertRemarks($name)
     {
-        $code = $this->generateCode('CU', 'GenDorRemarks', 'RemarksCode');
+        $code = $this->generateCode('OTH', 'GenDorRemarks', 'RemarksCode');
 
         try {
+            // Try using OUTPUT clause to get the inserted ID directly
+            $result = $this->db->execute(
+                "INSERT INTO GenDorRemarks (RemarksCode, RemarksName)
+                 OUTPUT INSERTED.RemarksId
+                 VALUES (?, ?)",
+                [$code, $name],
+                1 // Use com=1 to get SELECT-like results
+            );
+
+            if (!empty($result) && isset($result[0]['RemarksId'])) {
+                return (int)$result[0]['RemarksId'];
+            }
+
+            // Fallback: Traditional insert then select
             $success = $this->db->execute(
                 "INSERT INTO GenDorRemarks (RemarksCode, RemarksName) VALUES (?, ?)",
                 [$code, $name]
             );
 
-            if ($success) {
-                $id = $this->db->lastInsertId();
-                if (is_numeric($id)) {
-                    return (int)$id;
-                }
+            if ($success !== false) {
+                // Fallback: query by the unique code we just inserted
+                $result = $this->db->execute(
+                    "SELECT RemarksId FROM GenDorRemarks WHERE RemarksCode = ?",
+                    [$code],
+                    1
+                );
 
-                $row = $this->db->execute("SELECT TOP 1 RemarksId FROM GenDorRemarks WHERE RemarksCode = ? ORDER BY RemarksId DESC", [$code]);
-                return $row[0]['RemarksId'] ?? true;
+                if (!empty($result) && isset($result[0]['RemarksId'])) {
+                    return (int)$result[0]['RemarksId'];
+                }
             }
 
+            error_log("Insert Remarks failed: No ID returned for code $code");
             return null;
         } catch (Exception $e) {
             error_log("Insert Remarks ERROR: " . $e->getMessage());
@@ -133,36 +229,47 @@ class DorDowntime
 
     public function saveDowntime($recordHeaderId, $data)
     {
+        error_log("saveDowntime called with recordHeaderId: $recordHeaderId, data: " . json_encode($data));
         $messages = [];
 
         if ($data['DowntimeId'] === 'custom' && !empty($data['CustomDowntimeName'])) {
+            error_log("Inserting custom downtime: " . $data['CustomDowntimeName']);
             $newId = $this->insertDowntime($data['CustomDowntimeName']);
             if ($newId) {
                 $data['DowntimeId'] = is_numeric($newId) ? (int)$newId : $newId;
+                error_log("Custom downtime inserted with ID: " . $data['DowntimeId']);
             } else {
+                error_log("Failed to insert custom downtime: " . $data['CustomDowntimeName']);
                 $messages[] = 'Failed to insert custom Downtime';
             }
         }
 
         if ($data['ActionTakenId'] === 'custom' && !empty($data['CustomActionName'])) {
+            error_log("Inserting custom action: " . $data['CustomActionName']);
             $newId = $this->insertAction($data['CustomActionName']);
             if ($newId) {
                 $data['ActionTakenId'] = is_numeric($newId) ? (int)$newId : $newId;
+                error_log("Custom action inserted with ID: " . $data['ActionTakenId']);
             } else {
+                error_log("Failed to insert custom action: " . $data['CustomActionName']);
                 $messages[] = 'Failed to insert custom ActionTaken';
             }
         }
 
         if ($data['RemarksId'] === 'custom' && !empty($data['CustomRemarksName'])) {
+            error_log("Inserting custom remarks: " . $data['CustomRemarksName']);
             $newId = $this->insertRemarks($data['CustomRemarksName']);
             if ($newId) {
                 $data['RemarksId'] = is_numeric($newId) ? (int)$newId : $newId;
+                error_log("Custom remarks inserted with ID: " . $data['RemarksId']);
             } else {
+                error_log("Failed to insert custom remarks: " . $data['CustomRemarksName']);
                 $messages[] = 'Failed to insert custom Remarks';
             }
         }
 
         if (!empty($messages)) {
+            error_log("saveDowntime failed with messages: " . implode('; ', $messages));
             return ['success' => false, 'message' => implode('; ', $messages)];
         }
 

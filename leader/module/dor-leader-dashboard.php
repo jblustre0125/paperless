@@ -39,8 +39,8 @@ $productionCode = $_SESSION['production_code'] ?? null;
 
 // Redirect to login if user is not authenticated
 if (empty($_SESSION['user_id']) || empty($_SESSION['production_code'])) {
-    header('Location: dor-leader-login.php');
-    exit;
+  header('Location: dor-leader-login.php');
+  exit;
 }
 ?>
 <!DOCTYPE html>
@@ -58,26 +58,26 @@ if (empty($_SESSION['user_id']) || empty($_SESSION['production_code'])) {
 
   <!-- Inline Styles -->
   <style>
-  /* Extra large modal */
-  .modal-xl {
-    max-width: 90%;
-  }
+    /* Extra large modal */
+    .modal-xl {
+      max-width: 90%;
+    }
 
-  /* Pointer cursor for clickable elements */
-  .cursor-pointer {
-    cursor: pointer;
-  }
+    /* Pointer cursor for clickable elements */
+    .cursor-pointer {
+      cursor: pointer;
+    }
 
-  /* Ensure toast notifications appear above other content */
-  #toast-container {
-    z-index: 1080;
-  }
+    /* Ensure toast notifications appear above other content */
+    #toast-container {
+      z-index: 1080;
+    }
 
-  /* Fix for modal backdrop */
-  body.modal-open {
-    overflow: hidden;
-    padding-right: 0 !important;
-  }
+    /* Fix for modal backdrop */
+    body.modal-open {
+      overflow: hidden;
+      padding-right: 0 !important;
+    }
   </style>
 </head>
 
@@ -122,10 +122,10 @@ if (empty($_SESSION['user_id']) || empty($_SESSION['production_code'])) {
         <ul class="navbar-nav">
           <li class="nav-item dropdown">
             <?php
-                        // Get current tablet information
-                        $currentTablet = isset($_SESSION['hostnameId']) ? $method->getCurrentTablet($_SESSION['hostnameId']) : null;
-                        $tabletName = $currentTablet ? htmlspecialchars($currentTablet['Hostname']) : 'Tablet Name';
-                        ?>
+            // Get current tablet information
+            $currentTablet = isset($_SESSION['hostnameId']) ? $method->getCurrentTablet($_SESSION['hostnameId']) : null;
+            $tabletName = $currentTablet ? htmlspecialchars($currentTablet['Hostname']) : 'Tablet Name';
+            ?>
             <a class="nav-link dropdown-toggle fw-bold" href="#" data-bs-toggle="dropdown">
               <i class="bi bi-tablet"></i> <?= $tabletName ?>
             </a>
@@ -143,12 +143,12 @@ if (empty($_SESSION['user_id']) || empty($_SESSION['production_code'])) {
 
   <!-- Flash Message Display (if any) -->
   <?php if (!empty($_SESSION['flash_message'])): ?>
-  <script>
-  document.addEventListener('DOMContentLoaded', function() {
-    showToast("<?= addslashes($_SESSION['flash_message']) ?>", "warning");
-  });
-  </script>
-  <?php unset($_SESSION['flash_message']); ?>
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        showToast("<?= addslashes($_SESSION['flash_message']) ?>", "warning");
+      });
+    </script>
+    <?php unset($_SESSION['flash_message']); ?>
   <?php endif; ?>
 
   <!-- Toast Notification Container -->
@@ -162,34 +162,34 @@ if (empty($_SESSION['user_id']) || empty($_SESSION['production_code'])) {
     <div id="tablet-list">
       <div class="row row-cols-2 row-cols-md-4 row-cols-lg-6 g-3">
         <?php if (!empty($hostnames)): ?>
-        <?php foreach ($hostnames as $row): ?>
-        <div class="col">
-          <div class="card text-center shadow-sm border-success position-relative">
-            <!-- Quick View Button -->
-            <button class="btn btn-sm btn-outline-success open-tab3-modal position-absolute top-0 end-0 m-1 z-3"
-              data-hostname-id="<?= $row['HostnameId'] ?>"
-              data-record-id="<?= isset($row['RecordId']) ? htmlspecialchars($row['RecordId']) : 'null' ?>"
-              title="Quick View Tab 3">
-              <i class="bi bi-eye-fill"></i>
-            </button>
+          <?php foreach ($hostnames as $row): ?>
+            <div class="col">
+              <div class="card text-center shadow-sm border-success position-relative">
+                <!-- Quick View Button -->
+                <button class="btn btn-sm btn-outline-success open-tab3-modal position-absolute top-0 end-0 m-1 z-3"
+                  data-hostname-id="<?= $row['HostnameId'] ?>"
+                  data-record-id="<?= isset($row['RecordId']) ? htmlspecialchars($row['RecordId']) : 'null' ?>"
+                  title="Quick View Tab 3">
+                  <i class="bi bi-eye-fill"></i>
+                </button>
 
-            <!-- Card Body - Clickable to go to tablet detail page -->
-            <div class="card-body py-3 cursor-pointer"
-              onclick="window.location.href='dor-tablet.php?hostname_id=<?= $row['HostnameId'] ?>'"
-              data-bs-toggle="tooltip" data-bs-placement="top" data-hostname="<?= htmlspecialchars($row['Hostname']) ?>"
-              data-record-id="<?= $row['RecordId'] ?? 'new' ?>">
-              <h6 class="card-title mb-1"><?= htmlspecialchars($row['Hostname']) ?></h6>
+                <!-- Card Body - Clickable to go to tablet detail page -->
+                <div class="card-body py-3 cursor-pointer"
+                  onclick="window.location.href='dor-tablet.php?hostname_id=<?= $row['HostnameId'] ?>'"
+                  data-bs-toggle="tooltip" data-bs-placement="top" data-hostname="<?= htmlspecialchars($row['Hostname']) ?>"
+                  data-record-id="<?= $row['RecordId'] ?? 'new' ?>">
+                  <h6 class="card-title mb-1"><?= htmlspecialchars($row['Hostname']) ?></h6>
+                </div>
+              </div>
+            </div>
+          <?php endforeach; ?>
+        <?php else: ?>
+          <!-- Empty State -->
+          <div class="col-12">
+            <div class="alert alert-info text-center">
+              <i class="bi bi-info-circle me-2"></i> No running lines
             </div>
           </div>
-        </div>
-        <?php endforeach; ?>
-        <?php else: ?>
-        <!-- Empty State -->
-        <div class="col-12">
-          <div class="alert alert-info text-center">
-            <i class="bi bi-info-circle me-2"></i> No running lines
-          </div>
-        </div>
         <?php endif; ?>
       </div>
     </div>
@@ -199,7 +199,6 @@ if (empty($_SESSION['user_id']) || empty($_SESSION['production_code'])) {
   <div class="modal fade" id="tab3QuickModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
       <div class="modal-content" id="tab3ModalContent">
-        <?php include '../../controller/load-tab3-content.php' ?>
       </div>
     </div>
   </div>

@@ -2,21 +2,41 @@
   // 🖌️ UI & Font
   "workbench.colorTheme": "One Dark Pro Night Flat",
   "workbench.iconTheme": "material-icon-theme",
-  "editor.fontFamily": "'Fira Code', Poppins, Consolas, monospace",
-  "editor.fontLigatures": "'calt', 'liga', 'clig', 'ss01'",
-  "editor.fontWeight": "300",
+  "workbench.tree.indent": 20,
+  "workbench.tree.renderIndentGuides": "always",
+  "workbench.editor.enablePreview": false,
+  "workbench.editor.limit.enabled": true,
+  "workbench.editor.limit.value": 10,
+  "workbench.activityBar.location": "top",
+  "workbench.startupEditor": "welcomePageInEmptyWorkbench",
+  "window.titleBarStyle": "custom",
+  "window.commandCenter": true,
+  "editor.fontFamily": "'Fira Code', 'Poppins', 'JetBrains Mono', 'Cascadia Code', Consolas, monospace",
+  "editor.fontLigatures": "'calt', 'liga', 'clig', 'ss01', 'ss02', 'ss03', 'ss04', 'ss05', 'ss06', 'zero', 'onum'",
+  "editor.fontWeight": "400",
   "editor.fontSize": 12,
-  "editor.lineHeight": 22,
+  "editor.lineHeight": 1.6,
 
   // 🧠 IntelliSense & Code Tools
   "editor.suggestSelection": "first",
+  "editor.suggest.insertMode": "replace",
+  "editor.suggest.preview": true,
+  "editor.suggest.showStatusBar": true,
+  "editor.inlayHints.enabled": "on",
   "editor.quickSuggestions": {
-    "other": true,
-    "comments": false,
-    "strings": true
+    "other": "on",
+    "comments": "off",
+    "strings": "on"
   },
   "editor.hover.enabled": true,
+  "editor.hover.delay": 500,
   "editor.parameterHints.enabled": true,
+  "editor.parameterHints.cycle": true,
+  "editor.lightbulb.enabled": "on",
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "explicit",
+    "source.fixAll": "explicit"
+  },
 
   // 🧼 Formatting & Indentation
   "editor.formatOnSave": true,
