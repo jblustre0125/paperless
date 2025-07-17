@@ -9,14 +9,19 @@ require_once __DIR__ . "/config/header.php";
 
 $db1 = new DbOp(1);
 
-$clientIp = getClientIp();
 
+$clientIp = getClientIp();
+error_log("Detected client IP: $clientIp");
 if ($clientIp == "::1") {
     $clientIp = '192.168.21.144';
+    error_log("Localhost IP mapped to: $clientIp");
 }
 
+
 // Developer override via URL: index.php?dev
+
 if (isset($_GET['dev'])) {
+    error_log("Developer override detected, redirecting to adm-mode.php");
     header("Location: module/adm-mode.php");
     exit;
 }
@@ -25,13 +30,16 @@ if (isset($_GET['dev'])) {
 $query = "EXEC RdGenHostname @IpAddress=?, @IsLoggedIn=?, @IsActive=?";
 $res = $db1->execute($query, [$clientIp, 0, 1], 1);
 
+
 if (empty($res)) {
-    // IP not registered - redirect to admin dashboard
+    error_log("IP not registered in database: $clientIp");
     header("Location: module/adm-dashboard.php");
     exit;
 }
 
+
 $row = $res[0];
+error_log("IP registered. HostnameId: {$row['HostnameId']}, Hostname: {$row['Hostname']}, ProcessId: {$row['ProcessId']}, IpAddress: {$row['IpAddress']}");
 
 // IP is registered - check if its deployed to line
 $query2 = "EXEC RdGenLine @HostnameId=?, @IsLoggedIn=?, @IsActive=?";
@@ -39,6 +47,7 @@ $res2 = $db1->execute($query2, [$res["HostnameId"], 0, 1], 1);
 
 if (!empty($res2)) {
     $row2 = $res2[0];
+    error_log("Hostname deployed to line. HostnameId: {$row2['HostnameId']}, Hostname: {$row2['Hostname']}, LineId: {$row2['LineId']}, LineNumber: {$row2['LineNumber']}");
 
     $query3 = "EXEC UpdGenLine @HostnameId=?, @IsLoggedIn=?";
     $res3 = $db1->execute($query3, [$res["HostnameId"], 1]);
@@ -54,36 +63,29 @@ if (!empty($res2)) {
     $_SESSION['lineId'] = $row2["LineId"];
     $_SESSION['lineNumber'] = $row2["LineNumber"];
 
+    error_log("Session set: hostnameId={$_SESSION['hostnameId']}, hostname={$_SESSION['hostname']}, processId={$_SESSION['processId']}, ipAddress={$_SESSION['ipAddress']}, lineId={$_SESSION['lineId']}, lineNumber={$_SESSION['lineNumber']}");
+
     header("Location: module/dor-home.php");
     exit;
 } else {
-    // Either not deployed to line or IP not registered, check if leader tablet
-    // $query5 = "EXEC RdGenHostname @IpAddress=?, @IsLoggedIn=?, @IsActive=?, @IsLeader=?";
-    // $res5 = $db1->execute($query5, [$clientIp, 0, 1, 1], 1);
+    error_log("HostnameId {$row['HostnameId']} not deployed to line or IP not registered.");
+    // Fallback: try to get hostname and hostnameId from RdGenHostname for leader or other device
+    $query5 = "EXEC RdGenHostname @IpAddress=?, @IsLoggedIn=?";
+    $res5 = $db1->execute($query5, [$clientIp, 0]);
 
-    // if (!empty($res5)) {
-    //     $row5 = $res5[0];
-
-    //     $query6 = "EXEC UpdGenLine @HostnameId=?, @IsLoggedIn=?";
-    //     $res6 = $db1->execute($query6, [$row5["HostnameId"], 1], 1);
-
-    //     $query7 = "EXEC UpdGenHostname @HostnameId=?, @IsLoggedIn=?";
-    //     $res7 = $db1->execute($query7, [$row5["HostnameId"], 1], 1);
-
-    //     $_SESSION['hostnameId'] = $row2["HostnameId"];
-    //     $_SESSION['hostname'] = $row2["Hostname"];
-    //     $_SESSION['processId'] = $row2['ProcessId'];
-    //     $_SESSION['ipAddress'] = $row2["IpAddress"];
-
-    //     $_SESSION['lineId'] = $row2["LineId"];
-    //     $_SESSION['lineNumber'] = $row2["LineNumber"];
-
-    //     header("Location: module/dor-home.php");
-    //     exit;
-    // } else {
-    //     header("Location: module/adm-dashboard.php");
-    //     exit;
-    // }
+    if (!empty($res5)) {
+        $row5 = $res5[0];
+        $_SESSION['hostnameId'] = $row5["HostnameId"];
+        $_SESSION['hostname'] = $row5["Hostname"];
+        $_SESSION['processId'] = $row5['ProcessId'];
+        $_SESSION['ipAddress'] = $row5["IpAddress"];
+        error_log("Fallback session set: hostnameId={$_SESSION['hostnameId']}, hostname={$_SESSION['hostname']}, processId={$_SESSION['processId']}, ipAddress={$_SESSION['ipAddress']}");
+        $query6 = "EXEC UpdGenHostname @HostnameId=?, @IsLoggedIn=?";
+        $res6 = $db1->execute($query6, [$row5["HostnameId"], 1], 1);
+    }
+    // If you want to redirect to dor-home.php for fallback, uncomment below:
+    // header("Location: module/dor-home.php");
+    // exit;
 }
 
 

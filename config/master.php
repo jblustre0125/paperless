@@ -89,7 +89,14 @@ if (isset($_GET['logOut'])) {
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle text-info fw-bold" href="#" id="deviceDropdown" role="button"
                             data-bs-toggle="dropdown" aria-expanded="false">
-                            <?= isset($_SESSION['hostname']) ? testInput($_SESSION['hostname']) : 'Unregistered Device'; ?>
+                            <?php
+                            // Only use session hostname, never fallback to server/computer hostname
+                            if (isset($_SESSION['hostname']) && !empty($_SESSION['hostname'])) {
+                                echo testInput($_SESSION['hostname']);
+                            } else {
+                                echo 'Unregistered Device';
+                            }
+                            ?>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><a class="dropdown-item text-danger fw-bold text-center" href="#" onclick="exitApplication(event)">Exit Application</a></li>

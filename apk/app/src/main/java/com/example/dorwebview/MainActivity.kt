@@ -104,7 +104,7 @@ class MainActivity : AppCompatActivity() {
 
         webView.addJavascriptInterface(WebAppInterface(), "AndroidApp")
 
-        webView.loadUrl("https://192.168.21.145:444/paperless/index.php")
+        webView.loadUrl("https://192.168.21.144:444/paperless/index.php")
         //webView.loadUrl("https://192.168.21.144:444/paperless/index.php")
         //webView.loadUrl("https://192.168.22.145:444/paperless/index.php")
         //webView.loadUrl("https://192.168.21.145/paperless/leader/module/dor-leader-login.php")

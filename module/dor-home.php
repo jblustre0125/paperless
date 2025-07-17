@@ -90,33 +90,28 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         }
 
         // Determine lineId and dorTypeId based on hostname
-        $hostname = $_SESSION["hostname"] ?? "ATO1";
-
-        // Extract line name from hostname (e.g., "ATO1" -> "ATO1", "SAKI1" -> "SAKI1")
-        if (preg_match('/^([A-Z]+)(\d+)/', $hostname, $matches)) {
-            $lineName = $matches[0]; // Full match like "ATO1", "SAKI1"
-
-            // Look up the line in GenLine table
-            $selLineQry = "SELECT LineId, DorTypeId FROM GenLine WHERE LineName = ?";
-            $lineRes = $db1->execute($selLineQry, [$lineName], 1);
-
-            if ($lineRes !== false && !empty($lineRes)) {
-                foreach ($lineRes as $lineRow) {
-                    $lineId = $lineRow['LineId'];
-                    $dorTypeId = $lineRow['DorTypeId'];
-                    break;
-                }
+        $hostnameId = $_SESSION["hostnameId"] ?? 1;
+        // Look up the line in GenLine table using hostnameId (assumed to be LineId)
+        $selLineQry = "SELECT LineId, DorTypeId FROM GenLine WHERE LineId = ?";
+        $lineRes = $db1->execute($selLineQry, [$hostnameId], 1);
+        if ($lineRes !== false && !empty($lineRes)) {
+            foreach ($lineRes as $lineRow) {
+                $lineId = $lineRow['LineId'];
+                $dorTypeId = $lineRow['DorTypeId'];
+                break;
             }
+        } else {
+            error_log("GenLine lookup failed for hostnameId: $hostnameId");
         }
-
         // Fallback if line lookup failed
         if ($lineId === 0 || $dorTypeId === 0) {
             $lineId = 1;     // Default to first line
             $dorTypeId = 1;  // Default to first DOR type
+            error_log("Fallback to default lineId and dorTypeId for hostnameId: $hostnameId");
         }
 
         // Debug output (you can remove this in production)
-        error_log("Debug Info - Hostname: $hostname, LineId: $lineId, DorTypeId: $dorTypeId");
+        error_log("Debug Info - HostnameId: $hostnameId, LineId: $lineId, DorTypeId: $dorTypeId");
 
         // Get shift information
         $selQry = "EXEC RdGenShift @ShiftCode=?";
@@ -140,6 +135,57 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         // Handle different button actions
         if (empty($response['errors'])) {
+            // Ensure hostname and hostnameId are set in session for dor-form.php
+            if (!isset($_SESSION["hostname"])) {
+                // Try multiple ways to get hostname, log all possible sources
+                $sources = [];
+                if (function_exists('gethostname')) {
+                    $sources['gethostname'] = gethostname();
+                }
+                if (!empty($_SERVER['COMPUTERNAME'])) {
+                    $sources['SERVER.COMPUTERNAME'] = $_SERVER['COMPUTERNAME'];
+                }
+                if (!empty($_SERVER['HOSTNAME'])) {
+                    $sources['SERVER.HOSTNAME'] = $_SERVER['HOSTNAME'];
+                }
+                if (!empty($_ENV['COMPUTERNAME'])) {
+                    $sources['ENV.COMPUTERNAME'] = $_ENV['COMPUTERNAME'];
+                }
+                if (!empty($_ENV['HOSTNAME'])) {
+                    $sources['ENV.HOSTNAME'] = $_ENV['HOSTNAME'];
+                }
+                // Windows specific: try php_uname('n')
+                $unameHost = php_uname('n');
+                if (!empty($unameHost)) {
+                    $sources['php_uname'] = $unameHost;
+                }
+                // Log all sources for debugging
+                foreach ($sources as $src => $val) {
+                    error_log("Hostname source [$src]: $val");
+                }
+                // Pick the first non-empty, trimmed value
+                $detectedHostname = "";
+                foreach ($sources as $val) {
+                    $val = trim($val);
+                    if (!empty($val)) {
+                        $detectedHostname = $val;
+                        break;
+                    }
+                }
+                // Sanitize: remove spaces, only allow alphanumeric and dash/underscore
+                if (!empty($detectedHostname)) {
+                    $detectedHostname = preg_replace('/[^A-Za-z0-9\-_]/', '', $detectedHostname);
+                    $_SESSION["hostname"] = $detectedHostname;
+                } else {
+                    $_SESSION["hostname"] = "ATO1"; // Fallback
+                }
+                error_log("Final Detected Hostname: " . $_SESSION["hostname"]);
+            }
+            if (!isset($_SESSION["hostnameId"])) {
+                // Try to get hostnameId from lineId (if available)
+                $_SESSION["hostnameId"] = $lineId ?: 1;
+            }
+
             if (isset($_POST['btnCreateDor'])) {
                 error_log("Handling btnCreateDor");
                 if (isExistDor($dorDate, $shiftId, $lineId)) {
@@ -244,10 +290,16 @@ function handleSetTestValues(&$response)
             }
         }
 
-        // Get current date and shift
-        $currentDate = date('Y-m-d');
-        $currentHour = date('H');
-        $currentShift = ($currentHour >= 7 && $currentHour < 19) ? "DS" : "NS";
+        // Get current date and shift using Asia/Manila timezone
+        $dt = new DateTime('now', new DateTimeZone('Asia/Manila'));
+        $currentDate = $dt->format('Y-m-d');
+        $currentHour = (int)$dt->format('H');
+        // 7:00 to 18:59 is Day Shift, 19:00 to 6:59 is Night Shift
+        if ($currentHour >= 7 && $currentHour < 19) {
+            $currentShift = "DS";
+        } else {
+            $currentShift = "NS";
+        }
 
         $response['success'] = true;
         $response['testData'] = [
@@ -576,20 +628,24 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
 
         // Scanner button for model input
         document.getElementById("btnScanModel").addEventListener("click", async function() {
-            const accessGranted = await navigator.mediaDevices.getUserMedia({
-                    video: true
-                })
-                .then(stream => {
-                    stream.getTracks().forEach(track => track.stop());
-                    return true;
-                })
-                .catch(() => false);
+            if (navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function') {
+                const accessGranted = await navigator.mediaDevices.getUserMedia({
+                        video: true
+                    })
+                    .then(stream => {
+                        stream.getTracks().forEach(track => track.stop());
+                        return true;
+                    })
+                    .catch(() => false);
 
-            if (accessGranted) {
-                activeInput = modelInput;
-                startScanning();
+                if (accessGranted) {
+                    activeInput = modelInput;
+                    startScanning();
+                } else {
+                    alert("Camera access denied.");
+                }
             } else {
-                alert("Camera access denied.");
+                alert("Camera access is not supported on this device or browser.");
             }
         });
 
@@ -794,15 +850,14 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
 
                         if (data.success && data.testData) {
                             // Populate form with test data from server
-                            document.getElementById("dtpDate").value = data.testData.date;
+                            document.getElementById("dtpDate").value = data.testData.dateTime || data.testData.date;
                             document.getElementById("txtModelName").value = data.testData.modelName;
                             document.getElementById("txtQty").value = data.testData.quantity;
 
-                            // Set shift radio button
-                            const shiftRadio = document.querySelector(`input[name="rdShift"][value="${data.testData.shift}"]`);
-                            if (shiftRadio) {
-                                shiftRadio.checked = true;
-                            }
+                            // Set shift radio button (force uncheck others)
+                            document.querySelectorAll('input[name="rdShift"]').forEach(radio => {
+                                radio.checked = (radio.value === data.testData.shift);
+                            });
 
                             // Show success message if available
                             if (data.testData.message) {
