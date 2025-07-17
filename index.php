@@ -13,7 +13,7 @@ $db1 = new DbOp(1);
 $clientIp = getClientIp();
 error_log("Detected client IP: $clientIp");
 if ($clientIp == "::1") {
-    $clientIp = '192.168.21.144';
+    $clientIp = '192.168.21.145';
     error_log("Localhost IP mapped to: $clientIp");
 }
 
@@ -30,41 +30,40 @@ if (isset($_GET['dev'])) {
 $query = "EXEC RdGenHostname @IpAddress=?, @IsLoggedIn=?, @IsActive=?";
 $res = $db1->execute($query, [$clientIp, 0, 1], 1);
 
-
-if (empty($res)) {
-    error_log("IP not registered in database: $clientIp");
+if (empty($res) || !is_array($res) || !isset($res[0]) || !isset($res[0]["HostnameId"])) {
+    error_log("IP not registered in database or HostnameId missing: $clientIp");
+    echo '<h2>Device not registered or HostnameId missing. Please contact admin.</h2>';
     header("Location: module/adm-dashboard.php");
     exit;
 }
-
 
 $row = $res[0];
 error_log("IP registered. HostnameId: {$row['HostnameId']}, Hostname: {$row['Hostname']}, ProcessId: {$row['ProcessId']}, IpAddress: {$row['IpAddress']}");
 
 // IP is registered - check if its deployed to line
 $query2 = "EXEC RdGenLine @HostnameId=?, @IsLoggedIn=?, @IsActive=?";
-$res2 = $db1->execute($query2, [$res["HostnameId"], 0, 1], 1);
+$res2 = $db1->execute($query2, [$row["HostnameId"], 0, 1], 1);
 
-if (!empty($res2)) {
+if (!empty($res2) && is_array($res2) && isset($res2[0]) && is_array($res2[0])) {
     $row2 = $res2[0];
-    error_log("Hostname deployed to line. HostnameId: {$row2['HostnameId']}, Hostname: {$row2['Hostname']}, LineId: {$row2['LineId']}, LineNumber: {$row2['LineNumber']}");
-
-    $query3 = "EXEC UpdGenLine @HostnameId=?, @IsLoggedIn=?";
-    $res3 = $db1->execute($query3, [$res["HostnameId"], 1]);
-
+    error_log("row2 contents: " . print_r($row2, true));
+    $hostnameId = isset($row2['HostnameId']) ? $row2['HostnameId'] : $row['HostnameId'];
+    $_SESSION['hostnameId'] = $hostnameId;
+    $_SESSION['hostname'] = isset($row2["Hostname"]) ? $row2["Hostname"] : (isset($row["Hostname"]) ? $row["Hostname"] : null);
+    $_SESSION['processId'] = isset($row2['ProcessId']) ? $row2['ProcessId'] : (isset($row['ProcessId']) ? $row['ProcessId'] : null);
+    $_SESSION['ipAddress'] = isset($row2["IpAddress"]) ? $row2["IpAddress"] : (isset($row["IpAddress"]) ? $row["IpAddress"] : null);
+    $_SESSION['lineId'] = isset($row2["LineId"]) ? $row2["LineId"] : null;
+    $_SESSION['lineNumber'] = isset($row2["LineNumber"]) ? $row2["LineNumber"] : null;
+    // Update isLoggedIn in GenLine and GenHostname
+    if (isset($row2['LineId'])) {
+        // Directly update GenLine.IsLoggedIn without stored procedure
+        $query3 = "UPDATE GenLine SET IsLoggedIn = 1 WHERE LineId = ?";
+        $res3 = $db1->execute($query3, [$row2['LineId']], 1);
+        error_log('GenLine updated directly for LineId=' . $row2['LineId'] . ', IsLoggedIn=1, result: ' . print_r($res3, true));
+    }
     $query4 = "EXEC UpdGenHostname @HostnameId=?, @IsLoggedIn=?";
-    $res4 = $db1->execute($query4, [$res["HostnameId"], 1]);
-
-    $_SESSION['hostnameId'] = $row2["HostnameId"];
-    $_SESSION['hostname'] = $row2["Hostname"];
-    $_SESSION['processId'] = $row2['ProcessId'];
-    $_SESSION['ipAddress'] = $row2["IpAddress"];
-
-    $_SESSION['lineId'] = $row2["LineId"];
-    $_SESSION['lineNumber'] = $row2["LineNumber"];
-
+    $res4 = $db1->execute($query4, [$hostnameId, 1], 1);
     error_log("Session set: hostnameId={$_SESSION['hostnameId']}, hostname={$_SESSION['hostname']}, processId={$_SESSION['processId']}, ipAddress={$_SESSION['ipAddress']}, lineId={$_SESSION['lineId']}, lineNumber={$_SESSION['lineNumber']}");
-
     header("Location: module/dor-home.php");
     exit;
 } else {
@@ -73,19 +72,20 @@ if (!empty($res2)) {
     $query5 = "EXEC RdGenHostname @IpAddress=?, @IsLoggedIn=?";
     $res5 = $db1->execute($query5, [$clientIp, 0]);
 
-    if (!empty($res5)) {
+    if (!empty($res5) && is_array($res5) && isset($res5[0]) && is_array($res5[0])) {
         $row5 = $res5[0];
-        $_SESSION['hostnameId'] = $row5["HostnameId"];
-        $_SESSION['hostname'] = $row5["Hostname"];
-        $_SESSION['processId'] = $row5['ProcessId'];
-        $_SESSION['ipAddress'] = $row5["IpAddress"];
+        $_SESSION['hostnameId'] = isset($row5["HostnameId"]) ? $row5["HostnameId"] : null;
+        $_SESSION['hostname'] = isset($row5["Hostname"]) ? $row5["Hostname"] : null;
+        $_SESSION['processId'] = isset($row5['ProcessId']) ? $row5['ProcessId'] : null;
+        $_SESSION['ipAddress'] = isset($row5["IpAddress"]) ? $row5["IpAddress"] : null;
         error_log("Fallback session set: hostnameId={$_SESSION['hostnameId']}, hostname={$_SESSION['hostname']}, processId={$_SESSION['processId']}, ipAddress={$_SESSION['ipAddress']}");
         $query6 = "EXEC UpdGenHostname @HostnameId=?, @IsLoggedIn=?";
-        $res6 = $db1->execute($query6, [$row5["HostnameId"], 1], 1);
+        if (isset($row5["HostnameId"])) {
+            $res6 = $db1->execute($query6, [$row5["HostnameId"], 1], 1);
+        }
+    } else {
+        error_log("res5 is not an array or does not contain expected data.");
     }
-    // If you want to redirect to dor-home.php for fallback, uncomment below:
-    // header("Location: module/dor-home.php");
-    // exit;
 }
 
 

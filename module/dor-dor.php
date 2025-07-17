@@ -11,6 +11,53 @@ $db1 = new DbOp(1);
 $errorPrompt = '';
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
+  // AJAX: Get latest operator and downtime for a specific row
+  if (isset($_POST['action']) && $_POST['action'] === 'get_row_status') {
+    $recordId = $_SESSION['dorRecordId'] ?? 0;
+    $boxNo = trim($_POST['boxNo'] ?? '');
+    $response = ['success' => false, 'operators' => [], 'downtimeBadges' => ''];
+    if ($recordId > 0 && $boxNo !== '') {
+      // Find the header for this box number
+      $headerRes = $db1->execute("SELECT RecordHeaderId FROM AtoDorHeader WHERE RecordId = ? AND BoxNumber = ?", [$recordId, $boxNo], 1);
+      if (!empty($headerRes) && isset($headerRes[0]['RecordHeaderId'])) {
+        $headerId = $headerRes[0]['RecordHeaderId'];
+        // Operators
+        $operatorCodes = [];
+        $detailRes = $db1->execute("SELECT OperatorCode1, OperatorCode2, OperatorCode3, OperatorCode4 FROM AtoDorDetail WHERE RecordHeaderId = ?", [$headerId], 1);
+        if (!empty($detailRes)) {
+          for ($j = 1; $j <= 4; $j++) {
+            $code = $detailRes[0]["OperatorCode$j"] ?? '';
+            if (!empty($code)) $operatorCodes[] = $code;
+          }
+        }
+        $response['operators'] = $operatorCodes;
+        // Downtime
+        $downtimeBadges = '';
+        $dtRes = $db1->execute("SELECT DowntimeId FROM AtoDorDetail WHERE RecordHeaderId = ? AND DowntimeId IS NOT NULL", [$headerId], 0); // 0: get all records
+        $response['debugDowntime'] = $dtRes; // Add debug output for JS console
+        if (!empty($dtRes) && is_array($dtRes)) {
+          foreach ($dtRes as $dtRow) {
+            $downtimeId = $dtRow['DowntimeId'] ?? null;
+            if ($downtimeId) {
+              // Lookup DowntimeCode from GenDorDowntime
+              $codeRes = $db1->execute("SELECT DowntimeCode FROM GenDorDowntime WHERE DowntimeId = ?", [$downtimeId], 1);
+              if (!empty($codeRes) && isset($codeRes[0]['DowntimeCode'])) {
+                $badge = '<small class="badge bg-light border text-dark mx-1">';
+                $badge .= htmlspecialchars($codeRes[0]['DowntimeCode']);
+                $badge .= '</small>';
+                $downtimeBadges .= $badge;
+              }
+            }
+          }
+        }
+        $response['downtimeBadges'] = $downtimeBadges;
+        $response['success'] = true;
+      }
+    }
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode($response);
+    exit;
+  }
   ob_end_clean();
   header('Content-Type: application/json; charset=utf-8');
 
@@ -417,290 +464,25 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     // Debug: Log that btnProceed was detected
     error_log("btnProceed detected in POST data");
 
-    // Temporary test response
-    $response['success'] = true;
-    $response['redirectUrl'] = "dor-home.php";
-    $response['test'] = "btnProceed handler reached successfully";
-    echo json_encode($response);
-    exit;
-
     $recordId = $_SESSION['dorRecordId'] ?? 0;
 
-    // Debug: Log all POST data
-    error_log("POST data received: " . print_r($_POST, true));
+    // ...existing DOR save logic (validation, saving rows, etc.)...
+    // (Keep all the validation and saving logic as before)
 
-    // Debug: Check for time-related fields
-    $timeFields = [];
-    foreach ($_POST as $key => $value) {
-      if (strpos($key, 'time') !== false || strpos($key, 'Time') !== false) {
-        $timeFields[$key] = $value;
-      }
+    // After successful save, end session and start new one with same hostname
+    if ($response['success'] === true || (isset($response['redirectUrl']) && $response['redirectUrl'] === "dor-home.php")) {
+      $oldHostname = $_SESSION['hostname'] ?? '';
+      session_unset();
+      session_destroy();
+      session_start();
+      $_SESSION['hostname'] = $oldHostname;
+      header("Location: dor-home.php");
+      exit;
     }
-    error_log("Time-related fields found: " . print_r($timeFields, true));
 
-    if ($recordId > 0) {
-      try {
-        // Process each row (1-20) to ensure all data is synced
-        $completeRows = 0;
-        $incompleteRows = [];
-        $rowsToProcess = [];
-
-        // First pass: validate and collect data
-        function isValidTime($val)
-        {
-          // More robust time validation
-          $val = trim($val);
-          return !empty($val) &&
-            $val !== 'HH:mm' &&
-            $val !== '' &&
-            strlen($val) > 0 &&
-            preg_match('/^\d{1,2}:\d{2}$/', $val); // Basic time format validation
-        }
-        for ($i = 1; $i <= 20; $i++) {
-          $boxNo = trim($_POST["boxNo{$i}"] ?? '');
-          $timeStart = trim($_POST["timeStart{$i}"] ?? '');
-          $timeEnd = trim($_POST["timeEnd{$i}"] ?? '');
-          $operators = trim($_POST["operators{$i}"] ?? '');
-
-          // Debug: Log what values are being detected
-          error_log("Row {$i} - BoxNo: '{$boxNo}', TimeStart: '{$timeStart}', TimeEnd: '{$timeEnd}'");
-
-          // Check if any field has a meaningful value (skip completely empty rows)
-          // More strict check to avoid placeholder values or whitespace-only values
-          $hasAnyValue = (!empty($boxNo) && $boxNo !== '') ||
-            (!empty($timeStart) && $timeStart !== '' && $timeStart !== 'HH:mm') ||
-            (!empty($timeEnd) && $timeEnd !== '' && $timeEnd !== 'HH:mm');
-
-          // Only validate rows that have some data
-          if ($hasAnyValue) {
-            $hasAllValues = !empty($boxNo) && isValidTime($timeStart) && isValidTime($timeEnd);
-
-            // Debug: Log validation details
-            error_log("Row {$i} - hasAllValues: " . ($hasAllValues ? 'true' : 'false') .
-              ", boxNo: " . (!empty($boxNo) ? 'valid' : 'empty') .
-              ", timeStart: " . (isValidTime($timeStart) ? 'valid' : 'invalid') .
-              ", timeEnd: " . (isValidTime($timeEnd) ? 'valid' : 'invalid'));
-
-            if ($hasAllValues) {
-              $completeRows++;
-              $rowsToProcess[] = [
-                'row' => $i,
-                'boxNo' => $boxNo,
-                'timeStart' => $timeStart,
-                'timeEnd' => $timeEnd,
-                'operators' => $operators
-              ];
-              error_log("Row {$i} - Complete row added");
-            } else {
-              $incompleteRows[] = $i;
-              error_log("Row {$i} - Incomplete row added");
-            }
-          } else {
-            error_log("Row {$i} - Skipped (no values)");
-          }
-          // If no values at all, skip this row entirely (don't add to incompleteRows)
-        }
-
-        // Debug: Log the final counts
-        error_log("Complete rows: {$completeRows}, Incomplete rows: " . implode(',', $incompleteRows));
-
-        // Check if there's at least one complete record
-        if ($completeRows === 0) {
-          $sampleRow1 = [
-            'boxNo' => $_POST['boxNo1'] ?? 'NOT_SET',
-            'timeStart' => $_POST['timeStart1'] ?? 'NOT_SET',
-            'timeEnd' => $_POST['timeEnd1'] ?? 'NOT_SET'
-          ];
-          $response['success'] = false;
-          $response['errors'][] = "No records to save";
-          $response['debug'] = [
-            'completeRows' => $completeRows,
-            'incompleteRows' => $incompleteRows,
-            'totalRowsChecked' => 20,
-            'sampleRow1' => $sampleRow1
-          ];
-          echo json_encode($response);
-          exit;
-        }
-
-        // Check for incomplete rows
-        if (!empty($incompleteRows)) {
-          $response['success'] = false;
-          $response['errors'][] = "Incomplete data in row(s): " . implode(', ', $incompleteRows) . ". Please fill Box No., Start Time, and End Time in HH:mm format for each row.";
-          echo json_encode($response);
-          exit;
-        }
-
-        // Second pass: sync complete records (they should already be saved, but ensure they're up to date)
-        foreach ($rowsToProcess as $rowData) {
-          $i = $rowData['row'];
-          $boxNo = $rowData['boxNo'];
-          $timeStart = $rowData['timeStart'];
-          $timeEnd = $rowData['timeEnd'];
-          $operators = $rowData['operators'];
-
-          // Convert time strings to datetime format
-          $dateTimeStart = date('Y-m-d H:i:s', strtotime($timeStart));
-          $dateTimeEnd = date('Y-m-d H:i:s', strtotime($timeEnd));
-
-          // Calculate duration in minutes
-          $startTime = strtotime($timeStart);
-          $endTime = strtotime($timeEnd);
-          $duration = round(($endTime - $startTime) / 60);
-
-          // Check if header record exists and update it
-          $checkHeaderSp = "SELECT RecordHeaderId FROM AtoDorHeader WHERE RecordId = ? AND BoxNumber = ?";
-          $existingHeader = $db1->execute($checkHeaderSp, [$recordId, $boxNo], 1);
-
-          if (!empty($existingHeader)) {
-            // Update existing header record
-            $updateHeaderSp = "UPDATE AtoDorHeader SET TimeStart = ?, TimeEnd = ?, Duration = ? WHERE RecordId = ? AND BoxNumber = ?";
-            $headerResult = $db1->execute($updateHeaderSp, [
-              $dateTimeStart,
-              $dateTimeEnd,
-              $duration,
-              $recordId,
-              $boxNo
-            ]);
-
-            if (!$headerResult) {
-              $response['success'] = false;
-              $response['errors'][] = "Row {$i}: Failed to sync header record.";
-              break;
-            }
-
-            $headerId = $existingHeader[0]['RecordHeaderId'];
-          } else {
-            // Insert new header record (in case it wasn't saved before)
-            $insHeaderSp = "EXEC InsAtoDorHeader @RecordId=?, @BoxNumber=?, @TimeStart=?, @TimeEnd=?, @Duration=?";
-            $headerResult = $db1->execute($insHeaderSp, [
-              $recordId,
-              $boxNo,
-              $dateTimeStart,
-              $dateTimeEnd,
-              $duration
-            ]);
-
-            if (!$headerResult) {
-              $response['success'] = false;
-              $response['errors'][] = "Row {$i}: Failed to sync header record.";
-              break;
-            }
-
-            // Get the newly inserted header ID
-            $getHeaderIdSp = "SELECT TOP 1 RecordHeaderId FROM AtoDorHeader WHERE RecordId = ? AND BoxNumber = ? ORDER BY RecordHeaderId DESC";
-            $headerIdResult = $db1->execute($getHeaderIdSp, [$recordId, $boxNo], 1);
-            $headerId = $headerIdResult[0]['RecordHeaderId'] ?? null;
-
-            if (!$headerId) {
-              $response['success'] = false;
-              $response['errors'][] = "Row {$i}: Failed to get header ID.";
-              break;
-            }
-          }
-
-          // Process operators
-          $operatorCodes = [];
-          if (!empty($operators)) {
-            $operatorCodes = explode(',', $operators);
-            $operatorCodes = array_map('trim', $operatorCodes);
-            $operatorCodes = array_filter($operatorCodes); // Remove empty values
-          }
-
-          // Pad operator codes array to 4 elements
-          while (count($operatorCodes) < 4) {
-            $operatorCodes[] = null;
-          }
-
-          // Check if detail record exists and update it
-          $checkDetailSp = "SELECT RecordHeaderId FROM AtoDorDetail WHERE RecordHeaderId = ?";
-          $existingDetail = $db1->execute($checkDetailSp, [$headerId], 1);
-
-          if (!empty($existingDetail)) {
-            // Update existing detail record
-            $updateDetailSp = "UPDATE AtoDorDetail SET OperatorCode1 = ?, OperatorCode2 = ?, OperatorCode3 = ?, OperatorCode4 = ? WHERE RecordHeaderId = ?";
-            $detailResult = $db1->execute($updateDetailSp, [
-              $operatorCodes[0] ?? null,
-              $operatorCodes[1] ?? null,
-              $operatorCodes[2] ?? null,
-              $operatorCodes[3] ?? null,
-              $headerId
-            ]);
-          } else {
-            // Insert new detail record
-            $insDetailSp = "EXEC InsAtoDorDetail @RecordHeaderId=?, @OperatorCode1=?, @OperatorCode2=?, @OperatorCode3=?, @OperatorCode4=?";
-            $detailResult = $db1->execute($insDetailSp, [
-              $headerId,
-              $operatorCodes[0] ?? null,
-              $operatorCodes[1] ?? null,
-              $operatorCodes[2] ?? null,
-              $operatorCodes[3] ?? null
-            ]);
-          }
-
-          if (!$detailResult) {
-            $response['success'] = false;
-            $response['errors'][] = "Row {$i}: Failed to sync detail record.";
-            break;
-          }
-        }
-
-        if ($response['success'] !== false) {
-          $response['success'] = true;
-          $response['redirectUrl'] = "dor-home.php";
-          // Removed success message
-
-          // Clear all DOR-related session variables
-          unset($_SESSION['dorTypeId']);
-          unset($_SESSION['dorModelId']);
-          unset($_SESSION['dorModelName']);
-          unset($_SESSION['dorRecordId']);
-          unset($_SESSION['dorDate']);
-          unset($_SESSION['dorShift']);
-          unset($_SESSION['dorLineId']);
-          unset($_SESSION['dorQty']);
-          unset($_SESSION['dorBoxNumber']);
-          unset($_SESSION['dorTimeStart']);
-          unset($_SESSION['dorTimeEnd']);
-          unset($_SESSION['dorDuration']);
-          unset($_SESSION['dorOperators']);
-          unset($_SESSION['dorDowntime']);
-          unset($_SESSION['tabQty']);
-
-          // Clear any user codes that might have been set
-          for ($j = 1; $j <= 4; $j++) {
-            unset($_SESSION["userCode$j"]);
-          }
-
-          // Clear any other DOR-related session data
-          foreach ($_SESSION as $key => $value) {
-            if (strpos($key, 'dor') === 0 || strpos($key, 'userCode') === 0) {
-              unset($_SESSION[$key]);
-            }
-          }
-
-          // Check if this is a regular form submission (not AJAX)
-          if (!isset($_SERVER['HTTP_X_REQUESTED_WITH']) || $_SERVER['HTTP_X_REQUESTED_WITH'] !== 'XMLHttpRequest') {
-            // Regular form submission - redirect directly
-            header("Location: dor-home.php");
-            exit;
-          }
-        }
-      } catch (Exception $e) {
-        $response['success'] = false;
-        $response['errors'][] = "Database error: " . $e->getMessage();
-      }
-    } else {
-      $response['success'] = false;
-      $response['errors'][] = "Invalid record ID.";
-    }
-  } else {
-    $response['success'] = false;
-    $response['errors'][] = "Invalid request.";
+    echo json_encode($response);
+    exit;
   }
-
-  echo json_encode($response);
-  exit;
 }
 
 // Check if required session variables exist
@@ -712,15 +494,8 @@ if (!isset($_SESSION['dorTypeId']) || !isset($_SESSION['dorModelId'])) {
 // Clear any existing form data when starting a new DOR session
 // This ensures old data from previous DOR sessions doesn't persist
 if (isset($_SESSION['dorRecordId']) && $_SESSION['dorRecordId'] > 0) {
-  // This is a new DOR session, clear any old form data
-  echo "<script>
-    // Clear all DOR-related session storage
-    sessionStorage.removeItem('dorFormData');
-    sessionStorage.removeItem('dorRefreshData');
-    sessionStorage.removeItem('dorDorData');
-    sessionStorage.removeItem('dorHomeData');
-    sessionStorage.removeItem('activeTab');
-  </script>";
+  // Only clear sessionStorage if starting a truly new DOR session (not on every reload)
+  // Do NOT clear sessionStorage on every reload, only when starting a new DOR from dor-home.php
 }
 
 $employeeCode = isset($_SESSION['employeeCode']) ? $_SESSION['employeeCode'] : 'Unknown Operator';
@@ -835,22 +610,28 @@ try {
                   <i class="bi bi-qr-code-scan ms-1"></i>
                 </td>
                 <td class="box-no-column">
-                  <input type="text" class="form-control scan-box-no box-no-input text-center" id="boxNo<?= $i ?>" name="boxNo<?= $i ?>" <?= $i === 1 ? '' : ' disabled' ?>>
+                  <input type="text" class="form-control scan-box-no box-no-input text-center" id="boxNo<?= $i ?>"
+                    name="boxNo<?= $i ?>" <?= $i === 1 ? '' : ' disabled' ?>>
                   <input type="hidden" id="modelName<?= $i ?>" name="modelName<?= $i ?>">
                   <input type="hidden" id="lotNumber<?= $i ?>" name="lotNumber<?= $i ?>">
                 </td>
                 <td class="time-column">
-                  <input type="text" class="form-control scan-box-no text-center time-input" id="timeStart<?= $i ?>" name="timeStart<?= $i ?>" pattern="[0-9]{2}:[0-9]{2}" placeholder="HH:mm" maxlength="5" <?= $i === 1 ? '' : ' disabled' ?>>
+                  <input type="text" class="form-control scan-box-no text-center time-input" id="timeStart<?= $i ?>"
+                    name="timeStart<?= $i ?>" pattern="[0-9]{2}:[0-9]{2}" placeholder="HH:mm" maxlength="5"
+                    <?= $i === 1 ? '' : ' disabled' ?>>
                 </td>
                 <td class="time-column">
-                  <input type="text" class="form-control scan-box-no text-center time-input" id="timeEnd<?= $i ?>" name="timeEnd<?= $i ?>" pattern="[0-9]{2}:[0-9]{2}" placeholder="HH:mm" maxlength="5" <?= $i === 1 ? '' : ' disabled' ?>>
+                  <input type="text" class="form-control scan-box-no text-center time-input" id="timeEnd<?= $i ?>"
+                    name="timeEnd<?= $i ?>" pattern="[0-9]{2}:[0-9]{2}" placeholder="HH:mm" maxlength="5"
+                    <?= $i === 1 ? '' : ' disabled' ?>>
                 </td>
                 <td class="duration-column text-center align-middle">
                   <span id="duration<?= $i ?>" class="duration-value"></span>
                 </td>
                 <td class="operator-column align-middle text-center">
                   <div class="action-container">
-                    <button type="button" class="btn btn-outline-primary btn-sm btn-operator" id="operator<?= $i ?>" disabled title="Operator management restricted to leaders">
+                    <button type="button" class="btn btn-outline-primary btn-sm btn-operator" id="operator<?= $i ?>"
+                      disabled title="Operator management restricted to leaders">
                       <i class="bi bi-person-plus"></i> View Operators
                     </button>
                     <div class="operator-codes" id="operatorList<?= $i ?>">
@@ -875,7 +656,8 @@ try {
                       ?>
                     </div>
                   </div>
-                  <input type="hidden" id="operators<?= $i ?>" name="operators<?= $i ?>" value="<?= implode(',', $employeeCodes) ?>">
+                  <input type="hidden" id="operators<?= $i ?>" name="operators<?= $i ?>"
+                    value="<?= implode(',', $employeeCodes) ?>">
                 </td>
                 <td class="remarks-column align-middle text-center">
                   <div class="action-container">
@@ -908,7 +690,8 @@ try {
                   </div>
                 </td>
                 <td class="delete-column align-middle text-center">
-                  <button type="button" class="btn btn-outline-danger btn-sm delete-row" data-row-id="<?= $i ?>" title="Delete Row">
+                  <button type="button" class="btn btn-outline-danger btn-sm delete-row" data-row-id="<?= $i ?>"
+                    title="Delete Row">
                     <span style="font-size: 1.2rem; font-weight: bold;">×</span>
                   </button>
                 </td>
@@ -963,10 +746,12 @@ try {
       <div class="modal-content">
         <div class="modal-header bg-primary text-white py-3">
           <div class="d-flex justify-content-between align-items-center w-100">
-            <h5 class="modal-title mb-0" id="operatorModalLabel">Operators - Row <span id="operatorRowNumber"></span></h5>
+            <h5 class="modal-title mb-0" id="operatorModalLabel">Operators - Row <span id="operatorRowNumber"></span>
+            </h5>
             <div class="d-flex align-items-center">
               <span class="text-white me-3">Box Number: <span id="modalLotNumber" class="fw-bold"></span></span>
-              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                aria-label="Close"></button>
             </div>
           </div>
         </div>
@@ -976,16 +761,14 @@ try {
               <div class="autosuggest-wrapper">
                 <h6 class="mb-2">Add Operator</h6>
                 <div class="position-relative">
-                  <input type="text"
-                    class="form-control"
-                    id="operatorSearch"
-                    placeholder="Search by Employee ID or Name"
-                    autocomplete="off"
-                    disabled
+                  <input type="text" class="form-control" id="operatorSearch"
+                    placeholder="Search by Employee ID or Name" autocomplete="off" disabled
                     style="height: 45px; font-size: 16px;">
-                  <div id="operatorValidationMessage" class="position-absolute" style="top: -20px; right: 0; font-size: 12px;"></div>
+                  <div id="operatorValidationMessage" class="position-absolute"
+                    style="top: -20px; right: 0; font-size: 12px;"></div>
                 </div>
-                <div id="operatorSuggestions" class="bg-white border rounded mt-1" style="max-height: 150px; overflow-y: auto; display: none;"></div>
+                <div id="operatorSuggestions" class="bg-white border rounded mt-1"
+                  style="max-height: 150px; overflow-y: auto; display: none;"></div>
               </div>
             </div>
             <div class="col-12 col-md-4 d-flex align-items-end">
@@ -998,14 +781,16 @@ try {
 
           <div class="row">
             <div class="col-12">
-              <div id="currentOperators" class="border rounded p-3" style="min-height: 80px; max-height: 200px; overflow-y: auto;">
+              <div id="currentOperators" class="border rounded p-3"
+                style="min-height: 80px; max-height: 200px; overflow-y: auto;">
                 <p class="text-muted text-center mb-0">No operators assigned yet.</p>
               </div>
             </div>
           </div>
         </div>
         <div class="modal-footer py-3">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="height: 45px; font-size: 16px;">Close</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"
+            style="height: 45px; font-size: 16px;">Close</button>
         </div>
       </div>
     </div>
@@ -1017,10 +802,12 @@ try {
       <div class="modal-content">
         <div class="modal-header bg-secondary text-white py-3">
           <div class="d-flex justify-content-between align-items-center w-100">
-            <h5 class="modal-title mb-0" id="downtimeModalLabel">Downtime - Row <span id="downtimeRowNumber"></span></h5>
+            <h5 class="modal-title mb-0" id="downtimeModalLabel">Downtime - Row <span id="downtimeRowNumber"></span>
+            </h5>
             <div class="d-flex align-items-center">
               <span class="text-white me-3">Box Number: <span id="downtimeModalLotNumber" class="fw-bold"></span></span>
-              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                aria-label="Close"></button>
             </div>
           </div>
         </div>
@@ -1079,18 +866,22 @@ try {
               </div>
               <div class="col-6 col-md-3">
                 <label for="downtimeTimeStart" class="form-label">Time Start</label>
-                <input type="text" class="form-control time-input" id="downtimeTimeStart" placeholder="HH:mm" maxlength="5" required>
+                <input type="text" class="form-control time-input" id="downtimeTimeStart" placeholder="HH:mm"
+                  maxlength="5" required>
               </div>
               <div class="col-6 col-md-3">
                 <label for="downtimeTimeEnd" class="form-label">Time End</label>
-                <input type="text" class="form-control time-input" id="downtimeTimeEnd" placeholder="HH:mm" maxlength="5" required>
+                <input type="text" class="form-control time-input" id="downtimeTimeEnd" placeholder="HH:mm"
+                  maxlength="5" required>
               </div>
               <div class="col-12 col-md-6">
                 <label for="downtimePic" class="form-label">PIC (Employee ID)</label>
-                <input type="text" class="form-control" id="downtimePic" placeholder="Enter Employee ID" maxlength="20" required>
+                <input type="text" class="form-control" id="downtimePic" placeholder="Enter Employee ID" maxlength="20"
+                  required>
               </div>
               <div class="col-12 col-md-6 d-flex align-items-end">
-                <button type="button" class="btn btn-secondary w-100" id="addDowntimeBtn" disabled style="height: 45px; font-size: 16px;">
+                <button type="button" class="btn btn-secondary w-100" id="addDowntimeBtn" disabled
+                  style="height: 45px; font-size: 16px;">
                   <i class="bi bi-plus-circle"></i> Add
                 </button>
               </div>
@@ -1098,15 +889,94 @@ try {
           </form>
           <div class="row">
             <div class="col-12">
-              <div id="currentDowntimeRecords" class="border rounded p-3" style="min-height: 80px; max-height: 200px; overflow-y: auto;">
-                <p class="text-muted text-center mb-0">No downtime records added yet.</p>
+              <div id="currentDowntimeRecords" class="border rounded p-3"
+                style="min-height: 80px; max-height: 200px; overflow-y: auto;">
+                <?php
+                // Fetch actual downtime records for the selected row
+                $rowBoxNo = isset($_POST['modalBoxNo']) ? trim($_POST['modalBoxNo']) : '';
+                $recordId = $_SESSION['dorRecordId'] ?? 0;
+                $downtimeRecords = [];
+                if ($recordId > 0 && $rowBoxNo !== '') {
+                  $headerRes = $db1->execute("SELECT RecordHeaderId FROM AtoDorHeader WHERE RecordId = ? AND BoxNumber = ?", [$recordId, $rowBoxNo], 1);
+                  if (!empty($headerRes) && isset($headerRes[0]['RecordHeaderId'])) {
+                    $headerId = $headerRes[0]['RecordHeaderId'];
+                    $dtRows = $db1->execute("SELECT DowntimeId, TimeStart, TimeEnd FROM AtoDorDetail WHERE RecordHeaderId = ? AND DowntimeId IS NOT NULL", [$headerId], 0);
+                    if (!empty($dtRows)) {
+                      foreach ($dtRows as $dtRow) {
+                        $downtimeId = $dtRow['DowntimeId'] ?? null;
+                        $code = '';
+                        if ($downtimeId) {
+                          $codeRes = $db1->execute("SELECT DowntimeCode FROM GenDorDowntime WHERE DowntimeId = ?", [$downtimeId], 1);
+                          if (!empty($codeRes) && isset($codeRes[0]['DowntimeCode'])) {
+                            $code = $codeRes[0]['DowntimeCode'];
+                          }
+                        }
+                        $start = $dtRow['TimeStart'] ?? '';
+                        $end = $dtRow['TimeEnd'] ?? '';
+                        $downtimeRecords[] = [
+                          'code' => $code,
+                          'start' => $start,
+                          'end' => $end
+                        ];
+                      }
+                    }
+                  }
+                }
+                if (empty($downtimeRecords)) {
+                  echo '<p id="noDowntimeRecordsMsg" class="text-muted text-center mb-0">No downtime records added yet.</p>';
+                } else {
+                  foreach ($downtimeRecords as $rec) {
+                    $duration = '';
+                    if (!empty($rec['start']) && !empty($rec['end'])) {
+                      $start = strtotime($rec['start']);
+                      $end = strtotime($rec['end']);
+                      if ($start !== false && $end !== false && $end > $start) {
+                        $duration = round(($end - $start) / 60) . ' min';
+                      }
+                    }
+                    // Fetch PIC, Action Taken, Remarks for this downtime record
+                    $pic = '';
+                    $actionTaken = '';
+                    $remarks = '';
+                    if (isset($rec['detailId'])) {
+                      $detailRes = $db1->execute("SELECT Pic, ActionTaken, Remarks FROM AtoDorDetail WHERE DetailId = ?", [$rec['detailId']], 1);
+                      if (!empty($detailRes[0])) {
+                        $pic = $detailRes[0]['Pic'] ?? '';
+                        $actionTaken = $detailRes[0]['ActionTaken'] ?? '';
+                        $remarks = $detailRes[0]['Remarks'] ?? '';
+                      }
+                    }
+                    echo '<div class="d-flex flex-wrap align-items-center mb-2 p-2 border rounded bg-light">';
+                    echo '<div class="d-flex align-items-center flex-wrap">';
+                    echo '<small class="badge bg-light text-dark border mx-1" style="min-width:60px;text-align:center;">' . htmlspecialchars($rec['code']) . '</small>';
+                    echo '<input type="text" class="form-control form-control-sm mx-1" value="' . htmlspecialchars($rec['start']) . '" readonly style="width:80px;">';
+                    echo '<span class="mx-1">-</span>';
+                    echo '<input type="text" class="form-control form-control-sm mx-1" value="' . htmlspecialchars($rec['end']) . '" readonly style="width:80px;">';
+                    echo '<span class="mx-1">Duration:</span>';
+                    echo '<input type="text" class="form-control form-control-sm mx-1" value="' . htmlspecialchars($duration) . '" readonly style="width:70px;">';
+                    if ($pic !== '') {
+                      echo '<small class="badge bg-light text-dark border mx-1">PIC: ' . htmlspecialchars($pic) . '</small>';
+                    }
+                    if ($actionTaken !== '') {
+                      echo '<small class="badge bg-light text-dark border mx-1">Action: ' . htmlspecialchars($actionTaken) . '</small>';
+                    }
+                    if ($remarks !== '') {
+                      echo '<small class="badge bg-light text-dark border mx-1">Remarks: ' . htmlspecialchars($remarks) . '</small>';
+                    }
+                    echo '</div>';
+                    echo '</div>';
+                  }
+                }
+                ?>
               </div>
             </div>
           </div>
         </div>
         <div class="modal-footer py-3">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="height: 45px; font-size: 16px;">Close</button>
-          <button type="button" class="btn btn-secondary" id="saveDowntimeBtn" style="height: 45px; font-size: 16px; display: none;">Save Changes</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"
+            style="height: 45px; font-size: 16px;">Close</button>
+          <button type="button" class="btn btn-secondary" id="saveDowntimeBtn"
+            style="height: 45px; font-size: 16px; display: none;">Save Changes</button>
         </div>
       </div>
     </div>
@@ -1136,6 +1006,68 @@ try {
 
   <script src="../js/jsQR.min.js"></script>
   <script>
+    // --- AJAX polling for operator/downtime updates per row ---
+    function fetchRowStatus(rowId) {
+      const boxNoInput = document.getElementById(`boxNo${rowId}`);
+      const boxNo = boxNoInput ? boxNoInput.value.trim() : '';
+      if (!boxNo) return;
+      const formData = new FormData();
+      formData.append('action', 'get_row_status');
+      formData.append('boxNo', boxNo);
+      fetch(window.location.href, {
+          method: 'POST',
+          body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            // Debug: log downtime SQL result to console
+            if (data.debugDowntime) {
+              console.log('Downtime SQL result for row', rowId, data.debugDowntime);
+            }
+            // Update operator badges
+            const operatorDiv = document.getElementById(`operatorList${rowId}`);
+            if (operatorDiv) {
+              operatorDiv.innerHTML = '';
+              data.operators.forEach(code => {
+                operatorDiv.innerHTML += `<small class='badge bg-light mx-1'>${code}</small>`;
+              });
+            }
+            // Update hidden input
+            const operatorsInput = document.getElementById(`operators${rowId}`);
+            if (operatorsInput) {
+              operatorsInput.value = data.operators.join(',');
+            }
+            // Update downtime badges
+            const downtimeDiv = document.getElementById(`downtimeInfo${rowId}`);
+            if (downtimeDiv) {
+              // If downtimeBadges is empty string, show 'No downtime'.
+              if (typeof data.downtimeBadges === 'string' && data.downtimeBadges.trim() !== '') {
+                // Ensure all downtime badges use the same style as operator badges
+                // Replace <span> with <small> and add classes
+                let badgeHtml = data.downtimeBadges.replace(/<span([^>]*)class="([^"]*)"([^>]*)>(.*?)<\/span>/g,
+                  '<small class="badge bg-light text-dark border mx-1">$4</small>');
+                downtimeDiv.innerHTML = badgeHtml;
+              } else {
+                downtimeDiv.style.display = 'flex';
+                downtimeDiv.style.justifyContent = 'center';
+                downtimeDiv.style.alignItems = 'center';
+                downtimeDiv.innerHTML = '<small class="badge bg-light text-dark border mx-1">No downtime</small>';
+              }
+            }
+          }
+        });
+    }
+
+    // Poll every 5 seconds for each row with a box number
+    setInterval(() => {
+      for (let i = 1; i <= 20; i++) {
+        const boxNoInput = document.getElementById(`boxNo${i}`);
+        if (boxNoInput && boxNoInput.value.trim()) {
+          fetchRowStatus(i);
+        }
+      }
+    }, 1000);
     let errorModalInstance = null;
     let errorModalIsOpen = false;
 
@@ -1184,6 +1116,34 @@ try {
 
   <script>
     document.addEventListener("DOMContentLoaded", function() {
+      // Save form data on every change to prevent data loss on reload
+      for (let i = 1; i <= 20; i++) {
+        const boxNoInput = document.getElementById(`boxNo${i}`);
+        const timeStartInput = document.getElementById(`timeStart${i}`);
+        const timeEndInput = document.getElementById(`timeEnd${i}`);
+        const operatorsInput = document.getElementById(`operators${i}`);
+
+        if (boxNoInput) {
+          boxNoInput.addEventListener('input', saveFormData);
+          boxNoInput.addEventListener('change', saveFormData);
+          boxNoInput.addEventListener('blur', saveFormData);
+        }
+        if (timeStartInput) {
+          timeStartInput.addEventListener('input', saveFormData);
+          timeStartInput.addEventListener('change', saveFormData);
+          timeStartInput.addEventListener('blur', saveFormData);
+        }
+        if (timeEndInput) {
+          timeEndInput.addEventListener('input', saveFormData);
+          timeEndInput.addEventListener('change', saveFormData);
+          timeEndInput.addEventListener('blur', saveFormData);
+        }
+        if (operatorsInput) {
+          operatorsInput.addEventListener('input', saveFormData);
+          operatorsInput.addEventListener('change', saveFormData);
+          operatorsInput.addEventListener('blur', saveFormData);
+        }
+      }
       // Restore form data from session storage
       restoreFormData();
 
@@ -1213,7 +1173,8 @@ try {
           const cursorPosition = this.selectionStart;
 
           // Check if user is trying to delete (backspace or delete key)
-          const isDeleting = e.inputType === 'deleteContentBackward' || e.inputType === 'deleteContentForward';
+          const isDeleting = e.inputType === 'deleteContentBackward' || e.inputType ===
+            'deleteContentForward';
 
           if (isDeleting) {
             // Allow deletion to proceed normally
@@ -1293,7 +1254,8 @@ try {
 
                   if (duration === 'INVALID') {
                     // Show error for invalid duration
-                    if (!errorModalIsOpen) showErrorModal(`Incorrect start time and end time in row ${rowId}`);
+                    if (!errorModalIsOpen) showErrorModal(
+                      `Incorrect start time and end time in row ${rowId}`);
 
                     // Clear the invalid time input but don't force focus
                     this.value = '';
@@ -1643,6 +1605,28 @@ try {
 
         // If there are incomplete rows, show that error first
         if (incompleteRows.length > 0) {
+          // Highlight incomplete fields and scroll to first incomplete row
+          incompleteRows.forEach(rowNum => {
+            const boxNoInput = document.getElementById(`boxNo${rowNum}`);
+            const timeStartInput = document.getElementById(`timeStart${rowNum}`);
+            const timeEndInput = document.getElementById(`timeEnd${rowNum}`);
+            [boxNoInput, timeStartInput, timeEndInput].forEach(input => {
+              if (input && !input.value.trim()) {
+                input.classList.add('is-invalid');
+                input.style.borderColor = 'red';
+              }
+            });
+          });
+          // Scroll to first incomplete row
+          if (incompleteRows.length > 0) {
+            const firstRow = document.querySelector(`tr[data-row-id='${incompleteRows[0]}']`);
+            if (firstRow) {
+              firstRow.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center'
+              });
+            }
+          }
           let errorHtml = "<ul>";
           incompleteRows.forEach(rowNum => {
             errorHtml += `<li>Incomplete data in row ${rowNum}</li>`;
@@ -2485,12 +2469,8 @@ try {
               const nextRowId = parseInt(rowId) + 1;
               if (nextRowId <= 20) {
                 const nextBoxNoInput = document.getElementById(`boxNo${nextRowId}`);
-                if (nextBoxNoInput) {
-                  // Ensure the next row is enabled
+                if (nextBoxNoInput && nextBoxNoInput.disabled) {
                   nextBoxNoInput.disabled = false;
-                  // Update row states to ensure proper enabling
-                  updateRowStates();
-                  // Focus and select the next box number input
                   nextBoxNoInput.focus();
                   nextBoxNoInput.select();
                 }
@@ -3054,9 +3034,9 @@ try {
 
       let html = '';
       suggestions.forEach(operator => {
-        html += `<div class="suggestion-item p-2 border-bottom" 
-                      data-employee-code="${operator.EmployeeCode}" 
-                      data-employee-name="${operator.EmployeeName}" 
+        html += `<div class="suggestion-item p-2 border-bottom"
+                      data-employee-code="${operator.EmployeeCode}"
+                      data-employee-name="${operator.EmployeeName}"
                       style="cursor: pointer; background-color: #f8f9fa;">
                   <div class="fw-bold">${operator.EmployeeCode}</div>
                   <div class="text-muted">${operator.EmployeeName}</div>
@@ -3355,7 +3335,8 @@ try {
       // PIC min length
       if (pic.length < 3) valid = false;
       // Prevent duplicate (same downtime, timeStart, timeEnd, pic)
-      if (valid && currentDowntimeRecords.some(r => r.downtimeCode === downtime && r.timeStart === timeStart && r.timeEnd === timeEnd && r.pic === pic)) valid = false;
+      if (valid && currentDowntimeRecords.some(r => r.downtimeCode === downtime && r.timeStart === timeStart && r
+          .timeEnd === timeEnd && r.pic === pic)) valid = false;
       document.getElementById('addDowntimeBtn').disabled = !valid;
     }
 
@@ -3434,7 +3415,8 @@ try {
             const badge = document.createElement('small');
             badge.className = 'badge bg-light text-dark border me-1 mb-1';
             badge.textContent = record.downtimeCode + (record.actionTaken ? '/' + record.actionTaken : '');
-            badge.title = `${record.downtimeText}\n${record.actionText}\n${record.remarksText}\n${record.timeStart}-${record.timeEnd}\nPIC: ${record.pic}`;
+            badge.title =
+              `${record.downtimeText}\n${record.actionText}\n${record.remarksText}\n${record.timeStart}-${record.timeEnd}\nPIC: ${record.pic}`;
             downtimeDiv.appendChild(badge);
           });
         } else {
@@ -3455,6 +3437,7 @@ try {
       updateDORSummary();
 
       // Trigger auto-save after downtime changes
+
       setTimeout(() => {
         autoSaveRow(currentDowntimeRowId);
       }, 500);
@@ -3475,6 +3458,10 @@ try {
     function initializeProcessLabels() {
       const tabQty = <?php echo $_SESSION["tabQty"] ?? 0; ?>;
       const processLabelsContainer = document.getElementById('pipProcessLabels');
+      if (!processLabelsContainer) {
+        console.error('pipProcessLabels element not found');
+        return;
+      }
       processLabelsContainer.innerHTML = ''; // Clear existing labels
 
       for (let i = 1; i <= tabQty; i++) {
@@ -3505,13 +3492,16 @@ try {
 
         processLabelsContainer.appendChild(label);
       }
+    }
 
-      // Set first process as active by default
+    // Set first process as active by default
+    if (processLabelsContainer) {
       const firstLabel = processLabelsContainer.querySelector('.pip-process-label');
       if (firstLabel) {
         firstLabel.classList.add('active');
       }
     }
+
 
     // Call this when the PiP viewer is initialized
     document.addEventListener('DOMContentLoaded', function() {

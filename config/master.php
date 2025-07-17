@@ -4,9 +4,13 @@ require_once __DIR__ . "/header.php";
 $db1 = new DbOp(1);
 
 if (isset($_GET['logOut'])) {
-    // Update the tablet's logged in status to 0
+    // Update GenHostname and GenLine logged in status to 0
     $updQry2 = "EXEC UpdGenHostname @HostnameId=?, @IsLoggedIn=?";
     $db1->execute($updQry2, [$_SESSION['hostnameId'], 0], 1);
+    if (isset($_SESSION['lineId'])) {
+        $updQryLine = "UPDATE GenLine SET IsLoggedIn = 0 WHERE LineId = ?";
+        $db1->execute($updQryLine, [$_SESSION['lineId']], 1);
+    }
 
     // Clear all session data
     session_destroy();
@@ -99,7 +103,8 @@ if (isset($_GET['logOut'])) {
                             ?>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item text-danger fw-bold text-center" href="#" onclick="exitApplication(event)">Exit Application</a></li>
+                            <li><a class="dropdown-item text-danger fw-bold text-center" href="#"
+                                    onclick="exitApplication(event)">Exit Application</a></li>
                         </ul>
                     </li>
                 </ul>

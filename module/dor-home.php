@@ -34,7 +34,10 @@ if ($res !== false && !empty($res)) {
     $selectedShift = ($currentHour >= 7 && $currentHour <= 19) ? "DS" : "NS";
 }
 
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
+if (
+    $_SERVER["REQUEST_METHOD"] === "POST" &&
+    (isset($_POST['btnCreateDor']) || isset($_POST['btnSearchDor']) || isset($_POST['btnSetValues']))
+) {
     // Add debugging
     error_log("POST request received. POST data: " . print_r($_POST, true));
 
@@ -392,7 +395,8 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
                 <?php foreach (["DS" => "Day Shift", "NS" => "Night Shift"] as $value => $label): ?>
                     <div class="col">
                         <div class="input-group-text form-control-lg">
-                            <input class="form-check-input me-2" type="radio" name="rdShift" value="<?= $value; ?>" <?= ($_POST['rdShift'] ?? $selectedShift) === $value ? "checked" : ""; ?>>
+                            <input class="form-check-input me-2" type="radio" name="rdShift" value="<?= $value; ?>"
+                                <?= ($_POST['rdShift'] ?? $selectedShift) === $value ? "checked" : ""; ?>>
                             <label class="form-check-label"><?= $label; ?></label>
                         </div>
                     </div>
@@ -403,8 +407,8 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
         <div class="mb-3">
             <label for="txtModelName" class="form-label-lg fw-bold">Model</label>
             <div class="input-group">
-                <input type="text" class="form-control form-control-lg" id="txtModelName" name="txtModelName" placeholder="Enter model name" required
-                    value="<?php echo $_POST["txtModelName"] ?? ''; ?>">
+                <input type="text" class="form-control form-control-lg" id="txtModelName" name="txtModelName"
+                    placeholder="Enter model name" required value="<?php echo $_POST["txtModelName"] ?? ''; ?>">
                 <button type="button" class="btn btn-outline-secondary btn-lg" id="btnScanModel">
                     <i class="bi bi-upc-scan"></i> Scan
                 </button>
@@ -413,8 +417,8 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
 
         <div class="mb-3">
             <label for="txtQty" class="form-label-lg fw-bold">Quantity</label>
-            <input type="number" class="form-control form-control-lg" id="txtQty" name="txtQty" min="1" placeholder="Enter box quantity" required
-                value="<?php echo $_POST["txtQty"] ?? ''; ?>">
+            <input type="number" class="form-control form-control-lg" id="txtQty" name="txtQty" min="1"
+                placeholder="Enter box quantity" required value="<?php echo $_POST["txtQty"] ?? ''; ?>">
         </div>
 
         <div class="d-grid gap-2">
