@@ -14,13 +14,13 @@ class Method
     public function getActiveHostnames()
     {
         $db = new DbOp(1);
-        $sql = "SELECT 
+        $sql = "SELECT
                         h.HostnameId,
                         h.Hostname,
                         h.IsActive,
                         d.RecordId
                     FROM GenHostname h
-                    LEFT JOIN AtoDor d ON 
+                    LEFT JOIN AtoDor d ON
                         d.HostnameId = h.HostnameId AND
                         d.DorDate = CAST(GETDATE() AS DATE)
                     WHERE h.IsActive = 1
@@ -32,21 +32,19 @@ class Method
     public function getOnlineTablets($excludeHostnameId = null)
     {
         $query = "
-SELECT 
-    h.HostnameId,
-    h.Hostname,
-    h.IsActive,
-    h.IsLoggedin,
-    a.RecordId
-FROM GenHostname h
-LEFT JOIN (
-    SELECT HostnameId, MAX(RecordId) AS RecordId
-    FROM AtoDor
-    GROUP BY HostnameId
-) a ON h.HostnameId = a.HostnameId
-WHERE h.IsLoggedin = 1
-  AND ISNULL(h.IsLeader, 0) = 0
-";
+        SELECT
+            h.HostnameId,
+            h.Hostname,
+            h.IsActive,
+            h.IsLoggedin,
+            a.RecordId
+        FROM GenHostname h
+        LEFT JOIN AtoDor a
+            ON h.HostnameId = a.HostnameId
+            AND a.DorDate = CAST(GETDATE() AS DATE)
+        WHERE h.IsLoggedin = 1
+          AND ISNULL(h.IsLeader, 0) = 0
+    ";
 
         $params = [];
 
@@ -68,12 +66,12 @@ WHERE h.IsLoggedin = 1
 
     public function getTabletStatus()
     {
-        $query = "SELECT 
-                        HostnameId as RecordId, 
-                        Hostname, 
+        $query = "SELECT
+                        HostnameId as RecordId,
+                        Hostname,
                         IsActive,
                         IsLoggedin
-                    FROM GenHostname 
+                    FROM GenHostname
                     ORDER BY IsLogin DESC, Hostname ASC";
         return $this->db->execute($query);
     }

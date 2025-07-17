@@ -36,7 +36,6 @@ if ($hostname_id) {
         } else {
             error_log("No ProcessIndex found for RecordId: $recordId");
         }
-
     } else {
         error_log("No AtoDor record found for HostnameId: $hostname_id");
     }
@@ -44,7 +43,8 @@ if ($hostname_id) {
 
 // === Helper Functions ===
 
-function getModelName($modelId) {
+function getModelName($modelId)
+{
     $db = new DbOp(1);
     $res = $db->execute("EXEC RdGenModel @IsActive=?, @ModelId=?", [1, $modelId], 1);
 
@@ -56,10 +56,12 @@ function getModelName($modelId) {
                 return $modelName;
             }
         }
-        error_log("No exact MODEL_ID match found for $modelId. Full result:");
+
+        // If nothing matched, log full result for debugging
+        error_log(" No exact MODEL_ID match found for $modelId. Full result:");
         error_log(print_r($res, true));
     } else {
-        error_log("No results returned from RdGenModel for MODEL_ID: $modelId");
+        error_log(" No results returned from RdGenModel for MODEL_ID: $modelId");
     }
 
     $fallback = "MODEL_$modelId";
@@ -67,13 +69,15 @@ function getModelName($modelId) {
     return $fallback;
 }
 
-function getDorTypeName($dorTypeId) {
+function getDorTypeName($dorTypeId)
+{
     $db = new DbOp(1);
     $res = $db->execute("EXEC RdAtoDorType @DorTypeId=?", [$dorTypeId], 1);
     return ($res && isset($res[0]['DorTypeName'])) ? strtoupper(trim($res[0]['DorTypeName'])) : '';
 }
 
-function getDrawing($dorTypeId, $modelId) {
+function getDrawing($dorTypeId, $modelId)
+{
     $dorType = getDorTypeName($dorTypeId);
     $modelName = getModelName($modelId);
     $webPath = "/paperless-data/DRAWING/{$dorType}/{$modelName}.PNG";
@@ -81,14 +85,16 @@ function getDrawing($dorTypeId, $modelId) {
     return file_exists($localPath) ? $webPath : '';
 }
 
-function getPreparationCard($modelId) {
+function getPreparationCard($modelId)
+{
     $modelName = getModelName($modelId);
     $webPath = "/paperless-data/PREPARATION CARD/{$modelName}.pdf";
     $localPath = $_SERVER['DOCUMENT_ROOT'] . $webPath;
     return file_exists($localPath) ? $webPath : '';
 }
 
-function getWorkInstruction($dorTypeId, $modelId, $processNumber = 1) {
+function getWorkInstruction($dorTypeId, $modelId, $processNumber = 1)
+{
     $rawDorType = getDorTypeName($dorTypeId);
     $modelName = getModelName($modelId);
 
@@ -159,5 +165,4 @@ if (isset($_GET['json']) && $_GET['json'] == '1') {
         'files' => $jsonWorkInstructions
     ]);
     exit;
-} 
-?>
+}
