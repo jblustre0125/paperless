@@ -11,9 +11,9 @@ if (!isset($recordHeaderId)) {
   <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
 </div>
 
-<div class="modal-body">
+<div class="modal-body mx-3 my-2">
   <div class="mb-3">
-    <table class="table table-bordered text-center align-middle">
+    <table class="table table-bordered text-center align-middle mx-auto" style="width:99%">
       <thead class="table-light">
         <tr>
           <th style="width: 20%;">Time Start</th>
@@ -22,7 +22,7 @@ if (!isset($recordHeaderId)) {
         </tr>
       </thead>
       <tbody>
-        <tr>
+        <tr>x
           <td>
             <input type="text" class="form-control text-center time-start" placeholder="HH:mm" maxlength="5"
               pattern="[0-9]{2}:[0-9]{2}" id="timeStart<?= $recordHeaderId ?>" />

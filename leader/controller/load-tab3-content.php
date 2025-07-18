@@ -51,16 +51,63 @@ if ($recordId !== null) {
 
 <!-- Modal Body -->
 <div class="modal-body">
-  <table class="table table-bordered table-sm align-middle text-center">
-    <thead class="table-light">
+  <!-- Table directly inside modal-body, container removed -->
+  <style>
+    /* Sticky table header style from dor-tablet.php */
+    .sticky-table th {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: #f8f9fa;
+      /* Bootstrap table-light background */
+      border-bottom: 1px solid #dee2e6;
+      /* Add a box-shadow for extra separation if desired */
+      box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.04);
+    }
+
+    table.table {
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+
+    thead {
+      z-index: 10;
+    }
+
+    table tbody td {
+      border: 1px solid #dee2e6;
+      background: #fff;
+      position: relative;
+      border-bottom: 1px solid #dde2e6 !important;
+      z-index: 1;
+    }
+
+    table tbody tr:first-child td {
+      border-top: 1px solid #dee2e6;
+      border-bottom: 1px solid #dde2e6 !important;
+      z-index: 1;
+    }
+
+    /* Modal body should not scroll, let modal-dialog-scrollable handle overflow if needed */
+    .modal-body {
+      background: #fff;
+      padding: 0;
+      border-radius: 8px;
+    }
+
+    /* .table-container removed */
+  </style>
+
+  <table class="table table-bordered table-sm align-middle text-center m-2 mx-auto" style="width:auto;min-width:60%;max-width:90%;border-collapse:separate;border-spacing:0;background:white;">
+    <thead class="table-light sticky-table">
       <tr>
-        <th>#</th>
+        <th style="width: 5%;">#</th>
         <th style="width: 15%;">Box No.</th>
         <th style="width: 15%;">Start Time</th>
         <th style="width: 15%;">End Time</th>
         <th style="width: 10%;">Duration</th>
         <th>Downtime</th>
-        <th>*</th>
+        <th style="width: 5%;">*</th>
       </tr>
     </thead>
     <tbody>
@@ -139,7 +186,5 @@ if ($recordId !== null) {
         </tr>
       <?php endif; ?>
     </tbody>
-  </table>
-</div>
 
-<script src="../../js/bootstrap.bundle.min.js"></script>
+    <script src="../../js/bootstrap.bundle.min.js"></script>

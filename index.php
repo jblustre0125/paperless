@@ -40,6 +40,25 @@ if (empty($res) || !is_array($res) || !isset($res[0]) || !isset($res[0]["Hostnam
 $row = $res[0];
 error_log("IP registered. HostnameId: {$row['HostnameId']}, Hostname: {$row['Hostname']}, ProcessId: {$row['ProcessId']}, IpAddress: {$row['IpAddress']}");
 
+// Fetch from GenHostname: IsLeader=1 for this IP (regardless of IsLoggedIn)
+$leaderQuery = "SELECT TOP 1 * FROM GenHostname WHERE IpAddress = ? AND IsLeader = 1";
+$leaderRes = $db1->execute($leaderQuery, [$clientIp], 1);
+error_log('Leader query executed: ' . $leaderQuery . ' with IP=' . $clientIp);
+error_log('Leader query result: ' . print_r($leaderRes, true));
+if (is_array($leaderRes)) {
+    error_log('Leader query row count: ' . count($leaderRes));
+}
+if (!empty($leaderRes) && is_array($leaderRes) && isset($leaderRes[0])) {
+    $leaderRow = $leaderRes[0];
+    $_SESSION['hostnameId'] = $leaderRow['HostnameId'];
+    $_SESSION['hostname'] = $leaderRow['Hostname'];
+    $_SESSION['processId'] = $leaderRow['ProcessId'];
+    $_SESSION['ipAddress'] = $leaderRow['IpAddress'];
+    error_log("Leader device detected from direct query. Redirecting to dor-leader-login.php. HostnameId: {$leaderRow['HostnameId']}, Hostname: {$leaderRow['Hostname']}");
+    header("Location: leader/module/dor-leader-login.php");
+    exit;
+}
+
 // IP is registered - check if its deployed to line
 $query2 = "EXEC RdGenLine @HostnameId=?, @IsLoggedIn=?, @IsActive=?";
 $res2 = $db1->execute($query2, [$row["HostnameId"], 0, 1], 1);
