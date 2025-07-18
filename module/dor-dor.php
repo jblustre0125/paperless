@@ -15,42 +15,80 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
   if (isset($_POST['action']) && $_POST['action'] === 'get_row_status') {
     $recordId = $_SESSION['dorRecordId'] ?? 0;
     $boxNo = trim($_POST['boxNo'] ?? '');
-    $response = ['success' => false, 'operators' => [], 'downtimeBadges' => ''];
+    $response = ['success' => false, 'downtimeBadges' => '', 'downtimeRecords' => []];
     if ($recordId > 0 && $boxNo !== '') {
       // Find the header for this box number
       $headerRes = $db1->execute("SELECT RecordHeaderId FROM AtoDorHeader WHERE RecordId = ? AND BoxNumber = ?", [$recordId, $boxNo], 1);
       if (!empty($headerRes) && isset($headerRes[0]['RecordHeaderId'])) {
         $headerId = $headerRes[0]['RecordHeaderId'];
-        // Operators
-        $operatorCodes = [];
-        $detailRes = $db1->execute("SELECT OperatorCode1, OperatorCode2, OperatorCode3, OperatorCode4 FROM AtoDorDetail WHERE RecordHeaderId = ?", [$headerId], 1);
-        if (!empty($detailRes)) {
-          for ($j = 1; $j <= 4; $j++) {
-            $code = $detailRes[0]["OperatorCode$j"] ?? '';
-            if (!empty($code)) $operatorCodes[] = $code;
-          }
-        }
-        $response['operators'] = $operatorCodes;
-        // Downtime
-        $downtimeBadges = '';
-        $dtRes = $db1->execute("SELECT DowntimeId FROM AtoDorDetail WHERE RecordHeaderId = ? AND DowntimeId IS NOT NULL", [$headerId], 0); // 0: get all records
-        $response['debugDowntime'] = $dtRes; // Add debug output for JS console
+        // Downtime: get all downtime records for this header
+        $dtRes = $db1->execute("SELECT DowntimeId, TimeStart, TimeEnd, Duration FROM AtoDorDetail WHERE RecordHeaderId = ? AND DowntimeId IS NOT NULL", [$headerId], 0);
+        $downtimeRecords = [];
+        $badgeCodes = [];
         if (!empty($dtRes) && is_array($dtRes)) {
           foreach ($dtRes as $dtRow) {
             $downtimeId = $dtRow['DowntimeId'] ?? null;
+            $downtimeCode = '';
             if ($downtimeId) {
-              // Lookup DowntimeCode from GenDorDowntime
               $codeRes = $db1->execute("SELECT DowntimeCode FROM GenDorDowntime WHERE DowntimeId = ?", [$downtimeId], 1);
               if (!empty($codeRes) && isset($codeRes[0]['DowntimeCode'])) {
-                $badge = '<small class="badge bg-light border text-dark mx-1">';
-                $badge .= htmlspecialchars($codeRes[0]['DowntimeCode']);
-                $badge .= '</small>';
-                $downtimeBadges .= $badge;
+                $downtimeCode = $codeRes[0]['DowntimeCode'];
+                $badgeCodes[] = $downtimeCode;
               }
+            }
+            // Ensure timeStart and timeEnd are always strings
+            $timeStart = $dtRow['TimeStart'] ?? '';
+            $timeEnd = $dtRow['TimeEnd'] ?? '';
+            if ($timeStart instanceof DateTime) {
+              $timeStart = $timeStart->format('Y-m-d H:i:s');
+            } elseif (is_object($timeStart)) {
+              $timeStart = strval($timeStart);
+            }
+            if ($timeEnd instanceof DateTime) {
+              $timeEnd = $timeEnd->format('Y-m-d H:i:s');
+            } elseif (is_object($timeEnd)) {
+              $timeEnd = strval($timeEnd);
+            }
+            $downtimeRecords[] = [
+              'downtimeCode' => $downtimeCode,
+              'timeStart' => $timeStart,
+              'timeEnd' => $timeEnd,
+              'duration' => $dtRow['Duration'] ?? ''
+            ];
+          }
+        }
+        // Prepare badge HTML for all unique downtime codes
+        $badgeCodes = array_unique($badgeCodes);
+        $badgesHtml = '';
+        foreach ($badgeCodes as $code) {
+          if ($code !== '') {
+            $badgesHtml .= '<small class="badge bg-warning text-dark border mx-1">' . htmlspecialchars($code) . '</small>';
+          }
+        }
+        $response['downtimeBadges'] = $badgesHtml;
+        $response['downtimeRecords'] = $downtimeRecords;
+
+        // --- Operator badge AJAX update ---
+        // Get operator codes for this row
+        $operatorCodes = [];
+        $opRes = $db1->execute("SELECT OperatorCode1, OperatorCode2, OperatorCode3, OperatorCode4 FROM AtoDorDetail WHERE RecordHeaderId = ?", [$headerId], 1);
+        if (!empty($opRes[0])) {
+          for ($j = 1; $j <= 4; $j++) {
+            $code = $opRes[0]["OperatorCode$j"] ?? '';
+            if ($code !== '' && $code !== null) {
+              $operatorCodes[] = $code;
             }
           }
         }
-        $response['downtimeBadges'] = $downtimeBadges;
+        $operatorCodes = array_unique($operatorCodes);
+        $operatorBadgesHtml = '';
+        foreach ($operatorCodes as $code) {
+          if ($code !== '') {
+            $operatorBadgesHtml .= '<small class="badge bg-light text-dark border mx-1">' . htmlspecialchars($code) . '</small>';
+          }
+        }
+        $response['operatorBadges'] = $operatorBadgesHtml;
+
         $response['success'] = true;
       }
     }
@@ -1021,45 +1059,97 @@ try {
         .then(response => response.json())
         .then(data => {
           if (data.success) {
-            // Debug: log downtime SQL result to console
-            if (data.debugDowntime) {
-              console.log('Downtime SQL result for row', rowId, data.debugDowntime);
-            }
-            // Update operator badges
-            const operatorDiv = document.getElementById(`operatorList${rowId}`);
-            if (operatorDiv) {
-              operatorDiv.innerHTML = '';
-              data.operators.forEach(code => {
-                operatorDiv.innerHTML += `<small class='badge bg-light mx-1'>${code}</small>`;
-              });
-            }
-            // Update hidden input
-            const operatorsInput = document.getElementById(`operators${rowId}`);
-            if (operatorsInput) {
-              operatorsInput.value = data.operators.join(',');
-            }
-            // Update downtime badges
+            // Show downtime code badges outside modal (in table)
             const downtimeDiv = document.getElementById(`downtimeInfo${rowId}`);
             if (downtimeDiv) {
-              // If downtimeBadges is empty string, show 'No downtime'.
               if (typeof data.downtimeBadges === 'string' && data.downtimeBadges.trim() !== '') {
-                // Ensure all downtime badges use the same style as operator badges
-                // Replace <span> with <small> and add classes
-                let badgeHtml = data.downtimeBadges.replace(/<span([^>]*)class="([^"]*)"([^>]*)>(.*?)<\/span>/g,
-                  '<small class="badge bg-light text-dark border mx-1">$4</small>');
-                downtimeDiv.innerHTML = badgeHtml;
+                downtimeDiv.innerHTML = data.downtimeBadges;
               } else {
-                downtimeDiv.style.display = 'flex';
-                downtimeDiv.style.justifyContent = 'center';
-                downtimeDiv.style.alignItems = 'center';
                 downtimeDiv.innerHTML = '<small class="badge bg-light text-dark border mx-1">No downtime</small>';
               }
+            }
+            // Show operator badges outside modal (in table)
+            const operatorDiv = document.getElementById(`operatorList${rowId}`);
+            if (operatorDiv) {
+              if (typeof data.operatorBadges === 'string' && data.operatorBadges.trim() !== '') {
+                operatorDiv.innerHTML = data.operatorBadges;
+              } else {
+                operatorDiv.innerHTML = '<small class="badge bg-light text-dark border mx-1">No operator</small>';
+              }
+            }
+            // Attach click event to View Downtime button to show modal with details
+            const viewBtn = document.getElementById(`downtime${rowId}`);
+            if (viewBtn) {
+              viewBtn.onclick = function() {
+                // Fill modal with downtime details for this row
+                const modalEl = document.getElementById('downtimeModal');
+                if (!modalEl) return;
+                const modal = new bootstrap.Modal(modalEl);
+                document.getElementById('downtimeRowNumber').textContent = rowId;
+                document.getElementById('downtimeModalLotNumber').textContent = boxNo;
+                const recordsDiv = document.getElementById('currentDowntimeRecords');
+                if (recordsDiv) {
+                  if (Array.isArray(data.downtimeRecords) && data.downtimeRecords.length > 0) {
+                    let html = '';
+                    data.downtimeRecords.forEach(rec => {
+                      // Defensive: fallback for undefined/null
+                      const code = rec.downtimeCode !== undefined && rec.downtimeCode !== null ? rec.downtimeCode : '';
+                      let tStart = (rec.timeStart !== undefined && rec.timeStart !== null) ? String(rec.timeStart) : '';
+                      let tEnd = (rec.timeEnd !== undefined && rec.timeEnd !== null) ? String(rec.timeEnd) : '';
+                      // Try to extract HH:mm if full datetime
+                      if (tStart.length >= 16 && tStart.includes(':')) tStart = tStart.substring(11, 16);
+                      if (tEnd.length >= 16 && tEnd.includes(':')) tEnd = tEnd.substring(11, 16);
+                      if (tStart.length === 0) tStart = '--:--';
+                      if (tEnd.length === 0) tEnd = '--:--';
+                      let duration = (rec.duration !== undefined && rec.duration !== null && rec.duration !== '') ? rec.duration + ' min' : '--';
+                      html += `<div class="d-flex flex-wrap align-items-center mb-2 p-2 border rounded bg-light">
+                        <div class="d-flex align-items-center flex-wrap">
+                          <small class="badge bg-light text-dark border mx-1" style="min-width:60px;text-align:center;">${code}</small>
+                          <span class="mx-1">Start:</span>
+                          <input type="text" class="form-control form-control-sm mx-1" value="${tStart}" readonly style="width:80px;">
+                          <span class="mx-1">End:</span>
+                          <input type="text" class="form-control form-control-sm mx-1" value="${tEnd}" readonly style="width:80px;">
+                          <span class="mx-1">Duration:</span>
+                          <input type="text" class="form-control form-control-sm mx-1" value="${duration}" readonly style="width:70px;">
+                        </div>
+                      </div>`;
+                    });
+                    recordsDiv.innerHTML = html;
+                  } else {
+                    recordsDiv.innerHTML = '<p id="noDowntimeRecordsMsg" class="text-muted text-center mb-0">No downtime records added yet.</p>';
+                  }
+                }
+                // Re-enable modal buttons if they were disabled
+                const closeBtn = modalEl.querySelector('button[data-bs-dismiss="modal"]');
+                if (closeBtn) closeBtn.disabled = false;
+                const saveBtn = document.getElementById('saveDowntimeBtn');
+                if (saveBtn) saveBtn.disabled = false;
+                // Remove fade class to prevent stuck fade state
+                modalEl.classList.remove('fade');
+                // Remove any lingering modal-backdrop before showing
+                document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
+                // Remove modal-open class from body
+                document.body.classList.remove('modal-open');
+                document.body.style.overflow = '';
+                document.body.style.paddingRight = '';
+                // Add event to fully clean up modal state on close
+                modalEl.addEventListener('hidden.bs.modal', function handler() {
+                  modalEl.classList.remove('show');
+                  modalEl.classList.remove('fade');
+                  document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
+                  document.body.classList.remove('modal-open');
+                  document.body.style.overflow = '';
+                  document.body.style.paddingRight = '';
+                  modalEl.removeEventListener('hidden.bs.modal', handler);
+                });
+                modal.show();
+              };
             }
           }
         });
     }
 
-    // Poll every 5 seconds for each row with a box number
+    // Poll every 1 second for each row with a box number
     setInterval(() => {
       for (let i = 1; i <= 20; i++) {
         const boxNoInput = document.getElementById(`boxNo${i}`);
@@ -1067,7 +1157,33 @@ try {
           fetchRowStatus(i);
         }
       }
+      // After polling all rows, update the total downtime
+      setTimeout(updateTotalDowntime, 500); // Give AJAX a moment to update DOM
     }, 1000);
+
+    // Function to compute and update total downtime
+    function updateTotalDowntime() {
+      let totalDowntime = 0;
+      for (let i = 1; i <= 20; i++) {
+        const downtimeDiv = document.getElementById(`downtimeInfo${i}`);
+        if (downtimeDiv) {
+          // Count only real downtime badges (not placeholders or 'No downtime')
+          const badges = downtimeDiv.querySelectorAll('small.badge');
+          badges.forEach(badge => {
+            const text = badge.textContent.trim();
+            // Exclude placeholders and 'No downtime'
+            if (
+              !badge.classList.contains('placeholder-badge') &&
+              text !== '' &&
+              text.toLowerCase() !== 'no downtime'
+            ) {
+              totalDowntime++;
+            }
+          });
+        }
+      }
+      document.getElementById('totalDowntime').textContent = totalDowntime;
+    }
     let errorModalInstance = null;
     let errorModalIsOpen = false;
 
