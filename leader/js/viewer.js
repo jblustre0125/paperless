@@ -7,6 +7,59 @@ function debounce(func, delay = 50) {
 }
 
 class DocumentViewer {
+  enableCanvasDragging() {
+    if (!this.targetElement) return;
+    const canvas = this.targetElement;
+    let isDragging = false;
+    let startX = 0,
+      startY = 0,
+      scrollLeft = 0,
+      scrollTop = 0;
+    const content = this.content;
+
+    // Mouse events
+    canvas.onmousedown = (e) => {
+      isDragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      scrollLeft = content.scrollLeft;
+      scrollTop = content.scrollTop;
+      canvas.style.cursor = "grabbing";
+      document.body.style.userSelect = "none";
+    };
+    window.onmousemove = (e) => {
+      if (!isDragging) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      content.scrollLeft = scrollLeft - dx;
+      content.scrollTop = scrollTop - dy;
+    };
+    window.onmouseup = () => {
+      isDragging = false;
+      canvas.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+
+    // Touch events
+    canvas.ontouchstart = (e) => {
+      if (e.touches.length !== 1) return;
+      isDragging = true;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      scrollLeft = content.scrollLeft;
+      scrollTop = content.scrollTop;
+    };
+    canvas.ontouchmove = (e) => {
+      if (!isDragging || e.touches.length !== 1) return;
+      const dx = e.touches[0].clientX - startX;
+      const dy = e.touches[0].clientY - startY;
+      content.scrollLeft = scrollLeft - dx;
+      content.scrollTop = scrollTop - dy;
+    };
+    canvas.ontouchend = () => {
+      isDragging = false;
+    };
+  }
   static activeViewers = {};
   static lastViewerState = null;
 
@@ -335,8 +388,11 @@ class DocumentViewer {
   }
 
   loadFile() {
-    if (this.isPDF) return this.loadPDF();
-    this.loadImage();
+    if (this.isPDF) {
+      this.loadPDF();
+    } else {
+      this.loadImage();
+    }
   }
 
   loadImage() {
@@ -345,13 +401,37 @@ class DocumentViewer {
     Object.assign(img.style, {
       maxWidth: "100%",
       maxHeight: "100%",
-      transform: `scale(${this.scale})`,
+      display: "block",
+      margin: "auto",
       transition: "transform 0.2s ease-out",
-      transformOrigin: "center top",
+      transformOrigin: "center center",
     });
+    // Fit logic as a function so we can call it on load and on resize
+    const fitImage = () => {
+      if (!img.naturalWidth || !img.naturalHeight) return;
+      const contentW = this.content.clientWidth;
+      const contentH = this.content.clientHeight;
+      const scaleW = contentW / img.naturalWidth;
+      const scaleH = contentH / img.naturalHeight;
+      this.scale = Math.min(scaleW, scaleH, 1);
+      img.style.transform = `scale(${this.scale})`;
+    };
+    img.onload = fitImage;
+    // Observe content area for resize to auto-fit image
+    this._imageResizeObserver?.disconnect();
+    this._imageResizeObserver = new ResizeObserver(fitImage);
+    this._imageResizeObserver.observe(this.content);
     this.targetElement = img;
+    this.content.innerHTML = "";
     this.content.appendChild(img);
     this.addZoomListeners();
+    // Add fit button support for images
+    if (this.toolbar) {
+      const fitBtn = this.toolbar.querySelector("#fitZoom");
+      if (fitBtn) {
+        fitBtn.onclick = fitImage;
+      }
+    }
   }
 
   loadPDF() {
@@ -360,8 +440,14 @@ class DocumentViewer {
     pdfjsLib.getDocument(this.fileUrl).promise.then((pdf) => {
       this.pdfDoc = pdf;
       this.currentPage = 1;
-      this.renderPDF();
-      new ResizeObserver(() => this.renderPDF()).observe(this.content);
+      // Fit PDF to content area on open (using first page)
+      this.fitPDFToCurrentPage();
+      // Observe content area for resize to auto-fit PDF
+      this._pdfResizeObserver?.disconnect();
+      this._pdfResizeObserver = new ResizeObserver(() => {
+        this.fitPDFToCurrentPage();
+      });
+      this._pdfResizeObserver.observe(this.content);
 
       const t = this.toolbar;
       t.querySelector("#zoomOut").onclick = () =>
@@ -370,19 +456,18 @@ class DocumentViewer {
         this.applyZoom(this.scale + 0.1);
       t.querySelector("#resetZoom").onclick = () => this.applyZoom(1);
       t.querySelector("#fitZoom").onclick = () => {
-        this.scale = 1;
-        this.renderPDF();
+        this.fitPDFToCurrentPage();
       };
       t.querySelector("#prevPage").onclick = () => {
         if (this.currentPage > 1) {
           this.currentPage--;
-          this.renderPDF();
+          this.fitPDFToCurrentPage();
         }
       };
       t.querySelector("#nextPage").onclick = () => {
         if (this.currentPage < pdf.numPages) {
           this.currentPage++;
-          this.renderPDF();
+          this.fitPDFToCurrentPage();
         }
       };
       t.querySelector("#downloadFile").onclick = () => {
@@ -393,6 +478,43 @@ class DocumentViewer {
       };
       this.addZoomListeners();
     });
+  }
+
+  fitPDFToCurrentPage() {
+    if (!this.pdfDoc) return;
+    this.pdfDoc.getPage(this.currentPage).then((page) => {
+      const viewport = page.getViewport({ scale: 1 });
+      this._pdfBaseWidth = viewport.width;
+      this._pdfBaseHeight = viewport.height;
+
+      // Adjust viewer size to match PDF aspect ratio and maximize in window
+      const margin = 40;
+      const maxW = window.innerWidth - margin;
+      const maxH = window.innerHeight - margin;
+      const pdfAspect = viewport.width / viewport.height;
+      let viewerW = maxW;
+      let viewerH = Math.round(viewerW / pdfAspect);
+      if (viewerH > maxH) {
+        viewerH = maxH;
+        viewerW = Math.round(viewerH * pdfAspect);
+      }
+      this.viewer.style.width = `${viewerW}px`;
+      this.viewer.style.height = `${viewerH}px`;
+
+      this.scale = this.getFitScaleForPDF();
+      this.renderPDF();
+    });
+  }
+
+  getFitScaleForPDF() {
+    // Always fit the PDF page fully inside the content area (contain, not cover)
+    if (!this.pdfDoc || !this.content) return 1;
+    const baseW = this._pdfBaseWidth || 595;
+    const baseH = this._pdfBaseHeight || 842;
+    const contentW = this.content.clientWidth;
+    const contentH = this.content.clientHeight;
+    // Use the smaller scale so the PDF fits entirely (like background-size: contain)
+    return Math.min(contentW / baseW, contentH / baseH);
   }
 
   addZoomListeners() {
@@ -411,25 +533,69 @@ class DocumentViewer {
     if (this.renderTask) this.renderTask.cancel();
     this.pdfDoc.getPage(this.currentPage).then((page) => {
       const base = page.getViewport({ scale: 1 });
-      const fit = Math.min(
-        this.content.clientWidth / base.width,
-        this.content.clientHeight / base.height
-      );
-      const viewport = page.getViewport({ scale: fit * this.scale });
+      this._pdfBaseWidth = base.width;
+      this._pdfBaseHeight = base.height;
+      // Always fit the content area (contain)
+      const contentW = this.content.clientWidth;
+      const contentH = this.content.clientHeight;
+      const scale = this.getFitScaleForPDF();
+      const viewport = page.getViewport({ scale });
       let canvas = this.targetElement || document.createElement("canvas");
-      Object.assign(canvas, { width: viewport.width, height: viewport.height });
+      // Set canvas to content area size and center it using flex
+      Object.assign(canvas, { width: contentW, height: contentH });
+      canvas.style.display = "block";
+      canvas.style.margin = "0 auto";
+      canvas.style.background = "#fff";
+      canvas.style.position = "static";
+      canvas.style.width = "100%";
+      canvas.style.height = "100%";
+      this.content.style.position = "relative";
+      this.content.style.display = "flex";
+      this.content.style.alignItems = "center";
+      this.content.style.justifyContent = "center";
+      this.content.style.overflow = "hidden";
       if (!this.targetElement) {
         this.content.innerHTML = "";
         this.content.appendChild(canvas);
         this.targetElement = canvas;
       }
-      this.renderTask = page.render({
-        canvasContext: canvas.getContext("2d"),
+      // Render PDF page to an offscreen canvas, then draw centered in visible canvas
+      const offCanvas = document.createElement("canvas");
+      offCanvas.width = viewport.width;
+      offCanvas.height = viewport.height;
+      const renderTask = page.render({
+        canvasContext: offCanvas.getContext("2d"),
         viewport,
       });
-      this.renderTask.promise.catch((err) => {
-        if (err.name !== "RenderingCancelledException") console.error(err);
-      });
+      renderTask.promise
+        .then(() => {
+          // Draw the PDF page scaled to fit and centered in the canvas
+          const ctx = canvas.getContext("2d");
+          ctx.clearRect(0, 0, contentW, contentH);
+          // Calculate scale to fit (contain) and center
+          const scaleW = contentW / offCanvas.width;
+          const scaleH = contentH / offCanvas.height;
+          const fitScale = Math.min(scaleW, scaleH);
+          const drawW = offCanvas.width * fitScale;
+          const drawH = offCanvas.height * fitScale;
+          const dx = Math.floor((contentW - drawW) / 2);
+          const dy = Math.floor((contentH - drawH) / 2);
+          ctx.drawImage(
+            offCanvas,
+            0,
+            0,
+            offCanvas.width,
+            offCanvas.height,
+            dx,
+            dy,
+            drawW,
+            drawH
+          );
+        })
+        .catch((err) => {
+          if (err.name !== "RenderingCancelledException") console.error(err);
+        });
+      this.renderTask = renderTask;
       this.toolbar.querySelector(
         "#pageInfo"
       ).innerText = `Page ${this.currentPage} / ${this.pdfDoc.numPages}`;

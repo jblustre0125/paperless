@@ -92,29 +92,37 @@ if (
             $_SESSION["hostname"] = "ATO1"; // Default for testing
         }
 
-        // Determine lineId and dorTypeId based on hostname
+        // Get the correct LineId and DorTypeId for the selected model and hostname
         $hostnameId = $_SESSION["hostnameId"] ?? 1;
-        // Look up the line in GenLine table using hostnameId (assumed to be LineId)
-        $selLineQry = "SELECT LineId, DorTypeId FROM GenLine WHERE LineId = ?";
-        $lineRes = $db1->execute($selLineQry, [$hostnameId], 1);
-        if ($lineRes !== false && !empty($lineRes)) {
-            foreach ($lineRes as $lineRow) {
-                $lineId = $lineRow['LineId'];
-                $dorTypeId = $lineRow['DorTypeId'];
-                break;
+        $modelId = 0;
+        // Get model information (get ModelId and LineId from GenModel)
+        $selModelQry = "SELECT MODEL_ID, LINE_ID FROM GenModel WHERE ITEM_ID = ? AND IsActive = 1";
+        $modelRes = $db1->execute($selModelQry, [$modelName], 1);
+        if ($modelRes !== false && !empty($modelRes)) {
+            $modelId = $modelRes[0]['MODEL_ID'];
+            $lineId = $modelRes[0]['LINE_ID'];
+        }
+        // If not found, fallback to previous logic
+        if ($modelId === 0 || $lineId === 0) {
+            // Fallback: try to get lineId from hostnameId
+            $selLineQry = "SELECT LineId, DorTypeId FROM GenLine WHERE LineId = ?";
+            $lineRes = $db1->execute($selLineQry, [$hostnameId], 1);
+            if ($lineRes !== false && !empty($lineRes)) {
+                $lineId = $lineRes[0]['LineId'];
+            } else {
+                $lineId = 1;
             }
+        }
+        // Now get DorTypeId from GenLine
+        $selDorTypeQry = "SELECT DorTypeId FROM GenLine WHERE LineId = ?";
+        $dorTypeRes = $db1->execute($selDorTypeQry, [$lineId], 1);
+        if ($dorTypeRes !== false && !empty($dorTypeRes)) {
+            $dorTypeId = $dorTypeRes[0]['DorTypeId'];
         } else {
-            error_log("GenLine lookup failed for hostnameId: $hostnameId");
+            $dorTypeId = 1;
         }
-        // Fallback if line lookup failed
-        if ($lineId === 0 || $dorTypeId === 0) {
-            $lineId = 1;     // Default to first line
-            $dorTypeId = 1;  // Default to first DOR type
-            error_log("Fallback to default lineId and dorTypeId for hostnameId: $hostnameId");
-        }
-
         // Debug output (you can remove this in production)
-        error_log("Debug Info - HostnameId: $hostnameId, LineId: $lineId, DorTypeId: $dorTypeId");
+        error_log("Debug Info - HostnameId: $hostnameId, ModelId: $modelId, LineId: $lineId, DorTypeId: $dorTypeId");
 
         // Get shift information
         $selQry = "EXEC RdGenShift @ShiftCode=?";
