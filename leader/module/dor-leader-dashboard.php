@@ -5,32 +5,12 @@
     header("Pragma: no-cache");
     header("Expires: Sat, 26 Jul 1997 05:00:00 GMT"); // Date in the past
 
-
-    if (session_status() !== PHP_SESSION_ACTIVE) {
-        session_set_cookie_params([
-            'lifetime' => 0,
-            'path' => '/',
-            'domain' => $_SERVER['HTTP_HOST'],
-            'secure' => isset($_SERVER['HTTPS']),
-            'httponly' => true,
-            'samesite' => 'Strict'
-        ]);
-        session_start();
-
-        // Regenerate session ID periodically for security
-        if (!isset($_SESSION['created'])) {
-            $_SESSION['created'] = time();
-        } else if (time() - $_SESSION['created'] > 1800) {
-            session_regenerate_id(true);
-            $_SESSION['created'] = time();
-        }
-    }
+    // Simple session start - same as login controller
+    session_start();
 
     require_once __DIR__ . "/../../config/header.php";
     require_once __DIR__ . "/../../config/dbop.php";
     require_once "../controller/dor-leader-method.php";
-
-
 
     $title = "Leader Dashboard";
     $method = new Method(1);
@@ -41,7 +21,6 @@
     $hostnames = $method->getOnlineTablets($currentTabletId);
 
     $productionCode = $_SESSION['production_code'] ?? null;
-
 
     if (empty($_SESSION['user_id']) || empty($_SESSION['production_code'])) {
         header('Location: dor-leader-login.php');
@@ -57,6 +36,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title><?= $title ?></title>
         <link rel="stylesheet" href="../../css/bootstrap.min.css">
+        <link rel="icon" type="image/png" href="../../img/dor-1024.png">
         <link href="../css/leader-dashboard.css" rel="stylesheet">
     </head>
 
@@ -71,7 +51,27 @@
                 <div class="collapse navbar-collapse" id="navbarNav">
                     <ul class="navbar-nav me-auto">
                         <li class="nav-item">
-                            <a class="nav-link active fs-5" href="dor-home.php">DOR System</a>
+                            <a class="nav-link active fs-5" href="../../leader/module/dor-leader-dashboard.php">DOR System</a>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle fs-5" href="#" id="masterDataDropdown" role="button"
+                                data-bs-toggle="dropdown" aria-expanded="false">
+                                Master Data
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="../../leader/module/dor-model.php">
+                                        <i class="bi bi-diagram-3"></i> Model
+                                    </a></li>
+                                <li><a class="dropdown-item" href="../../leader/module/dor-user.php">
+                                        <i class="bi bi-person"></i> User
+                                    </a></li>
+                                <li><a class="dropdown-item" href="../../leader/module/dor-line.php">
+                                        <i class="bi bi-tablet"></i> Line
+                                    </a></li>
+                                <li><a class="dropdown-item" href="../../leader/module/dor-tablet-management.php">
+                                        <i class="bi bi-tablet"></i> Tablet
+                                    </a></li>
+                            </ul>
                         </li>
                     </ul>
 
@@ -82,19 +82,18 @@
                             // Get current tablet info
                             $currentTablet = isset($_SESSION['hostnameId']) ? $method->getCurrentTablet($_SESSION['hostnameId']) : null;
                             $tabletName = $currentTablet ? htmlspecialchars($currentTablet['Hostname']) : 'Tablet Name';
-                            $isActive = $currentTablet ? $currentTablet['IsActive'] : false;
-                            $statusClass = $isActive ? 'text-success' : 'text-warning';
                             ?>
-                            <a class="nav-link dropdown-toggle <?= $statusClass ?> fw-bold" href="#" id="deviceDropdown" role="button"
+                            <a class="nav-link dropdown-toggle fw-bold" href="#" id="deviceDropdown" role="button"
                                 data-bs-toggle="dropdown" aria-expanded="false">
                                 <i class="bi bi-tablet"></i> <?= $tabletName ?>
-                                <span class="badge <?= $isActive ? 'bg-success' : 'bg-secondary' ?> ms-2">
-                                    <?= $isActive ? 'Active' : 'Inactive' ?>
-                                </span>
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end">
-                                <li><a class="dropdown-item text-danger fw-bold" href="dor-leader-login.php">
+                                <li><a class="dropdown-item text-danger fw-bold" href="../controller/dor-leader-logout.php" onclick="exitApplication(event)">
                                         <i class="bi bi-box-arrow-right"></i> Exit Application
+                                    </a>
+                                </li>
+                                <li><a class="dropdown-item text-danger fw-bold" href="../controller/dor-leader-logout.php">
+                                        <i class="bi bi-box-arrow-right"></i> Log Out
                                     </a></li>
                             </ul>
                         </li>
@@ -104,34 +103,8 @@
         </nav>
         <script src="../../js/bootstrap.bundle.min.js"></script>
         <div class="container mt-5">
-            <!-- Current User Tablet (Displayed separately) -->
-            <div class="row mb-4">
-                <div class="col-12">
-                    <div class="card bg-primary text-white">
-                        <div class="card-body">
-                            <div class="d-flex align-items-center">
-                                <i class="bi bi-tablet-fill fs-1 me-3"></i>
-                                <div>
-                                    <h5 class="card-title mb-1">Your Tablet</h5>
-                                    <p class="card-text mb-0">
-                                        <?php if (isset($_SESSION['is_leader']) || isset($_SESSION['is_sr_leader'])): ?>
-                                            <span class="badge bg-light text-dark me-2">
-                                                <?= $_SESSION['is_sr_leader'] ? 'SR Leader' : 'Leader' ?>
-                                            </span>
-                                        <?php endif; ?>
-                                        <span class="badge bg-success">
-                                            <?= isset($currentTablet['Hostname']) ? htmlspecialchars($currentTablet['Hostname']) : 'Unknown Tablet' ?>
-                                        </span>
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Other Online Tablets -->
-            <h4 class="mb-3">Operator Tablets</h4>
+            <!-- Running Lines -->
+            <h4 class="mb-3">Running Lines</h4>
             <div id="tablet-list">
                 <div class="row row-cols-2 row-cols-md-4 row-cols-lg-6 g-3">
                     <?php if (!empty($hostnames)): ?>
@@ -145,9 +118,6 @@
                                         data-record-id="<?= $row['RecordId'] ?? 'new' ?>">
                                         <i class="bi bi-tablet text-success fs-3 mb-2"></i>
                                         <h6 class="card-title mb-1"><?= htmlspecialchars($row['Hostname']) ?></h6>
-                                        <span class="badge bg-secondary">
-                                            <?= $row['IsActive'] ? 'Active' : 'Inactive' ?>
-                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -155,7 +125,7 @@
                     <?php else: ?>
                         <div class="col-12">
                             <div class="alert alert-info text-center">
-                                <i class="bi bi-info-circle me-2"></i> No other tablets are currently online
+                                <i class="bi bi-info-circle me-2"></i> No running lines
                             </div>
                         </div>
                     <?php endif; ?>
@@ -165,23 +135,70 @@
         </div>
 
         <script>
-            function loadTabletList(){
+            function loadTabletList() {
                 fetch('../ajax/dor-load-tablet.php')
-                .then(response => {
-                    if(!response.ok) throw new Error('Network Error.');
-                    return response.text();
-                })
-                .then(html => {
-                    document.getElementById('tablet-list').innerHTML = html;
-                })
-                .catch(err => {
-                    console.error("Failed to lo;ad tablets:", err)
-                });
+                    .then(response => {
+                        if (!response.ok) throw new Error('Network Error.');
+                        return response.text();
+                    })
+                    .then(html => {
+                        document.getElementById('tablet-list').innerHTML = html;
+                    })
+                    .catch(err => {
+                        console.error("Failed to load tablets:", err)
+                    });
             }
 
             loadTabletList();
 
             setInterval(loadTabletList, 3000);
+
+            function exitApplication(event) {
+                event.preventDefault();
+
+                // Show confirmation dialog
+                if (confirm('Are you sure you want to exit the application?')) {
+                    // Update database logout status
+                    fetch('../controller/dor-leader-logout.php?exit=1')
+                        .then(response => {
+                            // Try to exit the Android app
+                            try {
+                                if (window.AndroidApp && typeof window.AndroidApp.exitApp === 'function') {
+                                    window.AndroidApp.exitApp();
+                                } else if (window.Android && typeof window.Android.exitApp === 'function') {
+                                    window.Android.exitApp();
+                                } else {
+                                    // Fallback: close window or show manual close message
+                                    window.close();
+                                    if (!window.closed) {
+                                        alert('Please close this application manually.');
+                                    }
+                                }
+                            } catch (e) {
+                                console.error('Error exiting app:', e);
+                                alert('Please close this application manually.');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error updating logout status:', error);
+                            // Still try to exit the app even if database update fails
+                            try {
+                                if (window.AndroidApp && typeof window.AndroidApp.exitApp === 'function') {
+                                    window.AndroidApp.exitApp();
+                                } else if (window.Android && typeof window.Android.exitApp === 'function') {
+                                    window.Android.exitApp();
+                                } else {
+                                    window.close();
+                                    if (!window.closed) {
+                                        alert('Please close this application manually.');
+                                    }
+                                }
+                            } catch (e) {
+                                alert('Please close this application manually.');
+                            }
+                        });
+                }
+            }
         </script>
     </body>
 

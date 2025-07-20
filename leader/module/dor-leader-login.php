@@ -11,7 +11,7 @@ unset($_SESSION['login_error']); // Clear after showing
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>DOR Leader Login</title>
-    <link rel="icon" type="image/png" href="../img/dor-1024.png">
+    <link rel="icon" type="image/png" href="../../img/dor-1024.png">
     <link rel="stylesheet" href="../../css/bootstrap.min.css" />
     <link rel="stylesheet" href="../../css/index.css" />
     <link rel="manifest" href="../../manifest.json">
@@ -29,14 +29,17 @@ unset($_SESSION['login_error']); // Clear after showing
             <div class="card-body">
                 <form id="myForm" method="POST" action="../controller/dor-leader-login.php">
                     <div class="mb-4">
-                        <label for="codeInput" class="form-label">Employee ID</label>
-
-                        <input type="text" name="production_code" id="codeInput" class="form-control py-2 mb-3" placeholder="Enter your Production Code">
-
-                        <button type="button" class="btn btn-outline-secondary" id="scanToggleBtn">Scan ID</button>
+                        <label for="codeInput" class="form-label">Production Code</label>
+                        <div class="input-group">
+                            <input type="text" name="production_code" id="codeInput" class="form-control py-2" placeholder="Enter your production code" required>
+                            <button type="button" class="btn btn-outline-secondary" id="scanToggleBtn">
+                                <i class="bi bi-upc-scan"></i> Scan
+                            </button>
+                        </div>
                     </div>
                     <div class="d-grid gap-2">
                         <button type="submit" class="btn btn-primary btn-lg" name="btnLogin" id="btnLogin">Login</button>
+                        <button type="button" class="btn btn-danger btn-lg" onclick="exitApplication()">Exit Application</button>
                     </div>
                 </form>
 
@@ -58,7 +61,7 @@ unset($_SESSION['login_error']); // Clear after showing
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Scan Employee ID</h5>
+                    <h5 class="modal-title">Scan SA Code</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body text-center">
@@ -78,12 +81,20 @@ unset($_SESSION['login_error']); // Clear after showing
             const scannerModal = new bootstrap.Modal(document.getElementById("qrScannerModal"));
             const video = document.getElementById("qr-video");
             const canvas = document.createElement("canvas");
-            const ctx = canvas.getContext("2d", { willReadFrequently: true });
+            const ctx = canvas.getContext("2d", {
+                willReadFrequently: true
+            });
             let scanning = false;
             let activeInput = null;
 
             function getCameraConstraints() {
-                return { video: { facingMode: { ideal: "environment" } } };
+                return {
+                    video: {
+                        facingMode: {
+                            ideal: "environment"
+                        }
+                    }
+                };
             }
 
             function startScanning() {
@@ -91,7 +102,11 @@ unset($_SESSION['login_error']); // Clear after showing
                 navigator.mediaDevices.getUserMedia(getCameraConstraints())
                     .then(setupVideoStream)
                     .catch(() => {
-                        navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+                        navigator.mediaDevices.getUserMedia({
+                                video: {
+                                    facingMode: "user"
+                                }
+                            })
                             .then(setupVideoStream)
                             .catch(() => alert("Camera access denied or not available."));
                     });
@@ -141,7 +156,9 @@ unset($_SESSION['login_error']); // Clear after showing
             }
 
             document.getElementById("scanToggleBtn").addEventListener("click", async () => {
-                const granted = await navigator.mediaDevices.getUserMedia({ video: true })
+                const granted = await navigator.mediaDevices.getUserMedia({
+                        video: true
+                    })
                     .then(stream => {
                         stream.getTracks().forEach(track => track.stop());
                         return true;
@@ -163,6 +180,48 @@ unset($_SESSION['login_error']); // Clear after showing
 
             document.getElementById("qrScannerModal").addEventListener("hidden.bs.modal", stopScanning);
         });
+
+        function exitApplication() {
+            // First update database logout status
+            fetch('../controller/dor-leader-logout.php?exit=1')
+                .then(response => {
+                    // Try to exit the Android app
+                    try {
+                        if (window.AndroidApp && typeof window.AndroidApp.exitApp === 'function') {
+                            window.AndroidApp.exitApp();
+                        } else if (window.Android && typeof window.Android.exitApp === 'function') {
+                            window.Android.exitApp();
+                        } else {
+                            // Fallback: close window or show manual close message
+                            window.close();
+                            if (!window.closed) {
+                                alert('Please close this application manually.');
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Error exiting app:', e);
+                        alert('Please close this application manually.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error updating logout status:', error);
+                    // Still try to exit the app even if database update fails
+                    try {
+                        if (window.AndroidApp && typeof window.AndroidApp.exitApp === 'function') {
+                            window.AndroidApp.exitApp();
+                        } else if (window.Android && typeof window.Android.exitApp === 'function') {
+                            window.Android.exitApp();
+                        } else {
+                            window.close();
+                            if (!window.closed) {
+                                alert('Please close this application manually.');
+                            }
+                        }
+                    } catch (e) {
+                        alert('Please close this application manually.');
+                    }
+                });
+        }
     </script>
 </body>
 

@@ -10,11 +10,117 @@ $db1 = new DbOp(1);
 
 $errorPrompt = '';
 
+// --- BEGIN: Ensure dorRecordId is always set like leader view ---
+if (!isset($_SESSION['dorRecordId']) || $_SESSION['dorRecordId'] <= 0) {
+  $hostnameId = $_SESSION['hostnameId'] ?? null;
+
+  if ($hostnameId) {
+    $sql = "SELECT TOP 1 RecordId FROM AtoDor WHERE HostnameId = ? ORDER BY RecordId DESC";
+    $result = $db1->execute($sql, [$hostnameId], 1);
+    if (!empty($result)) {
+      $_SESSION['dorRecordId'] = $result[0]['RecordId'];
+    }
+  }
+}
+// --- END: Ensure dorRecordId is always set ---
+
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
   ob_end_clean();
   header('Content-Type: application/json; charset=utf-8');
 
   $response = ['success' => false, 'errors' => []];
+
+  // Handle load existing data request - MUST BE FIRST
+  if (isset($_POST['action']) && $_POST['action'] === 'load_existing_data') {
+    // Clear ALL output buffers and set headers
+    while (ob_get_level()) {
+      ob_end_clean();
+    }
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-cache, must-revalidate');
+
+    $response = ['success' => false, 'errors' => []];
+    $recordId = $_SESSION['dorRecordId'] ?? 0;
+
+    if ($recordId <= 0) {
+      $response['success'] = false;
+      $response['errors'][] = "Invalid record ID: " . $recordId;
+      echo json_encode($response);
+      exit;
+    }
+
+    try {
+      // Get all header records for this DOR
+      $getHeadersSp = "SELECT RecordHeaderId, BoxNumber, TimeStart, TimeEnd, Duration FROM AtoDorHeader WHERE RecordId = ? ORDER BY RecordHeaderId ASC";
+      $headers = $db1->execute($getHeadersSp, [$recordId], 1);
+
+      $existingData = [];
+
+      foreach ($headers as $header) {
+        $headerId = $header['RecordHeaderId'];
+        $boxNo = $header['BoxNumber'];
+
+        // Get detail record for operators
+        $getDetailSp = "SELECT OperatorCode1, OperatorCode2, OperatorCode3, OperatorCode4 FROM AtoDorDetail WHERE RecordHeaderId = ?";
+        $detail = $db1->execute($getDetailSp, [$headerId], 1);
+
+        $operators = [];
+        if (!empty($detail)) {
+          $detailRow = $detail[0];
+          $operators = array_filter([
+            $detailRow['OperatorCode1'] ?? null,
+            $detailRow['OperatorCode2'] ?? null,
+            $detailRow['OperatorCode3'] ?? null,
+            $detailRow['OperatorCode4'] ?? null
+          ]);
+        }
+
+        // Format time for display (convert datetime to HH:mm)
+        $timeStart = '';
+        $timeEnd = '';
+        if (!empty($header['TimeStart'])) {
+          // Handle both string and DateTime objects
+          if (is_string($header['TimeStart'])) {
+            $timeStart = date('H:i', strtotime($header['TimeStart']));
+          } elseif ($header['TimeStart'] instanceof DateTime) {
+            $timeStart = $header['TimeStart']->format('H:i');
+          } else {
+            $timeStart = date('H:i', strtotime($header['TimeStart']->format('Y-m-d H:i:s')));
+          }
+        }
+        if (!empty($header['TimeEnd'])) {
+          // Handle both string and DateTime objects
+          if (is_string($header['TimeEnd'])) {
+            $timeEnd = date('H:i', strtotime($header['TimeEnd']));
+          } elseif ($header['TimeEnd'] instanceof DateTime) {
+            $timeEnd = $header['TimeEnd']->format('H:i');
+          } else {
+            $timeEnd = date('H:i', strtotime($header['TimeEnd']->format('Y-m-d H:i:s')));
+          }
+        }
+
+        $existingData[] = [
+          'boxNo' => $boxNo,
+          'timeStart' => $timeStart,
+          'timeEnd' => $timeEnd,
+          'duration' => $header['Duration'] ?? 0,
+          'operators' => implode(',', $operators)
+        ];
+      }
+
+      $response['success'] = true;
+      $response['data'] = $existingData;
+    } catch (Exception $e) {
+      $response['success'] = false;
+      $response['errors'][] = "Database error: " . $e->getMessage();
+    } catch (Error $e) {
+      $response['success'] = false;
+      $response['errors'][] = "Fatal error: " . $e->getMessage();
+    }
+
+    echo json_encode($response);
+    exit;
+  }
 
   // Handle operator validation request
   if (isset($_POST['action']) && $_POST['action'] === 'validate_operator') {
@@ -22,25 +128,24 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     if (empty($productionCode)) {
       $response['valid'] = false;
-      $response['message'] = 'Employee ID is required.';
+      $response['message'] = 'Production code is required.';
     } else {
       $spRd1 = "EXEC RdGenOperator @ProductionCode=?, @IsActive=1, @IsLoggedIn=0";
       $res1 = $db1->execute($spRd1, [$productionCode], 1);
 
       if (!empty($res1)) {
         $response['valid'] = true;
-        $response['message'] = 'Employee ID is valid.';
+        // Removed success message
         $response['employeeName'] = $res1[0]['EmployeeName'] ?? '';
       } else {
         $response['valid'] = false;
-        $response['message'] = 'Invalid employee ID.';
+        $response['message'] = 'Invalid production code.';
       }
     }
 
     echo json_encode($response);
     exit;
   }
-
 
   // Handle delete row request
   if (isset($_POST['action']) && $_POST['action'] === 'delete_row') {
@@ -80,7 +185,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         if ($headerResult !== false) {
           $response['success'] = true;
-          $response['message'] = "Row {$rowId} deleted successfully.";
+          // Removed success message
         } else {
           $response['success'] = false;
           $response['errors'][] = "Failed to delete row {$rowId}.";
@@ -136,7 +241,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         if ($headerResult !== false) {
           $response['success'] = true;
-          $response['message'] = "Row {$rowId} cleared successfully.";
+          // Removed success message
         } else {
           $response['success'] = false;
           $response['errors'][] = "Failed to clear row {$rowId}.";
@@ -209,7 +314,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         if ($headerResult !== false) {
           $response['success'] = true;
-          $response['message'] = "Row {$rowId} updated successfully.";
+          // Removed success message
         } else {
           $response['success'] = false;
           $response['errors'][] = "Failed to update row {$rowId}.";
@@ -401,7 +506,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
       }
 
       $response['success'] = true;
-      $response['message'] = "Row {$rowId} saved successfully.";
+      // Removed success message
       $response['headerId'] = $headerId;
     } catch (Exception $e) {
       $response['success'] = false;
@@ -413,275 +518,290 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
   }
 
   // Regular form submit handler (btnProceed) - now just syncs data
-  if (empty($response['errors'])) {
-    if (isset($_POST['btnProceed'])) {
-      $recordId = $_SESSION['dorRecordId'] ?? 0;
+  if (isset($_POST['btnProceed'])) {
+    // Debug: Log that btnProceed was detected
+    error_log("btnProceed detected in POST data");
 
-      // Debug: Log all POST data
-      error_log("POST data received: " . print_r($_POST, true));
+    // Temporary test response
+    $response['success'] = true;
+    $response['redirectUrl'] = "dor-home.php";
+    $response['test'] = "btnProceed handler reached successfully";
+    echo json_encode($response);
+    exit;
 
-      // Debug: Check for time-related fields
-      $timeFields = [];
-      foreach ($_POST as $key => $value) {
-        if (strpos($key, 'time') !== false || strpos($key, 'Time') !== false) {
-          $timeFields[$key] = $value;
-        }
+    $recordId = $_SESSION['dorRecordId'] ?? 0;
+
+    // Debug: Log all POST data
+    error_log("POST data received: " . print_r($_POST, true));
+
+    // Debug: Check for time-related fields
+    $timeFields = [];
+    foreach ($_POST as $key => $value) {
+      if (strpos($key, 'time') !== false || strpos($key, 'Time') !== false) {
+        $timeFields[$key] = $value;
       }
-      error_log("Time-related fields found: " . print_r($timeFields, true));
+    }
+    error_log("Time-related fields found: " . print_r($timeFields, true));
 
-      if ($recordId > 0) {
-        try {
-          // Process each row (1-20) to ensure all data is synced
-          $completeRows = 0;
-          $incompleteRows = [];
-          $rowsToProcess = [];
+    if ($recordId > 0) {
+      try {
+        // Process each row (1-20) to ensure all data is synced
+        $completeRows = 0;
+        $incompleteRows = [];
+        $rowsToProcess = [];
 
-          // First pass: validate and collect data
-          function isValidTime($val)
-          {
-            // More robust time validation
-            $val = trim($val);
-            return !empty($val) &&
-              $val !== 'HH:mm' &&
-              $val !== '' &&
-              strlen($val) > 0 &&
-              preg_match('/^\d{1,2}:\d{2}$/', $val); // Basic time format validation
-          }
-          for ($i = 1; $i <= 20; $i++) {
-            $boxNo = trim($_POST["boxNo{$i}"] ?? '');
-            $timeStart = trim($_POST["timeStart{$i}"] ?? '');
-            $timeEnd = trim($_POST["timeEnd{$i}"] ?? '');
-            $operators = trim($_POST["operators{$i}"] ?? '');
+        // First pass: validate and collect data
+        function isValidTime($val)
+        {
+          // More robust time validation
+          $val = trim($val);
+          return !empty($val) &&
+            $val !== 'HH:mm' &&
+            $val !== '' &&
+            strlen($val) > 0 &&
+            preg_match('/^\d{1,2}:\d{2}$/', $val); // Basic time format validation
+        }
+        for ($i = 1; $i <= 20; $i++) {
+          $boxNo = trim($_POST["boxNo{$i}"] ?? '');
+          $timeStart = trim($_POST["timeStart{$i}"] ?? '');
+          $timeEnd = trim($_POST["timeEnd{$i}"] ?? '');
+          $operators = trim($_POST["operators{$i}"] ?? '');
 
-            // Debug: Log what values are being detected
-            error_log("Row {$i} - BoxNo: '{$boxNo}', TimeStart: '{$timeStart}', TimeEnd: '{$timeEnd}'");
+          // Debug: Log what values are being detected
+          error_log("Row {$i} - BoxNo: '{$boxNo}', TimeStart: '{$timeStart}', TimeEnd: '{$timeEnd}'");
 
-            // Check if any field has a meaningful value (skip completely empty rows)
-            // More strict check to avoid placeholder values or whitespace-only values
-            $hasAnyValue = (!empty($boxNo) && $boxNo !== '') ||
-              (!empty($timeStart) && $timeStart !== '' && $timeStart !== 'HH:mm') ||
-              (!empty($timeEnd) && $timeEnd !== '' && $timeEnd !== 'HH:mm');
+          // Check if any field has a meaningful value (skip completely empty rows)
+          // More strict check to avoid placeholder values or whitespace-only values
+          $hasAnyValue = (!empty($boxNo) && $boxNo !== '') ||
+            (!empty($timeStart) && $timeStart !== '' && $timeStart !== 'HH:mm') ||
+            (!empty($timeEnd) && $timeEnd !== '' && $timeEnd !== 'HH:mm');
 
-            // Only validate rows that have some data
-            if ($hasAnyValue) {
-              $hasAllValues = !empty($boxNo) && isValidTime($timeStart) && isValidTime($timeEnd);
+          // Only validate rows that have some data
+          if ($hasAnyValue) {
+            $hasAllValues = !empty($boxNo) && isValidTime($timeStart) && isValidTime($timeEnd);
 
-              // Debug: Log validation details
-              error_log("Row {$i} - hasAllValues: " . ($hasAllValues ? 'true' : 'false') .
-                ", boxNo: " . (!empty($boxNo) ? 'valid' : 'empty') .
-                ", timeStart: " . (isValidTime($timeStart) ? 'valid' : 'invalid') .
-                ", timeEnd: " . (isValidTime($timeEnd) ? 'valid' : 'invalid'));
+            // Debug: Log validation details
+            error_log("Row {$i} - hasAllValues: " . ($hasAllValues ? 'true' : 'false') .
+              ", boxNo: " . (!empty($boxNo) ? 'valid' : 'empty') .
+              ", timeStart: " . (isValidTime($timeStart) ? 'valid' : 'invalid') .
+              ", timeEnd: " . (isValidTime($timeEnd) ? 'valid' : 'invalid'));
 
-              if ($hasAllValues) {
-                $completeRows++;
-                $rowsToProcess[] = [
-                  'row' => $i,
-                  'boxNo' => $boxNo,
-                  'timeStart' => $timeStart,
-                  'timeEnd' => $timeEnd,
-                  'operators' => $operators
-                ];
-                error_log("Row {$i} - Complete row added");
-              } else {
-                $incompleteRows[] = $i;
-                error_log("Row {$i} - Incomplete row added");
-              }
+            if ($hasAllValues) {
+              $completeRows++;
+              $rowsToProcess[] = [
+                'row' => $i,
+                'boxNo' => $boxNo,
+                'timeStart' => $timeStart,
+                'timeEnd' => $timeEnd,
+                'operators' => $operators
+              ];
+              error_log("Row {$i} - Complete row added");
             } else {
-              error_log("Row {$i} - Skipped (no values)");
+              $incompleteRows[] = $i;
+              error_log("Row {$i} - Incomplete row added");
             }
-            // If no values at all, skip this row entirely (don't add to incompleteRows)
+          } else {
+            error_log("Row {$i} - Skipped (no values)");
           }
+          // If no values at all, skip this row entirely (don't add to incompleteRows)
+        }
 
-          // Debug: Log the final counts
-          error_log("Complete rows: {$completeRows}, Incomplete rows: " . implode(',', $incompleteRows));
+        // Debug: Log the final counts
+        error_log("Complete rows: {$completeRows}, Incomplete rows: " . implode(',', $incompleteRows));
 
-          // Check if there's at least one complete record
-          if ($completeRows === 0) {
-            $sampleRow1 = [
-              'boxNo' => $_POST['boxNo1'] ?? 'NOT_SET',
-              'timeStart' => $_POST['timeStart1'] ?? 'NOT_SET',
-              'timeEnd' => $_POST['timeEnd1'] ?? 'NOT_SET'
-            ];
-            $response['success'] = false;
-            $response['errors'][] = "No valid rows found. Please fill Box No., Start Time, and End Time in at least one row. Debug: Complete rows: {$completeRows}, Incomplete rows: " . implode(',', $incompleteRows) . ". Row 1 data: BoxNo='{$sampleRow1['boxNo']}', TimeStart='{$sampleRow1['timeStart']}', TimeEnd='{$sampleRow1['timeEnd']}'";
-            $response['debug'] = [
-              'completeRows' => $completeRows,
-              'incompleteRows' => $incompleteRows,
-              'totalRowsChecked' => 20,
-              'sampleRow1' => $sampleRow1
-            ];
-            echo json_encode($response);
-            exit;
-          }
+        // Check if there's at least one complete record
+        if ($completeRows === 0) {
+          $sampleRow1 = [
+            'boxNo' => $_POST['boxNo1'] ?? 'NOT_SET',
+            'timeStart' => $_POST['timeStart1'] ?? 'NOT_SET',
+            'timeEnd' => $_POST['timeEnd1'] ?? 'NOT_SET'
+          ];
+          $response['success'] = false;
+          $response['errors'][] = "No records to save";
+          $response['debug'] = [
+            'completeRows' => $completeRows,
+            'incompleteRows' => $incompleteRows,
+            'totalRowsChecked' => 20,
+            'sampleRow1' => $sampleRow1
+          ];
+          echo json_encode($response);
+          exit;
+        }
 
-          // Check for incomplete rows
-          if (!empty($incompleteRows)) {
-            $response['success'] = false;
-            $response['errors'][] = "Incomplete data in row(s): " . implode(', ', $incompleteRows) . ". Please fill Box No., Start Time, and End Time in HH:mm format for each row.";
-            echo json_encode($response);
-            exit;
-          }
+        // Check for incomplete rows
+        if (!empty($incompleteRows)) {
+          $response['success'] = false;
+          $response['errors'][] = "Incomplete data in row(s): " . implode(', ', $incompleteRows) . ". Please fill Box No., Start Time, and End Time in HH:mm format for each row.";
+          echo json_encode($response);
+          exit;
+        }
 
-          // Second pass: sync complete records (they should already be saved, but ensure they're up to date)
-          foreach ($rowsToProcess as $rowData) {
-            $i = $rowData['row'];
-            $boxNo = $rowData['boxNo'];
-            $timeStart = $rowData['timeStart'];
-            $timeEnd = $rowData['timeEnd'];
-            $operators = $rowData['operators'];
+        // Second pass: sync complete records (they should already be saved, but ensure they're up to date)
+        foreach ($rowsToProcess as $rowData) {
+          $i = $rowData['row'];
+          $boxNo = $rowData['boxNo'];
+          $timeStart = $rowData['timeStart'];
+          $timeEnd = $rowData['timeEnd'];
+          $operators = $rowData['operators'];
 
-            // Convert time strings to datetime format
-            $dateTimeStart = date('Y-m-d H:i:s', strtotime($timeStart));
-            $dateTimeEnd = date('Y-m-d H:i:s', strtotime($timeEnd));
+          // Convert time strings to datetime format
+          $dateTimeStart = date('Y-m-d H:i:s', strtotime($timeStart));
+          $dateTimeEnd = date('Y-m-d H:i:s', strtotime($timeEnd));
 
-            // Calculate duration in minutes
-            $startTime = strtotime($timeStart);
-            $endTime = strtotime($timeEnd);
-            $duration = round(($endTime - $startTime) / 60);
+          // Calculate duration in minutes
+          $startTime = strtotime($timeStart);
+          $endTime = strtotime($timeEnd);
+          $duration = round(($endTime - $startTime) / 60);
 
-            // Check if header record exists and update it
-            $checkHeaderSp = "SELECT RecordHeaderId FROM AtoDorHeader WHERE RecordId = ? AND BoxNumber = ?";
-            $existingHeader = $db1->execute($checkHeaderSp, [$recordId, $boxNo], 1);
+          // Check if header record exists and update it
+          $checkHeaderSp = "SELECT RecordHeaderId FROM AtoDorHeader WHERE RecordId = ? AND BoxNumber = ?";
+          $existingHeader = $db1->execute($checkHeaderSp, [$recordId, $boxNo], 1);
 
-            if (!empty($existingHeader)) {
-              // Update existing header record
-              $updateHeaderSp = "UPDATE AtoDorHeader SET TimeStart = ?, TimeEnd = ?, Duration = ? WHERE RecordId = ? AND BoxNumber = ?";
-              $headerResult = $db1->execute($updateHeaderSp, [
-                $dateTimeStart,
-                $dateTimeEnd,
-                $duration,
-                $recordId,
-                $boxNo
-              ]);
+          if (!empty($existingHeader)) {
+            // Update existing header record
+            $updateHeaderSp = "UPDATE AtoDorHeader SET TimeStart = ?, TimeEnd = ?, Duration = ? WHERE RecordId = ? AND BoxNumber = ?";
+            $headerResult = $db1->execute($updateHeaderSp, [
+              $dateTimeStart,
+              $dateTimeEnd,
+              $duration,
+              $recordId,
+              $boxNo
+            ]);
 
-              if (!$headerResult) {
-                $response['success'] = false;
-                $response['errors'][] = "Row {$i}: Failed to sync header record.";
-                break;
-              }
-
-              $headerId = $existingHeader[0]['RecordHeaderId'];
-            } else {
-              // Insert new header record (in case it wasn't saved before)
-              $insHeaderSp = "EXEC InsAtoDorHeader @RecordId=?, @BoxNumber=?, @TimeStart=?, @TimeEnd=?, @Duration=?";
-              $headerResult = $db1->execute($insHeaderSp, [
-                $recordId,
-                $boxNo,
-                $dateTimeStart,
-                $dateTimeEnd,
-                $duration
-              ]);
-
-              if (!$headerResult) {
-                $response['success'] = false;
-                $response['errors'][] = "Row {$i}: Failed to sync header record.";
-                break;
-              }
-
-              // Get the newly inserted header ID
-              $getHeaderIdSp = "SELECT TOP 1 RecordHeaderId FROM AtoDorHeader WHERE RecordId = ? AND BoxNumber = ? ORDER BY RecordHeaderId DESC";
-              $headerIdResult = $db1->execute($getHeaderIdSp, [$recordId, $boxNo], 1);
-              $headerId = $headerIdResult[0]['RecordHeaderId'] ?? null;
-
-              if (!$headerId) {
-                $response['success'] = false;
-                $response['errors'][] = "Row {$i}: Failed to get header ID.";
-                break;
-              }
-            }
-
-            // Process operators
-            $operatorCodes = [];
-            if (!empty($operators)) {
-              $operatorCodes = explode(',', $operators);
-              $operatorCodes = array_map('trim', $operatorCodes);
-              $operatorCodes = array_filter($operatorCodes); // Remove empty values
-            }
-
-            // Pad operator codes array to 4 elements
-            while (count($operatorCodes) < 4) {
-              $operatorCodes[] = null;
-            }
-
-            // Check if detail record exists and update it
-            $checkDetailSp = "SELECT RecordHeaderId FROM AtoDorDetail WHERE RecordHeaderId = ?";
-            $existingDetail = $db1->execute($checkDetailSp, [$headerId], 1);
-
-            if (!empty($existingDetail)) {
-              // Update existing detail record
-              $updateDetailSp = "UPDATE AtoDorDetail SET OperatorCode1 = ?, OperatorCode2 = ?, OperatorCode3 = ?, OperatorCode4 = ? WHERE RecordHeaderId = ?";
-              $detailResult = $db1->execute($updateDetailSp, [
-                $operatorCodes[0] ?? null,
-                $operatorCodes[1] ?? null,
-                $operatorCodes[2] ?? null,
-                $operatorCodes[3] ?? null,
-                $headerId
-              ]);
-            } else {
-              // Insert new detail record
-              $insDetailSp = "EXEC InsAtoDorDetail @RecordHeaderId=?, @OperatorCode1=?, @OperatorCode2=?, @OperatorCode3=?, @OperatorCode4=?";
-              $detailResult = $db1->execute($insDetailSp, [
-                $headerId,
-                $operatorCodes[0] ?? null,
-                $operatorCodes[1] ?? null,
-                $operatorCodes[2] ?? null,
-                $operatorCodes[3] ?? null
-              ]);
-            }
-
-            if (!$detailResult) {
+            if (!$headerResult) {
               $response['success'] = false;
-              $response['errors'][] = "Row {$i}: Failed to sync detail record.";
+              $response['errors'][] = "Row {$i}: Failed to sync header record.";
+              break;
+            }
+
+            $headerId = $existingHeader[0]['RecordHeaderId'];
+          } else {
+            // Insert new header record (in case it wasn't saved before)
+            $insHeaderSp = "EXEC InsAtoDorHeader @RecordId=?, @BoxNumber=?, @TimeStart=?, @TimeEnd=?, @Duration=?";
+            $headerResult = $db1->execute($insHeaderSp, [
+              $recordId,
+              $boxNo,
+              $dateTimeStart,
+              $dateTimeEnd,
+              $duration
+            ]);
+
+            if (!$headerResult) {
+              $response['success'] = false;
+              $response['errors'][] = "Row {$i}: Failed to sync header record.";
+              break;
+            }
+
+            // Get the newly inserted header ID
+            $getHeaderIdSp = "SELECT TOP 1 RecordHeaderId FROM AtoDorHeader WHERE RecordId = ? AND BoxNumber = ? ORDER BY RecordHeaderId DESC";
+            $headerIdResult = $db1->execute($getHeaderIdSp, [$recordId, $boxNo], 1);
+            $headerId = $headerIdResult[0]['RecordHeaderId'] ?? null;
+
+            if (!$headerId) {
+              $response['success'] = false;
+              $response['errors'][] = "Row {$i}: Failed to get header ID.";
               break;
             }
           }
 
-          if ($response['success'] !== false) {
-            $response['success'] = true;
-            $response['redirectUrl'] = "dor-home.php";
-            $response['message'] = "DOR saved successfully. Redirecting...";
+          // Process operators
+          $operatorCodes = [];
+          if (!empty($operators)) {
+            $operatorCodes = explode(',', $operators);
+            $operatorCodes = array_map('trim', $operatorCodes);
+            $operatorCodes = array_filter($operatorCodes); // Remove empty values
+          }
 
-            // Clear all DOR-related session variables
-            unset($_SESSION['dorTypeId']);
-            unset($_SESSION['dorModelId']);
-            unset($_SESSION['dorModelName']);
-            unset($_SESSION['dorRecordId']);
-            unset($_SESSION['dorDate']);
-            unset($_SESSION['dorShift']);
-            unset($_SESSION['dorLineId']);
-            unset($_SESSION['dorQty']);
-            unset($_SESSION['dorBoxNumber']);
-            unset($_SESSION['dorTimeStart']);
-            unset($_SESSION['dorTimeEnd']);
-            unset($_SESSION['dorDuration']);
-            unset($_SESSION['dorOperators']);
-            unset($_SESSION['dorDowntime']);
-            unset($_SESSION['tabQty']);
+          // Pad operator codes array to 4 elements
+          while (count($operatorCodes) < 4) {
+            $operatorCodes[] = null;
+          }
 
-            // Clear any user codes that might have been set
-            for ($j = 1; $j <= 4; $j++) {
-              unset($_SESSION["userCode$j"]);
-            }
+          // Check if detail record exists and update it
+          $checkDetailSp = "SELECT RecordHeaderId FROM AtoDorDetail WHERE RecordHeaderId = ?";
+          $existingDetail = $db1->execute($checkDetailSp, [$headerId], 1);
 
-            // Clear any other DOR-related session data
-            foreach ($_SESSION as $key => $value) {
-              if (strpos($key, 'dor') === 0 || strpos($key, 'userCode') === 0) {
-                unset($_SESSION[$key]);
-              }
+          if (!empty($existingDetail)) {
+            // Update existing detail record
+            $updateDetailSp = "UPDATE AtoDorDetail SET OperatorCode1 = ?, OperatorCode2 = ?, OperatorCode3 = ?, OperatorCode4 = ? WHERE RecordHeaderId = ?";
+            $detailResult = $db1->execute($updateDetailSp, [
+              $operatorCodes[0] ?? null,
+              $operatorCodes[1] ?? null,
+              $operatorCodes[2] ?? null,
+              $operatorCodes[3] ?? null,
+              $headerId
+            ]);
+          } else {
+            // Insert new detail record
+            $insDetailSp = "EXEC InsAtoDorDetail @RecordHeaderId=?, @OperatorCode1=?, @OperatorCode2=?, @OperatorCode3=?, @OperatorCode4=?";
+            $detailResult = $db1->execute($insDetailSp, [
+              $headerId,
+              $operatorCodes[0] ?? null,
+              $operatorCodes[1] ?? null,
+              $operatorCodes[2] ?? null,
+              $operatorCodes[3] ?? null
+            ]);
+          }
+
+          if (!$detailResult) {
+            $response['success'] = false;
+            $response['errors'][] = "Row {$i}: Failed to sync detail record.";
+            break;
+          }
+        }
+
+        if ($response['success'] !== false) {
+          $response['success'] = true;
+          $response['redirectUrl'] = "dor-home.php";
+          // Removed success message
+
+          // Clear all DOR-related session variables
+          unset($_SESSION['dorTypeId']);
+          unset($_SESSION['dorModelId']);
+          unset($_SESSION['dorModelName']);
+          unset($_SESSION['dorRecordId']);
+          unset($_SESSION['dorDate']);
+          unset($_SESSION['dorShift']);
+          unset($_SESSION['dorLineId']);
+          unset($_SESSION['dorQty']);
+          unset($_SESSION['dorBoxNumber']);
+          unset($_SESSION['dorTimeStart']);
+          unset($_SESSION['dorTimeEnd']);
+          unset($_SESSION['dorDuration']);
+          unset($_SESSION['dorOperators']);
+          unset($_SESSION['dorDowntime']);
+          unset($_SESSION['tabQty']);
+
+          // Clear any user codes that might have been set
+          for ($j = 1; $j <= 4; $j++) {
+            unset($_SESSION["userCode$j"]);
+          }
+
+          // Clear any other DOR-related session data
+          foreach ($_SESSION as $key => $value) {
+            if (strpos($key, 'dor') === 0 || strpos($key, 'userCode') === 0) {
+              unset($_SESSION[$key]);
             }
           }
-        } catch (Exception $e) {
-          $response['success'] = false;
-          $response['errors'][] = "Database error: " . $e->getMessage();
+
+          // Check if this is a regular form submission (not AJAX)
+          if (!isset($_SERVER['HTTP_X_REQUESTED_WITH']) || $_SERVER['HTTP_X_REQUESTED_WITH'] !== 'XMLHttpRequest') {
+            // Regular form submission - redirect directly
+            header("Location: dor-home.php");
+            exit;
+          }
         }
-      } else {
+      } catch (Exception $e) {
         $response['success'] = false;
-        $response['errors'][] = "Invalid record ID.";
+        $response['errors'][] = "Database error: " . $e->getMessage();
       }
     } else {
       $response['success'] = false;
-      $response['errors'][] = "Invalid request.";
+      $response['errors'][] = "Invalid record ID.";
     }
+  } else {
+    $response['success'] = false;
+    $response['errors'][] = "Invalid request.";
   }
 
   echo json_encode($response);
@@ -692,6 +812,20 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 if (!isset($_SESSION['dorTypeId']) || !isset($_SESSION['dorModelId'])) {
   header("Location: dor-home.php");
   exit;
+}
+
+// Clear any existing form data when starting a new DOR session
+// This ensures old data from previous DOR sessions doesn't persist
+if (isset($_SESSION['dorRecordId']) && $_SESSION['dorRecordId'] > 0) {
+  // This is a new DOR session, clear any old form data
+  echo "<script>
+    // Clear all DOR-related session storage
+    sessionStorage.removeItem('dorFormData');
+    sessionStorage.removeItem('dorRefreshData');
+    sessionStorage.removeItem('dorDorData');
+    sessionStorage.removeItem('dorHomeData');
+    sessionStorage.removeItem('activeTab');
+  </script>";
 }
 
 $employeeCode = isset($_SESSION['employeeCode']) ? $_SESSION['employeeCode'] : 'Unknown Operator';
@@ -717,6 +851,8 @@ try {
 } catch (Throwable $e) {
   $preCardFile = '';
 }
+
+
 ?>
 
 <!DOCTYPE html>
@@ -763,19 +899,6 @@ try {
   </nav>
 
   <form id="myForm" method="post" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" novalidate>
-    <!-- Temporary debug section -->
-    <?php /* if (isset($_GET['debug'])): ?>
-      <div class="alert alert-info">
-        <strong>Debug Info:</strong><br>
-        Employee Codes in Session:<br>
-        <?php
-        for ($j = 1; $j <= 4; $j++) {
-          echo "userCode$j: " . ($_SESSION["userCode$j"] ?? 'NOT SET') . "<br>";
-        }
-        echo "Current Employee Code: " . $employeeCode . "<br>";
-        ?>
-      </div>
-    <?php endif; */ ?>
 
     <div class="sticky-dor-bar">
       <div class="container-fluid py-0">
@@ -852,16 +975,6 @@ try {
                         $employeeCodes[] = $employeeCode;
                       }
 
-                      // Add sample employee codes for row 2 to demonstrate 2x2 layout
-                      /* if ($i === 2) {
-                        $employeeCodes = ['2503-005', '2503-004', 'FMB-0826', 'FMB-0570'];
-                      } */
-
-                      // Debug: Check what employee codes are being processed
-                      /* if ($i === 2) {
-                        echo "<!-- Debug: Row $i has " . count($employeeCodes) . " employee codes -->";
-                      } */
-
                       // Display employee codes as badges
                       foreach ($employeeCodes as $code) {
                         echo "<small class='badge bg-light text-dark border'>" . htmlspecialchars($code) . "</small>";
@@ -883,9 +996,6 @@ try {
 
                       // We define a sample downtime record set for row 2 for demonstration
                       $downtimeRecords = [];
-                      /* if ($i === 2) {
-                        $downtimeRecords = ['Machine Setup', 'Material Change', 'Break Time', 'Quality Check'];
-                      } */
 
                       // If there are no actual downtime records, we create invisible placeholders.
                       if (empty($downtimeRecords)) {
@@ -916,70 +1026,6 @@ try {
       </div>
     </div>
   </form>
-
-  <!-- <button type="button" class="btn btn-primary floating-legends-btn drawer-style" data-bs-toggle="modal" data-bs-target="#legendsModal">
-    <i class="bi bi-info-circle"></i>
-  </button>
-
-  <div class="modal fade" id="legendsModal" tabindex="-1" aria-labelledby="legendsModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-      <div class="modal-content">
-        <div class="modal-header" id="legendsModalHeader">
-          <h5 class="modal-title" id="legendsModalLabel">LEGENDS</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body" id="legendsModalBody">
-          <div class="legend-content">
-            <div class="legend-row">
-              <div class="legend-group">
-                <div><strong>A. Jig Alarm</strong></div>
-                <div><span class="legend-code">TS</span> - Tape Sensor</div>
-                <div><span class="legend-code">TC</span> - Toggle Clamp</div>
-                <div><span class="legend-code">W1</span> - Wire 1 LED not ON</div>
-                <div><span class="legend-code">W2</span> - Wire 2 LED not ON</div>
-                <div><span class="legend-code">ST</span> - Stop tape trigger</div>
-                <div><span class="legend-code">CT</span> - Connector trigger</div>
-              </div>
-              <div class="legend-group">
-                <div><strong>B. Abnormality</strong></div>
-                <div><span class="legend-code">WS</span> - Wrong Setting</div>
-                <div><span class="legend-code">CC</span> - Counter complete</div>
-                <div><span class="legend-code">DP</span> - Drop Parts</div>
-                <div><span class="legend-code">E</span> - Excess parts</div>
-                <div><span class="legend-code">L</span> - Lacking parts</div>
-                <div><span class="legend-code">IN</span> - Incoming NG parts</div>
-                <div><span class="legend-code">IP</span> - In process defects</div>
-                <div><span class="legend-code">FOC</span> - For confirmation harness</div>
-              </div>
-              <div class="legend-group">
-                <div><strong>C. Remarks</strong></div>
-                <div><span class="legend-code">FC</span> - For Continue</div>
-                <div><span class="legend-code">C</span> - Continuation</div>
-                <div><span class="legend-code">AM</span> - Affected of AM</div>
-              </div>
-              <div class="legend-group">
-                <div><strong>D. Action Taken</strong></div>
-                <div><span class="legend-code">RJ</span> - Reset jig counter</div>
-                <div><span class="legend-code">RH</span> - Reset jig then recheck Spcs.</div>
-                <div><span class="legend-code">RP</span> - Check affected drop parts</div>
-                <div><span class="legend-code">RL</span> - Return excess parts</div>
-                <div><span class="legend-code">RLS</span> - Return excess then sort</div>
-                <div><span class="legend-code">CP</span> - Change part</div>
-                <div><span class="legend-code">CPS</span> - Change part then sort</div>
-                <div><span class="legend-code">HP</span> - Hold affected part</div>
-                <div><span class="legend-code">HB</span> - Hold affected box</div>
-                <div><span class="legend-code">HL</span> - Hold affected lot</div>
-                <div><span class="legend-code">RC</span> - Rework then check</div>
-                <div><span class="legend-code">RM</span> - Request rework check</div>
-                <div><span class="legend-code">COG</span> - Confirm as GOOD</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div> -->
-
 
   <!-- QR Code Scanner Modal -->
   <div class="modal fade" id="qrScannerModal" tabindex="-1" aria-labelledby="qrScannerLabel" aria-hidden="true">
@@ -1245,8 +1291,11 @@ try {
 
   <script>
     document.addEventListener("DOMContentLoaded", function() {
-      // Restore form data from session storage
-      restoreFormData();
+      // Load existing data from database first, then restore session data
+      loadExistingDataFromDatabase().then(() => {
+        // Restore form data from session storage after database data is loaded
+        restoreFormData();
+      });
 
       const scannerModal = new bootstrap.Modal(document.getElementById("qrScannerModal"));
       const video = document.getElementById("qr-video");
@@ -1297,7 +1346,7 @@ try {
 
               cleanValue = hours + ':' + minutes;
             }
-            // If user types 2 digits and no colon, add colon
+            // If user types 2 digits and no colon, add colon but don't trigger other events
             else if (cleanValue.length === 2 && !cleanValue.includes(':')) {
               let hours = cleanValue;
               if (parseInt(hours) > 23) hours = '23';
@@ -1306,57 +1355,76 @@ try {
           }
 
           this.value = cleanValue;
+
+          // Only update duration if we have a complete HH:mm format
+          if (cleanValue.length === 5 && cleanValue.includes(':')) {
+            const rowId = this.closest('tr').getAttribute('data-row-id');
+            const timeStartInput = document.getElementById(`timeStart${rowId}`);
+            const timeEndInput = document.getElementById(`timeEnd${rowId}`);
+
+            // Only calculate duration if both times are complete
+            if (timeStartInput && timeEndInput &&
+              timeStartInput.value.length === 5 && timeEndInput.value.length === 5) {
+              updateDuration(rowId);
+            }
+          }
         });
 
         // Validate time on blur (when input loses focus)
         input.addEventListener('blur', function(e) {
           let value = this.value;
-          if (value.length === 5) { // HH:mm format
-            let [hours, minutes] = value.split(':').map(Number);
 
-            // Check if time is valid
-            if (isNaN(hours) || isNaN(minutes) ||
-              hours < 0 || hours > 23 ||
-              minutes < 0 || minutes > 59) {
-              // Show error message
-              if (!errorModalIsOpen) showErrorModal('Incorrect time format. Enter time between 00:00 and 23:59');
-              // Clear invalid input
-              this.value = '';
-              // Add error styling
-              this.classList.add('is-invalid');
-            } else {
-              // Remove error styling if valid
-              this.classList.remove('is-invalid');
+          // Only validate if the input has some content and user has finished typing
+          if (value.length > 0) {
+            if (value.length === 5) { // HH:mm format
+              let [hours, minutes] = value.split(':').map(Number);
 
-              // Check if both time start and time end are filled, then validate duration
-              const rowId = this.closest('tr').getAttribute('data-row-id');
-              const timeStartInput = document.getElementById(`timeStart${rowId}`);
-              const timeEndInput = document.getElementById(`timeEnd${rowId}`);
+              // Check if time is valid
+              if (isNaN(hours) || isNaN(minutes) ||
+                hours < 0 || hours > 23 ||
+                minutes < 0 || minutes > 59) {
+                // Show error message
+                if (!errorModalIsOpen) showErrorModal('Enter time between 00:00 and 23:59');
+                // Clear invalid input
+                this.value = '';
+                // Add error styling
+                this.classList.add('is-invalid');
+              } else {
+                // Remove error styling if valid
+                this.classList.remove('is-invalid');
 
-              if (timeStartInput && timeEndInput && timeStartInput.value && timeEndInput.value) {
-                const duration = calculateDuration(timeStartInput.value, timeEndInput.value);
+                // Check if both time start and time end are filled, then validate duration
+                const rowId = this.closest('tr').getAttribute('data-row-id');
+                const timeStartInput = document.getElementById(`timeStart${rowId}`);
+                const timeEndInput = document.getElementById(`timeEnd${rowId}`);
 
-                if (duration === 'INVALID') {
-                  // Show error for invalid duration
-                  if (!errorModalIsOpen) showErrorModal(`Incorrect start time and end time in row ${rowId}`);
+                if (timeStartInput && timeEndInput && timeStartInput.value && timeEndInput.value) {
+                  const duration = calculateDuration(timeStartInput.value, timeEndInput.value);
 
-                  // Clear the invalid time input but don't force focus
-                  this.value = '';
-                  this.classList.add('is-invalid');
+                  if (duration === 'INVALID') {
+                    // Show error for invalid duration
+                    if (!errorModalIsOpen) showErrorModal(`Incorrect start time and end time in row ${rowId}`);
 
-                  // Update row states since this row is now incomplete
-                  updateRowStates();
-                  return;
+                    // Clear the invalid time input but don't force focus
+                    this.value = '';
+                    this.classList.add('is-invalid');
+
+                    // Update row states since this row is now incomplete
+                    updateRowStates();
+                    return;
+                  }
+
+                  updateDuration(rowId);
                 }
-
-                updateDuration(rowId);
               }
+            } else if (value.length >= 3) {
+              // Only show error if user has typed at least 3 characters but format is wrong
+              // This prevents showing error while user is still typing
+              if (!errorModalIsOpen) showErrorModal('Enter time in HH:mm format');
+              this.value = '';
+              this.classList.add('is-invalid');
             }
-          } else if (value.length > 0) {
-            // If input is not empty but not in correct format
-            if (!errorModalIsOpen) showErrorModal('Enter time in HH:mm format (e.g., 09:30)');
-            this.value = '';
-            this.classList.add('is-invalid');
+            // If length is 1-2, don't show error - user might still be typing
           }
         });
 
@@ -1410,7 +1478,7 @@ try {
               .then(setupVideoStream)
               .catch((err2) => {
                 console.error("Front camera failed", err2);
-                alert("Camera access is blocked or not available on this tablet.");
+                alert("Camera permission denied");
               });
           });
       }
@@ -1467,16 +1535,48 @@ try {
               return false;
             }
 
-            if (parts.length === 1) {
-              // Single part - Check if it matches model name
-              if (parts[0] === modelName) {
-                // If model name matches and time start exists, set time end
-                if (activeRowId) {
-                  const timeStartInput = document.getElementById(`timeStart${activeRowId}`);
-                  const timeEndInput = document.getElementById(`timeEnd${activeRowId}`);
-                  const boxNoInput = document.getElementById(`boxNo${activeRowId}`);
+            if (parts.length === 3) {
+              // Three parts - Model, Quantity, Lot/Box Number
+              const scannedModel = parts[0];
+              const scannedQty = parts[1];
+              const lotNumber = parts[2];
+              const sessionQty = <?php echo json_encode($_SESSION['dorQty'] ?? ''); ?>;
 
-                  if (timeStartInput && timeStartInput.value) {
+              // Check if model matches
+              if (scannedModel !== modelName) {
+                showErrorModal("Incorrect model name");
+                stopScanning();
+                return;
+              }
+
+              // Check if quantity matches
+              if (scannedQty !== sessionQty.toString()) {
+                showErrorModal("Incorrect quantity");
+                stopScanning();
+                return;
+              }
+
+              // Both model and quantity match, proceed with box number
+              if (activeRowId) {
+                const boxNoInput = document.getElementById(`boxNo${activeRowId}`);
+                const timeStartInput = document.getElementById(`timeStart${activeRowId}`);
+                const timeEndInput = document.getElementById(`timeEnd${activeRowId}`);
+
+                if (boxNoInput && timeStartInput && timeEndInput) {
+                  // Check for duplicate box number only if this is a new box number (not time end scan)
+                  if (!timeStartInput.value && isDuplicateBoxNumber(lotNumber)) {
+                    showErrorModal(`Box number ${lotNumber} already exists in row ${activeRowId}`);
+                    stopScanning();
+                    return;
+                  }
+
+                  // Set box number
+                  boxNoInput.value = lotNumber;
+                  boxNoInput.select(); // Ensure next scan/typing replaces the value
+                  boxNoInput.dispatchEvent(new Event('change'));
+
+                  // Check if time start already has a value
+                  if (timeStartInput.value) {
                     // Set current time in 24-hour format for time end
                     const now = new Date();
                     const hours = String(now.getHours()).padStart(2, '0');
@@ -1484,96 +1584,27 @@ try {
                     timeEndInput.value = `${hours}:${minutes}`;
                     timeEndInput.dispatchEvent(new Event('change'));
                     updateDuration(activeRowId);
-                    indicateScanSuccess();
+                    // Move focus to next box number input
+                    const nextBoxNoInput = document.getElementById(`boxNo${parseInt(activeRowId) + 1}`);
+                    if (nextBoxNoInput && !nextBoxNoInput.disabled) {
+                      nextBoxNoInput.focus();
+                    }
                   } else {
-                    showErrorModal("Please set time start first.");
+                    // Set current time in 24-hour format for time start
+                    const now = new Date();
+                    const hours = String(now.getHours()).padStart(2, '0');
+                    const minutes = String(now.getMinutes()).padStart(2, '0');
+                    timeStartInput.value = `${hours}:${minutes}`;
+                    timeStartInput.dispatchEvent(new Event('change'));
+                    updateDuration(activeRowId);
                   }
-                }
-                stopScanning();
-                return;
-              }
-
-              // If not matching model name, use as box number
-              if (activeRowId) {
-                const boxNoInput = document.getElementById(`boxNo${activeRowId}`);
-                const timeStartInput = document.getElementById(`timeStart${activeRowId}`);
-
-                if (boxNoInput) {
-                  // Check for duplicate box number only if this is a new box number (not time end scan)
-                  if (!timeStartInput.value && isDuplicateBoxNumber(parts[0])) {
-                    showErrorModal(`Lot number ${parts[0]} already scanned.`);
-                    stopScanning();
-                    return;
-                  }
-
-                  boxNoInput.value = parts[0];
-                  boxNoInput.dispatchEvent(new Event('change'));
-
-                  // Set current time in 24-hour format for time start
-                  const now = new Date();
-                  const hours = String(now.getHours()).padStart(2, '0');
-                  const minutes = String(now.getMinutes()).padStart(2, '0');
-                  timeStartInput.value = `${hours}:${minutes}`;
-                  timeStartInput.dispatchEvent(new Event('change'));
-                  updateDuration(activeRowId);
 
                   indicateScanSuccess();
                 }
               }
               stopScanning();
-            } else if (parts.length === 3) {
-              // Three parts - Model, Quantity, Lot/Box Number
-              const scannedModel = parts[0];
-              const qty = parts[1];
-              const lotNumber = parts[2];
-
-              if (scannedModel === modelName) {
-                if (activeRowId) {
-                  const boxNoInput = document.getElementById(`boxNo${activeRowId}`);
-                  const timeStartInput = document.getElementById(`timeStart${activeRowId}`);
-                  const timeEndInput = document.getElementById(`timeEnd${activeRowId}`);
-
-                  if (boxNoInput && timeStartInput && timeEndInput) {
-                    // Check for duplicate box number only if this is a new box number (not time end scan)
-                    if (!timeStartInput.value && isDuplicateBoxNumber(lotNumber)) {
-                      showErrorModal(`Lot number ${lotNumber} already scanned.`);
-                      stopScanning();
-                      return;
-                    }
-
-                    // Set box number
-                    boxNoInput.value = lotNumber;
-                    boxNoInput.dispatchEvent(new Event('change'));
-
-                    // Check if time start already has a value
-                    if (timeStartInput.value) {
-                      // Set current time in 24-hour format for time end
-                      const now = new Date();
-                      const hours = String(now.getHours()).padStart(2, '0');
-                      const minutes = String(now.getMinutes()).padStart(2, '0');
-                      timeEndInput.value = `${hours}:${minutes}`;
-                      timeEndInput.dispatchEvent(new Event('change'));
-                      updateDuration(activeRowId);
-                    } else {
-                      // Set current time in 24-hour format for time start
-                      const now = new Date();
-                      const hours = String(now.getHours()).padStart(2, '0');
-                      const minutes = String(now.getMinutes()).padStart(2, '0');
-                      timeStartInput.value = `${hours}:${minutes}`;
-                      timeStartInput.dispatchEvent(new Event('change'));
-                      updateDuration(activeRowId);
-                    }
-
-                    indicateScanSuccess();
-                  }
-                }
-                stopScanning();
-              } else {
-                showErrorModal("Invalid QR code: Model name mismatch.");
-                stopScanning();
-              }
             } else {
-              showErrorModal("Invalid QR code format.");
+              showErrorModal("Invalid QR code format");
               stopScanning();
             }
           }
@@ -1671,16 +1702,20 @@ try {
       }
 
       form.addEventListener("submit", function(e) {
-        console.log('Form submit event triggered'); // Debug log
         if (errorModalIsOpen) {
           // Prevent repeated validation/modal if already open
+          e.preventDefault();
           return;
         }
-        e.preventDefault();
 
         // Only run validation if btnProceed triggered this
         if (!clickedButton || clickedButton.id !== "btnProceed") {
-          return; // Skip validation if other buttons are clicked (e.g., Drawing, WI)
+          // If no button was clicked, allow form submission for btnProceed
+          if (e.submitter && e.submitter.id === "btnProceed") {
+            clickedButton = e.submitter;
+          } else {
+            return; // Skip validation if other buttons are clicked (e.g., Drawing, WI)
+          }
         }
 
         // Validate incomplete information in table rows
@@ -1724,53 +1759,45 @@ try {
           });
           errorHtml += "</ul>";
           showErrorModal(errorHtml);
+          e.preventDefault();
           return;
         }
 
         // If there are no complete rows, show "No records found"
         if (completeRows === 0) {
-          showErrorModal("No records found");
+          showErrorModal("No records to save");
+          e.preventDefault();
           return;
         }
 
-        // Submit if valid
+        // Create and submit form data
         let formData = new FormData(form);
         if (clickedButton) {
           formData.append(clickedButton.name, clickedButton.value || "1");
         }
 
+        // Submit form data to server
         fetch(form.action, {
             method: "POST",
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest'
+            },
             body: formData
           })
-          .then(response => response.json())
-          .then((data) => {
-            console.log('Response data:', data); // Debug log
-            console.log('Clicked button:', clickedButton); // Debug log
-            if (data.success) {
-              if (clickedButton && clickedButton.name === "btnProceed") {
-                console.log('Redirecting to:', data.redirectUrl); // Debug log
-                // Clear all form data from session storage when saving DOR
-                clearAllFormData();
-                // Try multiple redirect methods
-                try {
-                  window.location.href = data.redirectUrl;
-                } catch (e) {
-                  console.error('Redirect failed:', e);
-                  window.location.replace(data.redirectUrl);
-                }
-                // Fallback redirect after 2 seconds if the above methods fail
-                setTimeout(() => {
-                  if (window.location.pathname.indexOf('dor-dor.php') !== -1) {
-                    console.log('Fallback redirect to:', data.redirectUrl);
-                    window.location.href = data.redirectUrl;
-                  }
-                }, 2000);
-                return;
-              }
+          .then(response => {
+            if (response.redirected) {
+              window.location.href = response.url;
             } else {
-              // Use the proper showErrorModal function instead of direct modal manipulation
-              showErrorModal(data.errors.join('\n'));
+              return response.json();
+            }
+          })
+          .then(data => {
+            if (data) {
+              if (data.success && data.redirectUrl) {
+                window.location.href = data.redirectUrl;
+              } else if (data.errors && data.errors.length > 0) {
+                showErrorModal(data.errors.join('\n'));
+              }
             }
           })
           .catch(error => {
@@ -1807,6 +1834,8 @@ try {
       }
 
       sessionStorage.setItem('dorDorData', JSON.stringify(formData));
+      // Also save the current record ID to prevent restoring data from different DOR sessions
+      sessionStorage.setItem('dorRecordId', <?php echo $_SESSION['dorRecordId'] ?? 0; ?>);
     }
 
     // Function to restore form data from session storage
@@ -1814,26 +1843,38 @@ try {
       const savedData = sessionStorage.getItem('dorDorData');
       if (!savedData) return;
 
+      // Check if this data belongs to the current DOR session
+      const currentRecordId = <?php echo $_SESSION['dorRecordId'] ?? 0; ?>;
+      const savedRecordId = sessionStorage.getItem('dorRecordId');
+
+      // If record IDs don't match, clear the old data and don't restore
+      if (savedRecordId && parseInt(savedRecordId) !== currentRecordId) {
+        sessionStorage.removeItem('dorDorData');
+        sessionStorage.removeItem('dorRecordId');
+        return;
+      }
+
       try {
         const formData = JSON.parse(savedData);
 
-        // Restore all form inputs
+        // Only restore data for rows that are empty (not already populated from database)
         for (let i = 1; i <= 20; i++) {
           const boxNoInput = document.getElementById(`boxNo${i}`);
           const timeStartInput = document.getElementById(`timeStart${i}`);
           const timeEndInput = document.getElementById(`timeEnd${i}`);
           const operatorsInput = document.getElementById(`operators${i}`);
 
-          if (boxNoInput && formData[`boxNo${i}`]) {
+          // Only restore if the field is empty (database data takes precedence)
+          if (boxNoInput && formData[`boxNo${i}`] && !boxNoInput.value.trim()) {
             boxNoInput.value = formData[`boxNo${i}`];
           }
-          if (timeStartInput && formData[`timeStart${i}`]) {
+          if (timeStartInput && formData[`timeStart${i}`] && !timeStartInput.value.trim()) {
             timeStartInput.value = formData[`timeStart${i}`];
           }
-          if (timeEndInput && formData[`timeEnd${i}`]) {
+          if (timeEndInput && formData[`timeEnd${i}`] && !timeEndInput.value.trim()) {
             timeEndInput.value = formData[`timeEnd${i}`];
           }
-          if (operatorsInput && formData[`operators${i}`]) {
+          if (operatorsInput && formData[`operators${i}`] && !operatorsInput.value.trim()) {
             operatorsInput.value = formData[`operators${i}`];
           }
         }
@@ -1858,6 +1899,7 @@ try {
       sessionStorage.removeItem('dorDorData');
       sessionStorage.removeItem('dorHomeData');
       sessionStorage.removeItem('activeTab');
+      sessionStorage.removeItem('dorRecordId');
 
       // Clear all form inputs
       for (let i = 1; i <= 20; i++) {
@@ -1924,7 +1966,6 @@ try {
 
     // Form submission handling
     const form = document.querySelector("#myForm");
-    console.log('Form element found:', form); // Debug log
     // Remove the conflicting modal instance creation
     // const errorModal = new bootstrap.Modal(document.getElementById("errorModal"));
     const modalErrorMessage = document.getElementById("modalErrorMessage");
@@ -1932,19 +1973,11 @@ try {
     let clickedButton = null;
 
     // Track which submit button was clicked
-    document.querySelectorAll("button[type='submit']").forEach(button => {
-      button.addEventListener("click", function(e) {
-        console.log('Button click event triggered for:', this.id, this.name); // Debug log
-        e.preventDefault(); // Prevent default form submission
-        clickedButton = this;
-        console.log('Button clicked:', this.id, this.name); // Debug log
-
-        // If it's the proceed button, trigger form validation and submission
-        if (this.id === "btnProceed") {
-          console.log('Dispatching form submit event'); // Debug log
-          form.dispatchEvent(new Event('submit'));
-        }
-      });
+    document.getElementById("btnProceed").addEventListener("click", function(e) {
+      e.preventDefault(); // Prevent default button behavior
+      clickedButton = this;
+      // Trigger form submit event
+      form.dispatchEvent(new Event('submit'));
     });
 
     // Add delete row functionality
@@ -1972,12 +2005,11 @@ try {
             .then(response => response.json())
             .then(data => {
               if (data.success) {
-                console.log(`Row ${rowId} deleted from database successfully`);
                 performRowShift(rowId);
               } else {
                 console.error(`Failed to delete row ${rowId} from database:`, data.errors);
                 if (data.errors && data.errors.length > 0) {
-                  showErrorModal(`Failed to delete row ${rowId}: ${data.errors.join(', ')}`);
+                  showErrorModal(`Error deleting row ${rowId}: ${data.errors.join(', ')}`);
                 }
               }
             })
@@ -2088,9 +2120,7 @@ try {
         })
         .then(response => response.json())
         .then(data => {
-          if (data.success) {
-            console.log(`Row ${rowId} updated in database successfully`);
-          } else {
+          if (data.success) {} else {
             console.error(`Failed to update row ${rowId} in database:`, data.errors);
           }
         })
@@ -2150,9 +2180,7 @@ try {
         })
         .then(response => response.json())
         .then(data => {
-          if (data.success) {
-            console.log(`Row ${rowId} cleared from database successfully`);
-          } else {
+          if (data.success) {} else {
             console.error(`Failed to clear row ${rowId} from database:`, data.errors);
           }
         })
@@ -2163,10 +2191,20 @@ try {
 
     // Function to check if a row is complete
     function isRowComplete(rowId) {
-      const boxNo = document.getElementById(`boxNo${rowId}`).value.trim();
-      const timeStart = document.getElementById(`timeStart${rowId}`).value.trim();
-      const timeEnd = document.getElementById(`timeEnd${rowId}`).value.trim();
-      return boxNo && timeStart && timeEnd; // All three fields are required
+      const boxNoInput = document.getElementById(`boxNo${rowId}`);
+      const timeStartInput = document.getElementById(`timeStart${rowId}`);
+      const timeEndInput = document.getElementById(`timeEnd${rowId}`);
+
+      if (!boxNoInput || !timeStartInput || !timeEndInput) {
+        return false;
+      }
+
+      const boxNo = boxNoInput.value.trim();
+      const timeStart = timeStartInput.value.trim();
+      const timeEnd = timeEndInput.value.trim();
+
+      // All three fields are required and must be valid
+      return boxNo && timeStart && timeEnd && timeStart !== 'HH:mm' && timeEnd !== 'HH:mm';
     }
 
     // Function to set row active/inactive
@@ -2203,6 +2241,14 @@ try {
       for (let i = 2; i <= 20; i++) {
         const prevRowComplete = isRowComplete(i - 1);
         setRowActive(i, prevRowComplete);
+
+        // If previous row is complete, enable the current row's box number input
+        if (prevRowComplete) {
+          const boxNoInput = document.getElementById(`boxNo${i}`);
+          if (boxNoInput && boxNoInput.disabled) {
+            boxNoInput.disabled = false;
+          }
+        }
       }
     }
 
@@ -2274,8 +2320,6 @@ try {
                   row.classList.remove('row-saving');
                 }
                 if (data.success) {
-                  // Row saved successfully - you can add visual feedback here if needed
-                  console.log(`Row ${rowId} auto-saved successfully`);
                   // Add a small visual indicator that the row was saved
                   if (row) {
                     row.classList.add('row-saved');
@@ -2374,28 +2418,53 @@ try {
       const durationSpan = document.getElementById(`duration${rowId}`);
 
       if (timeStartInput && timeEndInput && durationSpan) {
-        const duration = calculateDuration(timeStartInput.value, timeEndInput.value);
+        // Only calculate duration if both times are complete HH:mm format
+        if (timeStartInput.value.length === 5 && timeEndInput.value.length === 5) {
+          const duration = calculateDuration(timeStartInput.value, timeEndInput.value);
 
-        if (duration === 'INVALID') {
-          // Show error for invalid duration
-          showErrorModal(`Incorrect start time and end time in row ${rowId}`);
+          if (duration === 'INVALID') {
+            // Show error for invalid duration
+            showErrorModal(`Incorrect start time and end time in row ${rowId}`);
 
-          // Clear the invalid end time and focus on it
-          timeEndInput.value = '';
-          timeEndInput.classList.add('is-invalid');
-          timeEndInput.focus();
+            // Clear the invalid end time and focus on it
+            timeEndInput.value = '';
+            timeEndInput.classList.add('is-invalid');
+            timeEndInput.focus();
 
-          // Clear duration display
+            // Clear duration display
+            durationSpan.textContent = '';
+            return;
+          }
+
+          // Remove error styling if duration is valid
+          timeEndInput.classList.remove('is-invalid');
+          durationSpan.textContent = duration;
+
+          // Auto-save row when all required fields are complete
+          autoSaveRow(rowId);
+
+          // Check if row is complete and enable next row
+          if (isRowComplete(rowId)) {
+            setTimeout(() => {
+              const nextRowId = parseInt(rowId) + 1;
+              if (nextRowId <= 20) {
+                const nextBoxNoInput = document.getElementById(`boxNo${nextRowId}`);
+                if (nextBoxNoInput) {
+                  // Ensure the next row is enabled
+                  nextBoxNoInput.disabled = false;
+                  // Update row states to ensure proper enabling
+                  updateRowStates();
+                  // Focus and select the next box number input
+                  nextBoxNoInput.focus();
+                  nextBoxNoInput.select();
+                }
+              }
+            }, 100); // Small delay to ensure DOM updates are complete
+          }
+        } else {
+          // Clear duration display if times are incomplete
           durationSpan.textContent = '';
-          return;
         }
-
-        // Remove error styling if duration is valid
-        timeEndInput.classList.remove('is-invalid');
-        durationSpan.textContent = duration;
-
-        // Auto-save row when all required fields are complete
-        autoSaveRow(rowId);
       }
     }
 
@@ -2456,9 +2525,6 @@ try {
             }
 
             if (data.success) {
-              // Row saved successfully - you can add visual feedback here if needed
-              console.log(`Row ${rowId} auto-saved successfully`);
-
               // Add a small visual indicator that the row was saved
               if (row) {
                 row.classList.add('row-saved');
@@ -2490,29 +2556,75 @@ try {
         const rowId = this.closest('tr').getAttribute('data-row-id');
         updateDuration(rowId);
         updateDORSummary(); // Update summary when duration changes
+
+        // Check if current row is complete and enable next row
+        if (isRowComplete(rowId)) {
+          setTimeout(() => {
+            const nextRowId = parseInt(rowId) + 1;
+            if (nextRowId <= 20) {
+              const nextBoxNoInput = document.getElementById(`boxNo${nextRowId}`);
+              if (nextBoxNoInput) {
+                // Ensure the next row is enabled
+                nextBoxNoInput.disabled = false;
+                // Update row states to ensure proper enabling
+                updateRowStates();
+                // Focus and select the next box number input
+                nextBoxNoInput.focus();
+                nextBoxNoInput.select();
+              }
+            }
+          }, 100); // Small delay to ensure DOM updates are complete
+        }
+      });
+
+      // Also handle input event for real-time updates
+      input.addEventListener('input', function() {
+        const rowId = this.closest('tr').getAttribute('data-row-id');
+
+        // Only enable next row if this is time end input with complete HH:mm format
+        if (this.id.includes('timeEnd') && this.value.trim() && this.value.length === 5) {
+          const boxNoInput = document.getElementById(`boxNo${rowId}`);
+          const timeStartInput = document.getElementById(`timeStart${rowId}`);
+
+          // Check if all required fields are filled and complete
+          if (boxNoInput && timeStartInput &&
+            boxNoInput.value.trim() && timeStartInput.value.trim() &&
+            timeStartInput.value.length === 5) {
+
+            // Enable next row immediately
+            setTimeout(() => {
+              const nextRowId = parseInt(rowId) + 1;
+              if (nextRowId <= 20) {
+                const nextBoxNoInput = document.getElementById(`boxNo${nextRowId}`);
+                if (nextBoxNoInput) {
+                  // Ensure the next row is enabled
+                  nextBoxNoInput.disabled = false;
+                  // Update row states to ensure proper enabling
+                  updateRowStates();
+                  // Focus and select the next box number input
+                  nextBoxNoInput.focus();
+                  nextBoxNoInput.select();
+                }
+              }
+            }, 100); // Small delay to ensure DOM updates are complete
+          }
+        }
       });
     });
 
     // Add event listeners for box number inputs to handle gun scanner parsing
     document.querySelectorAll('.box-no-input').forEach(input => {
+      // Select all text on focus to allow easy replacement by scan or typing
+      input.addEventListener('focus', function() {
+        this.select();
+      });
       // Function to parse box number input (gun scanner)
       function parseBoxNumberInput(inputValue, rowId) {
         const modelName = <?php echo json_encode($_SESSION['dorModelName'] ?? ''); ?>;
         const sessionQty = <?php echo json_encode($_SESSION['dorQty'] ?? ''); ?>;
         const parts = inputValue.trim().split(" ");
 
-        if (parts.length === 1) {
-          // Single value - check if it's the model name
-          if (parts[0] === modelName) {
-            showErrorModal("You scanned model name, please scan box number");
-            return false;
-          }
-          // Otherwise accept as box number
-          return {
-            boxNumber: parts[0],
-            shouldSetTime: true
-          };
-        } else if (parts.length === 3) {
+        if (parts.length === 3) {
           // Three values - Model, Quantity, Box Number
           const scannedModel = parts[0];
           const scannedQty = parts[1];
@@ -2520,116 +2632,228 @@ try {
 
           // Check if model matches
           if (scannedModel !== modelName) {
-            showErrorModal("Invalid QR code: Model name mismatch");
-            return false;
+            showErrorModal("Incorrect model name");
+            return {
+              success: false
+            };
           }
 
           // Check if quantity matches
           if (scannedQty !== sessionQty.toString()) {
-            showErrorModal("Invalid QR code: Quantity mismatch");
-            return false;
+            showErrorModal("Incorrect quantity");
+            return {
+              success: false
+            };
           }
 
-          // Both match, accept box number
+          // Check if this is a second scan (time end) - box number should match existing one
+          const currentBoxNoInput = document.getElementById(`boxNo${rowId}`);
+          const timeStartInput = document.getElementById(`timeStart${rowId}`);
+          const timeEndInput = document.getElementById(`timeEnd${rowId}`);
+
+          if (currentBoxNoInput && currentBoxNoInput.value.trim() &&
+            timeStartInput && timeStartInput.value.trim() &&
+            !timeEndInput.value.trim()) {
+            // This is a second scan for time end - box number should match
+            // Extract just the box number from the current input (in case it's full scanner data)
+            let currentBoxNumber = currentBoxNoInput.value.trim();
+            // If current input contains spaces, extract the last part as box number
+            if (currentBoxNumber.includes(' ')) {
+              const currentParts = currentBoxNumber.split(' ');
+              currentBoxNumber = currentParts[currentParts.length - 1];
+            }
+
+            if (currentBoxNumber !== boxNumber) {
+              showErrorModal(`Please scan ID tag with box number ${currentBoxNumber}`);
+              return {
+                success: false
+              };
+            }
+            // Box number matches, allow the scan for time end
+            return {
+              success: true,
+              boxNumber: boxNumber,
+              isTimeEndScan: true
+            };
+          }
+
+          // First scan - check for duplicate box number in other rows
+          for (let i = 1; i <= 20; i++) {
+            if (i === parseInt(rowId)) continue; // Skip current row
+            const existingBoxNo = document.getElementById(`boxNo${i}`);
+            if (existingBoxNo && existingBoxNo.value.trim() === boxNumber) {
+              showErrorModal(`Box number ${boxNumber} already exists in row ${i}`);
+              return {
+                success: false
+              };
+            }
+          }
+
+          // All validations passed for first scan
           return {
+            success: true,
             boxNumber: boxNumber,
-            shouldSetTime: true
+            isTimeEndScan: false
           };
         } else {
           showErrorModal("Invalid QR code format");
-          return false;
+          return {
+            success: false
+          };
         }
       }
+      // Validate on change/blur
+      function validateBoxNumberInput(input) {
+        const value = input.value.trim();
+        const rowId = input.closest('tr').getAttribute('data-row-id');
 
-      // Handle input change for gun scanner (auto-trigger on value change)
-      input.addEventListener('input', function() {
-        const value = this.value;
-        const rowId = this.closest('tr').getAttribute('data-row-id');
+        // Skip validation for empty values (user might be about to scan)
+        if (!value) {
+          input.classList.remove('is-invalid');
+          return true;
+        }
 
-        // Check if input contains spaces (likely from gun scanner)
-        if (value.includes(" ")) {
-          const result = parseBoxNumberInput(value, rowId);
-          if (result) {
-            // Set the box number
-            this.value = result.boxNumber;
-
-            if (result.shouldSetTime) {
-              // Check if time start already has a value
-              const timeStartInput = document.getElementById(`timeStart${rowId}`);
-              const timeEndInput = document.getElementById(`timeEnd${rowId}`);
-
-              if (timeStartInput && timeEndInput) {
-                const now = new Date();
-                const hours = String(now.getHours()).padStart(2, '0');
-                const minutes = String(now.getMinutes()).padStart(2, '0');
-                const currentTime = `${hours}:${minutes}`;
-
-                if (timeStartInput.value && !timeEndInput.value) {
-                  // Set end time
-                  timeEndInput.value = currentTime;
-                  timeEndInput.dispatchEvent(new Event('change'));
-                } else if (!timeStartInput.value) {
-                  // Set start time
-                  timeStartInput.value = currentTime;
-                  timeStartInput.dispatchEvent(new Event('change'));
-                }
-              }
-            }
-          } else {
-            // Clear invalid input
-            this.value = '';
+        // Check for duplicate
+        for (let i = 1; i <= 20; i++) {
+          if (i == rowId) continue;
+          const other = document.getElementById(`boxNo${i}`);
+          if (other && other.value.trim() === value) {
+            showErrorModal(`Box number ${value} already exists in row ${i}`);
+            input.focus();
+            return false;
           }
         }
-      });
 
-      // Handle Enter key on box number input
+        // Passed validation
+        input.classList.remove('is-invalid');
+        return true;
+      }
+      input.addEventListener('change', function() {
+        validateBoxNumberInput(this);
+      });
+      input.addEventListener('blur', function() {
+        validateBoxNumberInput(this);
+      });
+      // Handle Enter key on box number input (gun scanner)
       input.addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
           e.preventDefault();
-          const value = this.value;
+          const value = this.value.trim();
           const rowId = this.closest('tr').getAttribute('data-row-id');
 
+          // Allow empty input - user might be about to scan
+          if (!value) {
+            this.focus();
+            return;
+          }
+
           const result = parseBoxNumberInput(value, rowId);
-          if (result) {
+          if (result && result.success) {
             // Set the box number
             this.value = result.boxNumber;
+            this.select(); // Ensure next scan/typing replaces the value
 
-            if (result.shouldSetTime) {
-              // Check if time start already has a value
-              const timeStartInput = document.getElementById(`timeStart${rowId}`);
-              const timeEndInput = document.getElementById(`timeEnd${rowId}`);
+            // Auto-populate time start or end
+            const timeStartInput = document.getElementById(`timeStart${rowId}`);
+            const timeEndInput = document.getElementById(`timeEnd${rowId}`);
 
-              if (timeStartInput && timeEndInput) {
-                const now = new Date();
-                const hours = String(now.getHours()).padStart(2, '0');
-                const minutes = String(now.getMinutes()).padStart(2, '0');
-                const currentTime = `${hours}:${minutes}`;
+            if (timeStartInput && timeEndInput) {
+              const now = new Date();
+              const hours = String(now.getHours()).padStart(2, '0');
+              const minutes = String(now.getMinutes()).padStart(2, '0');
+              const currentTime = `${hours}:${minutes}`;
 
-                if (timeStartInput.value && !timeEndInput.value) {
-                  // Set end time
-                  timeEndInput.value = currentTime;
-                  timeEndInput.dispatchEvent(new Event('change'));
-                } else if (!timeStartInput.value) {
-                  // Set start time
-                  timeStartInput.value = currentTime;
-                  timeStartInput.dispatchEvent(new Event('change'));
-                }
+              if (timeStartInput.value && !timeEndInput.value) {
+                // Second scan - set end time
+                timeEndInput.value = currentTime;
+                timeEndInput.dispatchEvent(new Event('change'));
+
+                // Enable next row and focus on its box number
+                setTimeout(() => {
+                  const nextRowId = parseInt(rowId) + 1;
+                  if (nextRowId <= 20) {
+                    const nextBoxNoInput = document.getElementById(`boxNo${nextRowId}`);
+                    if (nextBoxNoInput) {
+                      // Ensure the next row is enabled
+                      nextBoxNoInput.disabled = false;
+                      // Update row states to ensure proper enabling
+                      updateRowStates();
+                      // Focus and select the next box number input
+                      nextBoxNoInput.focus();
+                      nextBoxNoInput.select();
+                    }
+                  }
+                }, 100); // Small delay to ensure DOM updates are complete
+              } else if (!timeStartInput.value) {
+                // First scan - set start time
+                timeStartInput.value = currentTime;
+                timeStartInput.dispatchEvent(new Event('change'));
               }
             }
           } else {
             // Clear invalid input
             this.value = '';
+            this.focus();
+          }
+        }
+      });
+    });
+    // Prevent moving to time start/end if box number is invalid
+    document.querySelectorAll('.time-input').forEach(input => {
+      input.addEventListener('focus', function(e) {
+        const rowId = this.closest('tr').getAttribute('data-row-id');
+        const boxNoInput = document.getElementById(`boxNo${rowId}`);
+        if (boxNoInput && !boxNoInput.value.trim()) {
+          showErrorModal('Please scan box number before entering time');
+          boxNoInput.focus();
+          e.preventDefault();
+          return;
+        }
+
+        // Check for duplicate box numbers
+        if (boxNoInput && boxNoInput.value.trim()) {
+          for (let i = 1; i <= 20; i++) {
+            if (i == rowId) continue;
+            const other = document.getElementById(`boxNo${i}`);
+            if (other && other.value.trim() === boxNoInput.value.trim()) {
+              showErrorModal(`Box number ${boxNoInput.value.trim()} already exists in row ${i}`);
+              boxNoInput.focus();
+              e.preventDefault();
+              return;
+            }
           }
         }
       });
 
-      // Original change event for auto-save
-      input.addEventListener('change', function() {
-        const rowId = this.closest('tr').getAttribute('data-row-id');
-        // Trigger auto-save after a short delay to ensure all fields are updated
-        setTimeout(() => {
-          autoSaveRow(rowId);
-        }, 500);
+      // Handle Enter key on time inputs
+      input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const rowId = this.closest('tr').getAttribute('data-row-id');
+          const boxNoInput = document.getElementById(`boxNo${rowId}`);
+
+          // Don't enable next row if box number is empty
+          if (!boxNoInput || !boxNoInput.value.trim()) {
+            showErrorModal('Please scan box number before entering time');
+            if (boxNoInput) {
+              boxNoInput.focus();
+            }
+            return;
+          }
+
+          // If this is time end and it's valid, enable next row
+          if (this.id.includes('timeEnd') && this.value.trim()) {
+            const nextRowId = parseInt(rowId) + 1;
+            if (nextRowId <= 20) {
+              const nextBoxNoInput = document.getElementById(`boxNo${nextRowId}`);
+              if (nextBoxNoInput && nextBoxNoInput.disabled) {
+                nextBoxNoInput.disabled = false;
+                nextBoxNoInput.focus();
+                nextBoxNoInput.select();
+              }
+            }
+          }
+        }
       });
     });
 
@@ -2729,6 +2953,95 @@ try {
     document.addEventListener('DOMContentLoaded', function() {
       updateDORSummary();
     });
+
+    // Function to load existing data from database
+    function loadExistingDataFromDatabase() {
+      const formData = new FormData();
+      formData.append('action', 'load_existing_data');
+
+      return fetch(window.location.href, {
+          method: 'POST',
+          body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success && data.data) {
+            // Populate form with existing data
+            data.data.forEach((rowData, index) => {
+              const rowNumber = index + 1;
+              if (rowNumber <= 20) { // Ensure we don't exceed 20 rows
+                const boxNoInput = document.getElementById(`boxNo${rowNumber}`);
+                const timeStartInput = document.getElementById(`timeStart${rowNumber}`);
+                const timeEndInput = document.getElementById(`timeEnd${rowNumber}`);
+                const operatorsInput = document.getElementById(`operators${rowNumber}`);
+
+                if (boxNoInput) boxNoInput.value = rowData.boxNo || '';
+                if (timeStartInput) timeStartInput.value = rowData.timeStart || '';
+                if (timeEndInput) timeEndInput.value = rowData.timeEnd || '';
+                if (operatorsInput) operatorsInput.value = rowData.operators || '';
+
+                // Update duration display
+                const durationSpan = document.getElementById(`duration${rowNumber}`);
+                if (durationSpan) {
+                  durationSpan.textContent = rowData.duration || '';
+                }
+
+                // Update operator badges
+                updateOperatorBadges(rowNumber, rowData.operators);
+              }
+            });
+
+            // Update row states and summary after loading data
+            updateRowStates();
+            updateDORSummary();
+          }
+          return data; // Return the data for chaining
+        })
+        .catch(error => {
+          console.error('Error loading existing data:', error);
+          return {
+            success: false,
+            error: error
+          }; // Return error for chaining
+        });
+    }
+
+    // Function to update operator badges display
+    function updateOperatorBadges(rowNumber, operatorsString) {
+      const operatorListDiv = document.getElementById(`operatorList${rowNumber}`);
+      if (operatorListDiv && operatorsString) {
+        const operatorCodes = operatorsString.split(',').map(code => code.trim()).filter(code => code);
+        operatorListDiv.innerHTML = '';
+
+        operatorCodes.forEach(code => {
+          const badge = document.createElement('small');
+          badge.className = 'badge bg-light text-dark border me-1 mb-1';
+          badge.textContent = code;
+          operatorListDiv.appendChild(badge);
+        });
+
+        // Update downtime placeholders to match operator count
+        updateDowntimePlaceholders(rowNumber, operatorCodes.length);
+      }
+    }
+
+    // Function to update downtime placeholders
+    function updateDowntimePlaceholders(rowId, operatorCount) {
+      const downtimeDiv = document.getElementById(`downtimeInfo${rowId}`);
+      if (downtimeDiv) {
+        // Remove existing placeholders
+        const existingPlaceholders = downtimeDiv.querySelectorAll('.placeholder-badge');
+        existingPlaceholders.forEach(placeholder => placeholder.remove());
+
+        // Add new placeholders to match operator count
+        for (let i = 0; i < operatorCount; i++) {
+          const placeholder = document.createElement('small');
+          placeholder.className = 'badge placeholder-badge';
+          placeholder.innerHTML = '&nbsp;';
+          downtimeDiv.appendChild(placeholder);
+        }
+      }
+    }
   </script>
 
   <script>
@@ -2997,7 +3310,7 @@ try {
 
       // Check if operator already exists
       if (currentOperators[employeeCode]) {
-        showErrorModal(`Operator ${employeeCode} is already assigned to this row.`);
+        showErrorModal(`${employeeCode} is already assigned to this row`);
         return;
       }
 
@@ -3139,15 +3452,11 @@ try {
       initializeDowntimeFormValidation();
 
       // Add event listeners to downtime management buttons
-      document.querySelectorAll('[id^="downtime"]').forEach(button => {
-        if (button.id !== 'downtimeModal' && button.id !== 'downtimeInput' &&
-          button.id !== 'downtimeValidationMessage' && button.id !== 'downtimeModalLabel' &&
-          button.id !== 'downtimeRowNumber' && button.id !== 'downtimeModalLotNumber') {
-          button.addEventListener('click', function() {
-            const rowId = this.closest('tr').getAttribute('data-row-id');
-            openDowntimeModal(rowId);
-          });
-        }
+      document.querySelectorAll('.btn-outline-secondary[id^="downtime"]').forEach(button => {
+        button.addEventListener('click', function() {
+          const rowId = this.closest('tr').getAttribute('data-row-id');
+          openDowntimeModal(rowId);
+        });
       });
 
       document.getElementById('addDowntimeBtn').addEventListener('click', addDowntimeRecord);
@@ -3288,7 +3597,7 @@ try {
     function updateCurrentDowntimeDisplay() {
       const recordsDiv = document.getElementById('currentDowntimeRecords');
       if (currentDowntimeRecords.length === 0) {
-        recordsDiv.innerHTML = '<p class="text-muted text-center mb-0">No downtime records added yet.</p>';
+        recordsDiv.innerHTML = '<p class="text-muted text-center mb-0">No downtime records.</p>';
         return;
       }
       let html = '<div class="row g-2">';

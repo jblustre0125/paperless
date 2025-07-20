@@ -38,7 +38,7 @@ ob_start();
     <?php else: ?>
         <div class="col-12">
             <div class="alert alert-info text-center">
-                <i class="bi bi-info-circle me-2"></i> No other tablets are currently online
+                <i class="bi bi-info-circle me-2"></i> No running lines
             </div>
         </div>
     <?php endif; ?>

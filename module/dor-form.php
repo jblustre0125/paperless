@@ -85,9 +85,29 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                            ORDER BY JigName";
             $res = $db3->execute($suggestQuery, ['%' . $searchTerm . '%']);
 
-            // Debug logging
-            error_log("Jig autosuggest - Search term: " . $searchTerm);
-            error_log("Jig autosuggest - Results: " . print_r($res, true));
+            $response['suggestions'] = $res ?: [];
+        } else {
+            $response['suggestions'] = [];
+        }
+
+        echo json_encode($response);
+        exit;
+    }
+
+    // Handle userCode autosuggest request
+    if (isset($_POST['action']) && $_POST['action'] === 'suggest_userCode') {
+        $searchTerm = trim($_POST['searchTerm'] ?? '');
+
+        if (!empty($searchTerm)) {
+            // Query for userCode suggestions - extract numbers only from ProductionCode
+            $suggestQuery = "SELECT ProductionCode, 
+                                   SUBSTRING(ProductionCode, PATINDEX('%[0-9]%', ProductionCode), 
+                                            LEN(ProductionCode) - PATINDEX('%[0-9]%', ProductionCode) + 1) AS NumberOnly
+                           FROM GenOperator 
+                           WHERE IsActive = 1 AND IsLoggedIn = 0 
+                           AND ProductionCode LIKE ?
+                           ORDER BY NumberOnly";
+            $res = $db1->execute($suggestQuery, ['%' . $searchTerm . '%']);
 
             $response['suggestions'] = $res ?: [];
         } else {
@@ -209,7 +229,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             }
 
             $response['success'] = true;
-            $response['redirectUrl'] = "dor-home.php";
+            $response['redirectUrl'] = "dor-refresh.php";
         } else {
             $response['success'] = false;
             $response['errors'][] = "Error.";
@@ -319,7 +339,6 @@ foreach ($tabData as $checkpointName => $rows) {
 
                 <!-- Right-aligned group -->
                 <div class="d-flex gap-2 flex-wrap">
-                    <button type="button" class="btn btn-secondary btn-lg nav-btn-group" onclick="setAllTestValues(event)">Set Test Values</button>
                     <button type="button" class="btn btn-secondary btn-lg nav-btn-group" onclick="goBack()">Back</button>
                     <button type="submit" class="btn btn-primary btn-lg nav-btn-group" id="btnProceed" name="btnProceed">
                         <span class="short-label">Next</span>
@@ -350,8 +369,11 @@ foreach ($tabData as $checkpointName => $rows) {
                                 <button type="button" class="tab-button btn btn-secondary mb-1"
                                     onclick="openTab(event, 'Process<?php echo $i; ?>')">Process <?php echo $i; ?></button>
                                 <div class="employee-validation">
-                                    <input type="text" class="form-control form-control-md" id="userCode<?php echo $i; ?>"
-                                        name="userCode<?php echo $i; ?>" placeholder="SA Code">
+                                    <div class="autosuggest-wrapper">
+                                        <input type="text" class="form-control form-control-md" id="userCode<?php echo $i; ?>"
+                                            name="userCode<?php echo $i; ?>" placeholder="SA Code" autocomplete="off">
+                                        <div id="userCodeSuggestions<?php echo $i; ?>" class="bg-white"></div>
+                                    </div>
                                     <button type="button" class="btn btn-secondary btn-sm scan-btn" onclick="startScanning(<?php echo $i; ?>)">Scan ID</button>
                                     <div id="validationMessage<?php echo $i; ?>" class="validation-message mt-1"></div>
                                 </div>
@@ -359,6 +381,13 @@ foreach ($tabData as $checkpointName => $rows) {
                         <?php endfor; ?>
                     </div>
                 </div>
+                <!-- Development button - comment out for production -->
+                <button type="button" class="btn btn-warning btn-sm position-fixed"
+                    style="top: 80px; right: 20px; z-index: 1050; opacity: 0.8; font-size: 0.75rem;"
+                    onclick="setAllTestValues(event)"
+                    title="Development: Fill all fields with test data">
+                    <i class="bi bi-bug"></i> Set Test Values
+                </button>
             </div>
             <!-- Match EXACTLY the same container structure as the body table -->
             <div class="container-fluid px-2 py-0">
@@ -380,7 +409,7 @@ foreach ($tabData as $checkpointName => $rows) {
                                                 inputmode="numeric"
                                                 required>
                                             <div id="jigSuggestions" class="bg-white"></div>
-                                            <div id="jigValidationMessage" class="validation-message mt-1"></div>
+
                                         </div>
                                     </th>
                                     <th class="selection-cell"></th>
@@ -444,8 +473,7 @@ foreach ($tabData as $checkpointName => $rows) {
                                                 if ($controlType === 'radio' && !empty($options)) {
                                                     echo "<div class='process-radio'>";
                                                     foreach ($options as $index => $opt) {
-                                                        $checked = ($index === 0) ? "checked" : "";
-                                                        echo "<label><input type='radio' name='{$inputName}' value='{$opt}' {$checked}> {$opt}</label> ";
+                                                        echo "<label><input type='radio' name='{$inputName}' value='{$opt}'> {$opt}</label> ";
                                                     }
                                                     echo "</div>";
                                                 } elseif ($controlType === 'text') {
@@ -474,7 +502,7 @@ foreach ($tabData as $checkpointName => $rows) {
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title">Scan Employee ID</h5>
+                        <h5 class="modal-title">Scan SA Code</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body text-center">
@@ -580,6 +608,9 @@ foreach ($tabData as $checkpointName => $rows) {
 
             // Initialize Jig autosuggest functionality
             initializeJigAutosuggest();
+
+            // Initialize userCode autosuggest functionality
+            initializeUserCodeAutosuggest();
 
             function getCameraConstraints() {
                 return {
@@ -777,12 +808,12 @@ foreach ($tabData as $checkpointName => $rows) {
                     if (!jigIdValue) {
                         jigIdInput.classList.remove('is-valid');
                         jigIdInput.classList.add('is-invalid');
-                        showErrorModal("<ul><li>Enter jig number or select from the list.</li></ul>");
+                        showErrorModal("<ul><li>Enter or select jig from the list</li></ul>");
                         return;
                     } else if (!selectedJigId) {
                         jigIdInput.classList.remove('is-valid');
                         jigIdInput.classList.add('is-invalid');
-                        showErrorModal("<ul><li>Invalid jig number.</li></ul>");
+                        showErrorModal("<ul><li>Invalid jig number</li></ul>");
                         return;
                     } else {
                         jigIdInput.classList.remove('is-invalid');
@@ -812,7 +843,7 @@ foreach ($tabData as $checkpointName => $rows) {
                 }
 
                 if (hasInvalidInputs) {
-                    showErrorModal("<ul><li>Enter valid SA codes for all processes.</li></ul>");
+                    showErrorModal("<ul><li>Enter valid SA codes for all processes</li></ul>");
                     return;
                 }
 
@@ -873,15 +904,12 @@ foreach ($tabData as $checkpointName => $rows) {
 
                     // Group radio and text inputs by field name
                     const processInputs = form.querySelectorAll("input[name^='Process'], input[type='text'][name^='Process']");
-                    console.log('Found Process inputs:', processInputs.length); // Debug log
 
                     processInputs.forEach(input => {
                         const name = input.name;
                         if (!groups[name]) groups[name] = [];
                         groups[name].push(input);
                     });
-
-                    console.log('Groups found:', Object.keys(groups).length); // Debug log
 
                     for (const name in groups) {
                         const group = groups[name];
@@ -897,7 +925,7 @@ foreach ($tabData as $checkpointName => $rows) {
                         if (!valid) {
                             const checkpoint = meta[name]?.checkpoint || name;
                             const tabIndex = meta[name]?.tabIndex;
-                            const operator = tabIndex && userCodes[tabIndex] ? userCodes[tabIndex] : `Process ${tabIndex}`;
+                            const operator = tabIndex && userCodes[tabIndex] ? `P${tabIndex}: ${userCodes[tabIndex]}` : `Process ${tabIndex}`;
 
                             if (!errorsByOperator[operator]) errorsByOperator[operator] = [];
                             errorsByOperator[operator].push(checkpoint);
@@ -915,16 +943,22 @@ foreach ($tabData as $checkpointName => $rows) {
                     if (operatorList.length > 0) {
                         let html = `<ul>`;
                         operatorList.forEach(op => {
-                            errorsByOperator[op].forEach(cp => {
-                                // Extract checkpoint number from the checkpoint name
-                                const checkpointMatch = cp.match(/^(\d+)\.\s*(.*)/);
-                                if (checkpointMatch) {
-                                    const [, number, name] = checkpointMatch;
-                                    html += `<li>${op} - Checkpoint ${number}: ${name}</li>`;
-                                } else {
-                                    html += `<li>${op} - ${cp}</li>`;
-                                }
-                            });
+                            html += `<li><strong>${op}</strong>`;
+                            if (errorsByOperator[op].length > 0) {
+                                html += `<ul>`;
+                                errorsByOperator[op].forEach(cp => {
+                                    // Extract checkpoint number from the checkpoint name
+                                    const checkpointMatch = cp.match(/^(\d+)\.\s*(.*)/);
+                                    if (checkpointMatch) {
+                                        const [, number, name] = checkpointMatch;
+                                        html += `<li>${name}</li>`;
+                                    } else {
+                                        html += `<li>${cp}</li>`;
+                                    }
+                                });
+                                html += `</ul>`;
+                            }
+                            html += `</li>`;
                         });
                         html += `</ul>`;
                         showErrorModal(html);
@@ -965,7 +999,7 @@ foreach ($tabData as $checkpointName => $rows) {
                         });
                 } catch (error) {
                     console.error('Error:', error);
-                    showErrorModal("<ul><li>Error validating employee IDs.</li></ul>");
+                    showErrorModal("<ul><li>Error validating SA codes.</li></ul>");
                 }
             });
 
@@ -1060,6 +1094,10 @@ foreach ($tabData as $checkpointName => $rows) {
         // Function to clear form data from session storage
         function clearFormData() {
             sessionStorage.removeItem('dorFormData');
+            sessionStorage.removeItem('dorDorData');
+            sessionStorage.removeItem('dorRefreshData');
+            sessionStorage.removeItem('dorHomeData');
+            sessionStorage.removeItem('activeTab');
         }
 
         // Add this new function for setting all test values
@@ -1087,6 +1125,15 @@ foreach ($tabData as $checkpointName => $rows) {
             if (jigIdInput && jigIdInput.style.display !== 'none') {
                 jigIdInput.value = 'Taping-123';
             }
+
+            // Set all radio buttons to "OK" (first option)
+            document.querySelectorAll('input[type="radio"][name^="Process"]').forEach(input => {
+                const radioGroup = document.querySelectorAll(`input[type="radio"][name="${input.name}"]`);
+                if (radioGroup.length > 0) {
+                    // Select the first radio button in each group (usually "OK")
+                    radioGroup[0].checked = true;
+                }
+            });
 
             document.querySelectorAll('input[type="text"][name^="Process"]').forEach(input => {
                 // Generate random number between 1 and 10
@@ -1138,7 +1185,7 @@ foreach ($tabData as $checkpointName => $rows) {
 
             // If at least one input is filled, show a confirmation dialog
             if (isFilled) {
-                const confirmLeave = confirm("Are you sure you want to delete this DOR record?");
+                const confirmLeave = confirm("Are you sure you want to delete this DOR?");
                 if (!confirmLeave) {
                     return; // Stop navigation if the user cancels
                 }
@@ -1160,7 +1207,7 @@ foreach ($tabData as $checkpointName => $rows) {
                         clearFormData();
                         window.location.href = data.redirectUrl;
                     } else {
-                        alert(data.errors?.[0] || "Failed to delete DOR record.");
+                        alert(data.errors?.[0] || "Failed to delete DOR.");
                     }
                 });
         }
@@ -1251,6 +1298,14 @@ foreach ($tabData as $checkpointName => $rows) {
                     }
                 }, 200);
             });
+
+            // Clear validation classes when input is cleared
+            jigInput.addEventListener('input', function() {
+                if (this.value.trim() === '') {
+                    this.classList.remove('is-valid', 'is-invalid');
+                    selectedJigId = null;
+                }
+            });
         }
 
         function fetchSuggestions(searchTerm) {
@@ -1303,17 +1358,178 @@ foreach ($tabData as $checkpointName => $rows) {
                     if (data.valid) {
                         jigInput.classList.remove('is-invalid');
                         jigInput.classList.add('is-valid');
-                        validationDiv.innerHTML = `<small class="text-success">${data.message}</small>`;
                         selectedJigId = data.jigId;
                     } else {
                         jigInput.classList.remove('is-valid');
                         jigInput.classList.add('is-invalid');
-                        validationDiv.innerHTML = `<small class="text-danger">${data.message}</small>`;
                         selectedJigId = null;
                     }
                 })
                 .catch(error => {
                     console.error('Error validating Jig:', error);
+                });
+        }
+
+        // UserCode autosuggest and validation functions
+        let userCodeSuggestionsTimeout = {};
+
+        function initializeUserCodeAutosuggest() {
+            // Initialize for all userCode inputs (up to 4)
+            for (let i = 1; i <= 4; i++) {
+                const userCodeInput = document.getElementById(`userCode${i}`);
+                const suggestionsDiv = document.getElementById(`userCodeSuggestions${i}`);
+
+                if (!userCodeInput) continue;
+
+                // Add keyboard input restriction for numbers only
+                userCodeInput.addEventListener('keydown', function(e) {
+                    // Allow: backspace, delete, tab, escape, enter, and navigation keys
+                    if ([8, 9, 27, 13, 46, 37, 38, 39, 40].indexOf(e.keyCode) !== -1 ||
+                        // Allow Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+                        (e.keyCode === 65 && e.ctrlKey === true) ||
+                        (e.keyCode === 67 && e.ctrlKey === true) ||
+                        (e.keyCode === 86 && e.ctrlKey === true) ||
+                        (e.keyCode === 88 && e.ctrlKey === true)) {
+                        return;
+                    }
+
+                    // Allow numbers 0-9
+                    if ((e.keyCode >= 48 && e.keyCode <= 57) || (e.keyCode >= 96 && e.keyCode <= 105)) {
+                        return;
+                    }
+
+                    // Prevent all other keys
+                    e.preventDefault();
+                });
+
+                // Handle input for autosuggest
+                userCodeInput.addEventListener('input', function() {
+                    const searchTerm = this.value.trim();
+
+                    // Clear previous timeout
+                    if (userCodeSuggestionsTimeout[i]) {
+                        clearTimeout(userCodeSuggestionsTimeout[i]);
+                    }
+
+                    // Hide suggestions if input is empty
+                    if (searchTerm.length === 0) {
+                        suggestionsDiv.style.display = 'none';
+                        this.classList.remove('is-valid', 'is-invalid');
+                        return;
+                    }
+
+                    // Show suggestions after 300ms delay
+                    userCodeSuggestionsTimeout[i] = setTimeout(() => {
+                        fetchUserCodeSuggestions(searchTerm, i);
+                    }, 300);
+                });
+
+                // Handle suggestion selection using event delegation
+                suggestionsDiv.addEventListener('click', function(e) {
+                    const suggestionItem = e.target.closest('.suggestion-item');
+                    if (suggestionItem) {
+                        const productionCode = suggestionItem.dataset.productionCode;
+                        const numberOnly = suggestionItem.dataset.numberOnly;
+
+                        userCodeInput.value = productionCode;
+                        suggestionsDiv.style.display = 'none';
+
+                        // Trigger input event to update validation
+                        userCodeInput.dispatchEvent(new Event('input', {
+                            bubbles: true
+                        }));
+
+                        // Validate the selected userCode
+                        validateUserCode(productionCode, i);
+                    }
+                });
+
+                // Hide suggestions when clicking outside
+                document.addEventListener('click', function(e) {
+                    if (!userCodeInput.contains(e.target) && !suggestionsDiv.contains(e.target)) {
+                        suggestionsDiv.style.display = 'none';
+                    }
+                });
+
+                // Handle blur event for validation
+                userCodeInput.addEventListener('blur', function() {
+                    setTimeout(() => {
+                        if (this.value.trim()) {
+                            validateUserCode(this.value.trim(), i);
+                        }
+                    }, 200);
+                });
+
+                // Clear validation classes when input is cleared
+                userCodeInput.addEventListener('input', function() {
+                    if (this.value.trim() === '') {
+                        this.classList.remove('is-valid', 'is-invalid');
+                    }
+                });
+            }
+        }
+
+        function fetchUserCodeSuggestions(searchTerm, processIndex) {
+            fetch(window.location.href, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `action=suggest_userCode&searchTerm=${encodeURIComponent(searchTerm)}`
+                })
+                .then(res => res.json())
+                .then(data => {
+                    displayUserCodeSuggestions(data.suggestions, processIndex);
+                })
+                .catch(error => {
+                    console.error('Error fetching userCode suggestions:', error);
+                });
+        }
+
+        function displayUserCodeSuggestions(suggestions, processIndex) {
+            const suggestionsDiv = document.getElementById(`userCodeSuggestions${processIndex}`);
+
+            if (!suggestions || suggestions.length === 0) {
+                suggestionsDiv.style.display = 'none';
+                return;
+            }
+
+            let html = '';
+            suggestions.forEach(user => {
+                html += `<div class="suggestion-item" 
+                              data-number-only="${user.NumberOnly}" 
+                              data-production-code="${user.ProductionCode}">
+                           <strong>${user.NumberOnly}</strong> 
+                           <small class="text-muted">(${user.ProductionCode})</small>
+                        </div>`;
+            });
+
+            suggestionsDiv.innerHTML = html;
+            suggestionsDiv.style.display = 'block';
+        }
+
+        function validateUserCode(userCode, processIndex) {
+            fetch(window.location.href, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `action=validate_employee&employeeCode=${encodeURIComponent(userCode)}&processIndex=${processIndex}`
+                })
+                .then(res => res.json())
+                .then(data => {
+                    const userCodeInput = document.getElementById(`userCode${processIndex}`);
+
+                    if (data.valid) {
+                        userCodeInput.classList.remove('is-invalid');
+                        userCodeInput.classList.add('is-valid');
+                    } else {
+                        userCodeInput.classList.remove('is-valid');
+                        userCodeInput.classList.add('is-invalid');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error validating userCode:', error);
                 });
         }
     </script>

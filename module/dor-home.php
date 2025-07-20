@@ -305,7 +305,7 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
 
         <div class="mb-3">
             <label for="txtQty" class="form-label-lg fw-bold">Quantity</label>
-            <input type="number" class="form-control form-control-lg" id="txtQty" name="txtQty" min="1" placeholder="Tap to scan ID tag" required
+            <input type="number" class="form-control form-control-lg" id="txtQty" name="txtQty" min="1" placeholder="Enter box quantity" required
                 value="<?php echo $_POST["txtQty"] ?? ''; ?>">
         </div>
 
@@ -561,19 +561,16 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
         modelInput.addEventListener("keydown", function(e) {
             if (e.key === "Enter") {
                 e.preventDefault();
-                parseModelInput(this.value);
+                const inputValue = this.value.trim();
+                if (inputValue) {
+                    parseModelInput(inputValue);
+                }
                 qtyInput.focus(); // Move focus to qty input
             }
         });
 
         // Handle input change for gun scanner (auto-trigger on value change)
-        modelInput.addEventListener("input", function() {
-            const value = this.value;
-            // Check if input contains spaces (likely from scanner)
-            if (value.includes(" ")) {
-                parseModelInput(value);
-            }
-        });
+        // REMOVED - Only parse on Enter key press
 
         document.getElementById("enterManually").addEventListener("click", () => {
             enterManually = true;
@@ -721,7 +718,7 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
             // document.getElementById("txtModelName").value = "7M0656-7020";
             document.getElementById("txtModelName").value = "7L0113-7021C";
             document.getElementById("cmbDorType").value = "3";
-            document.getElementById("txtQty").value = "100";
+            document.getElementById("txtQty").value = "42";
         }
 
         // Add clear form function

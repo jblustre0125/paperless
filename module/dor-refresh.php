@@ -153,7 +153,7 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                     <button type="button" class="btn btn-secondary btn-lg nav-btn-group" onclick="goBack()">Back</button>
                     <button type="submit" class="btn btn-primary btn-lg nav-btn-group" id="btnProceed" name="btnProceed">
                         <span class="short-label">Next</span>
-                        <span class="long-label">Proceed to Next Checkpoint</span>
+                        <span class="long-label">Proceed to DOR</span>
                     </button>
                 </div>
             </div>
@@ -193,9 +193,9 @@ $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
                     </td>
                 </tr>
                 <tr>
-                    <td>Changes</td>
+                    <td>New MP</td>
                     <td>
-                        <input type="text" name="changes" class="form-control" placeholder="Enter new MP">
+                        <input type="text" name="changes" class="form-control" placeholder="Enter new MP (e.g. P1, P2, etc.)">
                     </td>
                 </tr>
             </tbody>
