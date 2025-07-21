@@ -75,9 +75,9 @@
             width: 90vw !important;
           }
 
-          <<<<<<< HEAD if (empty($_SESSION['user_id']) || empty($_SESSION['production_code'])) {
-            header('Location: dor-leader-login.php');
-            exit;
+          /* Limit downtime modal content to 5 rows and make it scrollable */
+          #downtimeModalContent {
+            max-height: 600px;
           }
 
           /* Pointer cursor for clickable elements */
@@ -85,17 +85,16 @@
             cursor: pointer;
           }
 
-          >>>>>>>DOR-Leader
-
           /* Ensure toast notifications appear above other content */
           #toast-container {
             z-index: 1080;
+          }
 
-            /* Fix for modal backdrop */
-            body.modal-open {
-              overflow: hidden;
-              padding-right: 0 !important;
-            }
+          /* Fix for modal backdrop */
+          body.modal-open {
+            overflow: hidden;
+            padding-right: 0 !important;
+          }
           </style>
         </head>
 
@@ -108,16 +107,17 @@
                 <span class="navbar-toggler-icon"></span>
               </button>
 
-              <<<<<<< HEAD <div class="collapse navbar-collapse" id="navbarNav">
+              <!-- Navigation Items -->
+              <div class="collapse navbar-collapse" id="navbarNav">
+                <!-- Left-aligned menu items -->
                 <ul class="navbar-nav me-auto">
                   <li class="nav-item">
-                    <a class="nav-link active fs-5" href="../../leader/module/dor-leader-dashboard.php">DOR System</a>
+                    <a class="nav-link active fs-5" href="dor-leader-dashboard.php">DOR System</a>
                   </li>
+
+                  <!-- Master Data Dropdown -->
                   <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle fs-5" href="#" id="masterDataDropdown" role="button"
-                      data-bs-toggle="dropdown" aria-expanded="false">
-                      Master Data
-                    </a>
+                    <a class="nav-link dropdown-toggle fs-5" href="#" data-bs-toggle="dropdown">Master Data</a>
                     <ul class="dropdown-menu">
                       <li><a class="dropdown-item" href="dor-model.php"><i class="bi bi-diagram-3"></i> Model</a></li>
                       <li><a class="dropdown-item" href="dor-user.php"><i class="bi bi-person"></i> User</a></li>
@@ -156,7 +156,7 @@
                     </ul>
                   </li>
                 </ul>
-            </div>
+              </div>
             </div>
           </nav>
 
@@ -252,4 +252,3 @@
         </body>
 
         </html>
-        >>>>>>> DOR-Leader
