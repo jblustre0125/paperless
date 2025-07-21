@@ -85,7 +85,6 @@ if (isset($_GET['exit'])) {
     exit;
 }
 
-// Regular logout process
 // Check if user is logged in and has hostnameId
 if (isset($_SESSION['hostnameId']) && !empty($_SESSION['hostnameId'])) {
     // Update GenHostname table to set IsLoggedIn = 0

@@ -22,8 +22,8 @@ $sql = "SELECT TOP 1 RecordId, DorTypeId FROM AtoDor WHERE HostnameId = ? ORDER 
 $result = $db->execute($sql, [$hostname_id]);
 
 if (!is_array($result) || count($result) === 0) {
-    header('Content-Type: application/json');
-    echo json_encode(['success' => false, 'message' => "No record found for HostnameId = $hostname_id"]);
+    $_SESSION['flash_message'] = "No record found for the selected tablet.";
+    header("Location: dor-leader-dashboard.php");
     exit;
 }
 
@@ -71,13 +71,15 @@ $isTab0Saved = count($leaderResponses) > 0;
 
 // ========== AJAX/POST Submission Handler ========== //
 
-function sendJsonResponse($success, $message = '') {
+function sendJsonResponse($success, $message = '')
+{
     header('Content-Type: application/json');
     echo json_encode(['success' => $success, 'message' => $message]);
     exit;
 }
 
-function saveLeaderCheckpointResponses($db, $recordId, $employeeCode, $responses): array {
+function saveLeaderCheckpointResponses($db, $recordId, $employeeCode, $responses): array
+{
     if (!$recordId || !$employeeCode || empty($responses)) {
         return ['success' => false, 'message' => 'Missing data'];
     }

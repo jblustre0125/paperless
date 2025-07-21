@@ -1,3 +1,74 @@
 {
-  "liveServer.settings.port": 5502
+  // 🖌️ UI & Font
+  "workbench.colorTheme": "One Dark Pro Night Flat",
+  "workbench.iconTheme": "material-icon-theme",
+  "workbench.tree.indent": 20,
+  "workbench.tree.renderIndentGuides": "always",
+  "workbench.editor.enablePreview": false,
+  "workbench.editor.limit.enabled": true,
+  "workbench.editor.limit.value": 10,
+  "workbench.activityBar.location": "top",
+  "workbench.startupEditor": "welcomePageInEmptyWorkbench",
+  "window.titleBarStyle": "custom",
+  "window.commandCenter": true,
+  "editor.fontFamily": "'Fira Code', 'Poppins', 'JetBrains Mono', 'Cascadia Code', Consolas, monospace",
+  "editor.fontLigatures": "'calt', 'liga', 'clig', 'ss01', 'ss02', 'ss03', 'ss04', 'ss05', 'ss06', 'zero', 'onum'",
+  "editor.fontWeight": "400",
+  "editor.fontSize": 12,
+  "editor.lineHeight": 1.6,
+
+  // 🧠 IntelliSense & Code Tools
+  "editor.suggestSelection": "first",
+  "editor.suggest.insertMode": "replace",
+  "editor.suggest.preview": true,
+  "editor.suggest.showStatusBar": true,
+  "editor.inlayHints.enabled": "on",
+  "editor.quickSuggestions": {
+    "other": "on",
+    "comments": "off",
+    "strings": "on"
+  },
+  "editor.hover.enabled": true,
+  "editor.hover.delay": 500,
+  "editor.parameterHints.enabled": true,
+  "editor.parameterHints.cycle": true,
+  "editor.lightbulb.enabled": "on",
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "explicit",
+    "source.fixAll": "explicit"
+  },
+
+  // 🧼 Formatting & Indentation
+  "editor.formatOnSave": true,
+  "editor.formatOnPaste": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+
+  // 🧩 Brackets & Guides
+  "editor.bracketPairColorization.enabled": true,
+  "editor.guides.bracketPairs": "active",
+  "editor.bracketPairColorization.independentColorPoolPerBracketType": true,
+
+  // ✍️ Editing Behavior
+  "editor.autoClosingBrackets": "always",
+  "editor.autoClosingQuotes": "always",
+  "editor.autoSurround": "languageDefined",
+  "editor.cursorSmoothCaretAnimation": "on", // ✅ this is now correctly set
+  "editor.smoothScrolling": true,
+  "editor.minimap.enabled": true,
+
+  // 💾 Files & Auto Save
+  "files.autoSave": "onWindowChange",
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+
+  // 🔍 Search & Navigation
+  "search.useGlobalIgnoreFiles": true,
+  "breadcrumbs.enabled": true,
+
+  // 🧪 Terminal
+  "terminal.integrated.fontFamily": "'Poppins', monospace",
+  "terminal.integrated.fontSize": 13,
+  "editor.stickyScroll.enabled": false
 }

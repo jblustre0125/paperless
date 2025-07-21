@@ -123,15 +123,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // === OPERATOR DISPLAY ===
   function updateOperatorDisplay(recordId, codes) {
-    const req = getModelRequirements(recordId);
-    if (codes.length > req.maxMP) {
-      showToast(
-        `Model ${req.modelName} requires maximum ${req.maxMP} operators. Trimming excess.`,
-        "warning"
-      );
-      codes = codes.slice(0, req.maxMP);
-    }
-
     const badgeList = document.getElementById(`operatorList${recordId}`);
     if (badgeList) {
       badgeList.innerHTML = "";

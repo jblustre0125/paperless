@@ -2,7 +2,8 @@
 require_once '../../config/dbop.php';
 
 $hostname_id = $_GET['hostname_id'] ?? null;
-$drawing = $prepCard = $workInstruction = '';
+$drawing = $prepCard = '';
+$workInstructions = [];
 
 if ($hostname_id) {
     $db = new DbOp(1);
@@ -19,7 +20,22 @@ if ($hostname_id) {
 
         $drawing = getDrawing($dorTypeId, $modelId);
         $prepCard = getPreparationCard($modelId);
-        $workInstruction = getWorkInstruction($dorTypeId, $modelId, 1);
+
+        // NEW: Fetch distinct ProcessIndex values
+        $sqlProcess = "SELECT DISTINCT ProcessIndex FROM AtoDorCheckpointDefinition WHERE RecordId = ?";
+        $processResults = $db->execute($sqlProcess, [$recordId]);
+
+        if ($processResults) {
+            foreach ($processResults as $row) {
+                $procIdx = intval($row['ProcessIndex']);
+                $path = getWorkInstruction($dorTypeId, $modelId, $procIdx);
+                if (!empty($path)) {
+                    $workInstructions[$procIdx] = $path;
+                }
+            }
+        } else {
+            error_log("No ProcessIndex found for RecordId: $recordId");
+        }
     } else {
         error_log("No AtoDor record found for HostnameId: $hostname_id");
     }
@@ -27,18 +43,14 @@ if ($hostname_id) {
 
 // === Helper Functions ===
 
-function getModelName($modelId) {
+function getModelName($modelId)
+{
     $db = new DbOp(1);
     $res = $db->execute("EXEC RdGenModel @IsActive=?, @ModelId=?", [1, $modelId], 1);
 
     if ($res && is_array($res)) {
         foreach ($res as $row) {
-            // Explicit match on MODEL_ID and valid ITEM_ID
-            if (
-                isset($row['MODEL_ID']) &&
-                intval($row['MODEL_ID']) === intval($modelId) &&
-                !empty($row['ITEM_ID'])
-            ) {
+            if (isset($row['MODEL_ID']) && intval($row['MODEL_ID']) === intval($modelId) && !empty($row['ITEM_ID'])) {
                 $modelName = strtoupper(trim($row['ITEM_ID']));
                 error_log("Found exact match for MODEL_ID $modelId: $modelName");
                 return $modelName;
@@ -52,61 +64,40 @@ function getModelName($modelId) {
         error_log(" No results returned from RdGenModel for MODEL_ID: $modelId");
     }
 
-    // Fallback
     $fallback = "MODEL_$modelId";
     error_log("Using fallback model name: $fallback");
     return $fallback;
 }
 
-
-
-function getDorTypeName($dorTypeId) {
+function getDorTypeName($dorTypeId)
+{
     $db = new DbOp(1);
     $res = $db->execute("EXEC RdAtoDorType @DorTypeId=?", [$dorTypeId], 1);
-
-    if ($res && isset($res[0]['DorTypeName'])) {
-        return strtoupper(trim($res[0]['DorTypeName']));
-    }
-
-    return '';
+    return ($res && isset($res[0]['DorTypeName'])) ? strtoupper(trim($res[0]['DorTypeName'])) : '';
 }
 
-function getDrawing($dorTypeId, $modelId) {
+function getDrawing($dorTypeId, $modelId)
+{
     $dorType = getDorTypeName($dorTypeId);
     $modelName = getModelName($modelId);
-
-    $imageExtension = ".PNG";
-    $webPath = "/paperless-data/DRAWING/{$dorType}/{$modelName}{$imageExtension}";
+    $webPath = "/paperless-data/DRAWING/{$dorType}/{$modelName}.PNG";
     $localPath = $_SERVER['DOCUMENT_ROOT'] . $webPath;
-
-    if (file_exists($localPath)) {
-        return $webPath;
-    }
-
-    error_log("Drawing not found at: $localPath");
-    return "";
+    return file_exists($localPath) ? $webPath : '';
 }
 
-function getPreparationCard($modelId) {
+function getPreparationCard($modelId)
+{
     $modelName = getModelName($modelId);
-
-    $fileExtension = ".pdf";
-    $webPath = "/paperless-data/PREPARATION CARD/{$modelName}{$fileExtension}";
+    $webPath = "/paperless-data/PREPARATION CARD/{$modelName}.pdf";
     $localPath = $_SERVER['DOCUMENT_ROOT'] . $webPath;
-
-    if (file_exists($localPath)) {
-        return $webPath;
-    }
-
-    error_log("Preparation Card not found at: $localPath");
-    return "";
+    return file_exists($localPath) ? $webPath : '';
 }
 
-function getWorkInstruction($dorTypeId, $modelId, $processNumber = 1) {
+function getWorkInstruction($dorTypeId, $modelId, $processNumber = 1)
+{
     $rawDorType = getDorTypeName($dorTypeId);
     $modelName = getModelName($modelId);
 
-    // Normalize dorType
     if (strpos($rawDorType, "CLAMP") !== false) $dorType = "CLAMP";
     elseif (strpos($rawDorType, "TAPING") !== false) $dorType = "TAPING";
     elseif (strpos($rawDorType, "OFFLINE") !== false) $dorType = "OFFLINE";
@@ -126,13 +117,12 @@ function getWorkInstruction($dorTypeId, $modelId, $processNumber = 1) {
         new RecursiveDirectoryIterator($basePath, RecursiveDirectoryIterator::SKIP_DOTS)
     );
 
-    error_log("Searching for Work Instruction for Model: $modelName, DorType: $dorType, ProcessLetter: $processLetter");
+    error_log("Searching Work Instruction for Model: $modelName, DorType: $dorType, Process: $processLetter");
 
     foreach ($iterator as $file) {
         if ($file->isFile() && strtolower($file->getExtension()) === 'pdf') {
             $filename = strtoupper($file->getFilename());
 
-            // Normalize for loose matching
             $normalizedFilename = preg_replace('/[^A-Z0-9]/', '', $filename);
             $normalizedModel = preg_replace('/[^A-Z0-9]/', '', $modelName);
             $normalizedDorType = preg_replace('/[^A-Z0-9]/', '', $dorType);
@@ -143,8 +133,6 @@ function getWorkInstruction($dorTypeId, $modelId, $processNumber = 1) {
                 preg_match('/' . $processLetter . '\s*[-_]*\s*REV\.?/i', $filename)
             ) {
                 $mtime = $file->getMTime();
-                error_log("Matched file: $filename | Modified: $mtime");
-
                 if ($mtime > $latestMTime) {
                     $latestMTime = $mtime;
                     $latestFile = $file->getPathname();
@@ -154,11 +142,27 @@ function getWorkInstruction($dorTypeId, $modelId, $processNumber = 1) {
     }
 
     if ($latestFile) {
-        $webPath = str_replace($_SERVER['DOCUMENT_ROOT'], '', $latestFile);
-        return str_replace('\\', '/', $webPath);
+        return str_replace(['\\', $_SERVER['DOCUMENT_ROOT']], ['/', ''], $latestFile);
     }
 
-    error_log("No matching Work Instruction found for Model: $modelName, DorType: $dorType, Process: $processLetter");
+    error_log("No Work Instruction found for Model: $modelName, DorType: $dorType, Process: $processLetter");
     return "";
 }
-?>
+if (isset($_GET['json']) && $_GET['json'] == '1') {
+    header('Content-Type: application/json');
+
+    $jsonWorkInstructions = [];
+    foreach ($workInstructions as $procIdx => $url) {
+        $jsonWorkInstructions[] = [
+            'operator' => $procIdx, // Use numeric labels like 1, 2, 3
+            'url' => $url
+        ];
+    }
+
+    echo json_encode([
+        'drawing' => $drawing,
+        'prepCard' => $prepCard,
+        'files' => $jsonWorkInstructions
+    ]);
+    exit;
+}

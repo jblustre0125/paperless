@@ -4,6 +4,7 @@ ob_start();
 
 require_once __DIR__ . "/../config/dbop.php";
 require_once __DIR__ . "/../config/header.php";
+require_once __DIR__ . "/../config/method.php";
 
 $db1 = new DbOp(1);
 
@@ -28,22 +29,36 @@ if ($res !== false && !empty($res)) {
     }
 } else {
     // Fallback if the query fails
-    $today = date('Y-m-d H:i:s'); // Include both date and time
+    $today = date('Y-m-d'); // Date only for input field
     $currentHour = date('H');
     $selectedShift = ($currentHour >= 7 && $currentHour <= 19) ? "DS" : "NS";
 }
 
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
+if (
+    $_SERVER["REQUEST_METHOD"] === "POST" &&
+    (isset($_POST['btnCreateDor']) || isset($_POST['btnSearchDor']) || isset($_POST['btnSetValues']))
+) {
+    // Add debugging
+    error_log("POST request received. POST data: " . print_r($_POST, true));
+
     ob_end_clean();
     header('Content-Type: application/json; charset=utf-8');
 
     $response = ['success' => false, 'errors' => []];  // Initialize response array
 
     try {
+        // Handle Set Test Values first (no validation needed)
+        if (isset($_POST['btnSetValues'])) {
+            error_log("Handling btnSetValues");
+            handleSetTestValues($response);
+            error_log("Response for btnSetValues: " . json_encode($response));
+            echo json_encode($response);
+            exit;
+        }
+
+        // Now handle other buttons with validation
         $dorDate = testInput($_POST["dtpDate"]);
         $shiftCode = testInput($_POST['rdShift']);
-        $lineNumber = testInput($_POST["txtLineNumber"]);
-        $dorTypeId = testInput($_POST["cmbDorType"]);
         $modelName = testInput($_POST["txtModelName"]);
         $qty = (int) testInput($_POST["txtQty"]);
 
@@ -53,18 +68,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         if (empty($shiftCode)) {
             $response['errors'][] = "Select shift.";
-        }
-
-        if (empty(trim($lineNumber)) || $lineNumber == "0") {
-            $response['errors'][] = "Enter line number.";
-        } else {
-            if (!isValidLine($lineNumber)) {
-                $response['errors'][] = "Line number is not valid or inactive.";
-            }
-        }
-
-        if (testInput($dorTypeId == "0")) {
-            $response['errors'][] = "Select DOR type.";
         }
 
         if (empty(trim($modelName))) {
@@ -79,8 +82,49 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $response['errors'][] = "Enter quantity.";
         }
 
-        $shiftId = $lineId = $modelId = 0;
+        $shiftId = $lineId = $modelId = $dorTypeId = 0;
 
+        // Initialize session fallbacks for testing/development
+        if (!isset($_SESSION["hostnameId"])) {
+            $_SESSION["hostnameId"] = 1; // Default for testing
+        }
+        if (!isset($_SESSION["hostname"])) {
+            $_SESSION["hostname"] = "ATO1"; // Default for testing
+        }
+
+        // Get the correct LineId and DorTypeId for the selected model and hostname
+        $hostnameId = $_SESSION["hostnameId"] ?? 1;
+        $modelId = 0;
+        // Get model information (get ModelId and LineId from GenModel)
+        $selModelQry = "SELECT MODEL_ID, LINE_ID FROM GenModel WHERE ITEM_ID = ? AND IsActive = 1";
+        $modelRes = $db1->execute($selModelQry, [$modelName], 1);
+        if ($modelRes !== false && !empty($modelRes)) {
+            $modelId = $modelRes[0]['MODEL_ID'];
+            $lineId = $modelRes[0]['LINE_ID'];
+        }
+        // If not found, fallback to previous logic
+        if ($modelId === 0 || $lineId === 0) {
+            // Fallback: try to get lineId from hostnameId
+            $selLineQry = "SELECT LineId, DorTypeId FROM GenLine WHERE LineId = ?";
+            $lineRes = $db1->execute($selLineQry, [$hostnameId], 1);
+            if ($lineRes !== false && !empty($lineRes)) {
+                $lineId = $lineRes[0]['LineId'];
+            } else {
+                $lineId = 1;
+            }
+        }
+        // Now get DorTypeId from GenLine
+        $selDorTypeQry = "SELECT DorTypeId FROM GenLine WHERE LineId = ?";
+        $dorTypeRes = $db1->execute($selDorTypeQry, [$lineId], 1);
+        if ($dorTypeRes !== false && !empty($dorTypeRes)) {
+            $dorTypeId = $dorTypeRes[0]['DorTypeId'];
+        } else {
+            $dorTypeId = 1;
+        }
+        // Debug output (you can remove this in production)
+        error_log("Debug Info - HostnameId: $hostnameId, ModelId: $modelId, LineId: $lineId, DorTypeId: $dorTypeId");
+
+        // Get shift information
         $selQry = "EXEC RdGenShift @ShiftCode=?";
         $res = $db1->execute($selQry, [$shiftCode], 1);
 
@@ -90,15 +134,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             }
         }
 
-        $selQry = "EXEC RdGenLine @LineNumber=?";
-        $res = $db1->execute($selQry, [$lineNumber], 1);
-
-        if (!empty($res)) {
-            foreach ($res as $row) {
-                $lineId = $row['LineId'];
-            }
-        }
-
+        // Get model information
         $selQry = "EXEC RdGenModel @IsActive=?, @ITEM_ID=?";
         $res = $db1->execute($selQry, [1, $modelName], 1);
 
@@ -108,14 +144,68 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             }
         }
 
+        // Handle different button actions
         if (empty($response['errors'])) {
+            // Ensure hostname and hostnameId are set in session for dor-form.php
+            if (!isset($_SESSION["hostname"])) {
+                // Try multiple ways to get hostname, log all possible sources
+                $sources = [];
+                if (function_exists('gethostname')) {
+                    $sources['gethostname'] = gethostname();
+                }
+                if (!empty($_SERVER['COMPUTERNAME'])) {
+                    $sources['SERVER.COMPUTERNAME'] = $_SERVER['COMPUTERNAME'];
+                }
+                if (!empty($_SERVER['HOSTNAME'])) {
+                    $sources['SERVER.HOSTNAME'] = $_SERVER['HOSTNAME'];
+                }
+                if (!empty($_ENV['COMPUTERNAME'])) {
+                    $sources['ENV.COMPUTERNAME'] = $_ENV['COMPUTERNAME'];
+                }
+                if (!empty($_ENV['HOSTNAME'])) {
+                    $sources['ENV.HOSTNAME'] = $_ENV['HOSTNAME'];
+                }
+                // Windows specific: try php_uname('n')
+                $unameHost = php_uname('n');
+                if (!empty($unameHost)) {
+                    $sources['php_uname'] = $unameHost;
+                }
+                // Log all sources for debugging
+                foreach ($sources as $src => $val) {
+                    error_log("Hostname source [$src]: $val");
+                }
+                // Pick the first non-empty, trimmed value
+                $detectedHostname = "";
+                foreach ($sources as $val) {
+                    $val = trim($val);
+                    if (!empty($val)) {
+                        $detectedHostname = $val;
+                        break;
+                    }
+                }
+                // Sanitize: remove spaces, only allow alphanumeric and dash/underscore
+                if (!empty($detectedHostname)) {
+                    $detectedHostname = preg_replace('/[^A-Za-z0-9\-_]/', '', $detectedHostname);
+                    $_SESSION["hostname"] = $detectedHostname;
+                } else {
+                    $_SESSION["hostname"] = "ATO1"; // Fallback
+                }
+                error_log("Final Detected Hostname: " . $_SESSION["hostname"]);
+            }
+            if (!isset($_SESSION["hostnameId"])) {
+                // Try to get hostnameId from lineId (if available)
+                $_SESSION["hostnameId"] = $lineId ?: 1;
+            }
+
             if (isset($_POST['btnCreateDor'])) {
-                if (isExistDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId)) {
+                error_log("Handling btnCreateDor");
+                if (isExistDor($dorDate, $shiftId, $lineId)) {
                     $response['errors'][] = "DOR already exists.";
                 } else {
                     handleCreateDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty, $response);
                 }
             } elseif (isset($_POST['btnSearchDor'])) {
+                error_log("Handling btnSearchDor");
                 handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty, $response);
             }
         }
@@ -124,6 +214,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $response['errors'][] = "An error occurred while processing your request.";
     }
 
+    error_log("Final response: " . json_encode($response));
     echo json_encode($response);
     exit;
 }
@@ -133,7 +224,7 @@ function handleCreateDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
     global $db1;
 
     try {
-        // Fetch the tabQty from the database     
+        // Fetch the tabQty from the database
         $selProcessTab = "SELECT ISNULL(MP, 0) AS 'MP' FROM dbo.GenModel WHERE MODEL_ID = ?";
         $res = $db1->execute($selProcessTab, [$modelId], 1);
 
@@ -190,13 +281,58 @@ function handleCreateDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
     }
 }
 
+// Add this new function to handle test values
+function handleSetTestValues(&$response)
+{
+    global $db1;
+
+    try {
+        // Get a random active model from database
+        $selQry = "SELECT TOP 1 ITEM_ID, ITEM_NAME FROM GenModel WHERE IsActive = 1 ORDER BY NEWID()";
+        $res = $db1->execute($selQry, [], 1);
+
+        $testModelName = "TEST-MODEL-001"; // Default fallback
+        $testQty = rand(10, 100); // Random quantity between 10-100
+
+        if ($res !== false && !empty($res)) {
+            foreach ($res as $row) {
+                $testModelName = $row['ITEM_ID'];
+                break;
+            }
+        }
+
+        // Get current date and shift using Asia/Manila timezone
+        $dt = new DateTime('now', new DateTimeZone('Asia/Manila'));
+        $currentDate = $dt->format('Y-m-d');
+        $currentHour = (int)$dt->format('H');
+        // 7:00 to 18:59 is Day Shift, 19:00 to 6:59 is Night Shift
+        if ($currentHour >= 7 && $currentHour < 19) {
+            $currentShift = "DS";
+        } else {
+            $currentShift = "NS";
+        }
+
+        $response['success'] = true;
+        $response['testData'] = [
+            'date' => $currentDate,
+            'shift' => $currentShift,
+            'modelName' => $testModelName,
+            'quantity' => $testQty,
+            'message' => 'Test values loaded from database'
+        ];
+    } catch (Exception $e) {
+        globalExceptionHandler($e);
+        $response['errors'][] = "An error occurred while getting test values.";
+    }
+}
+
 //TODO: Populate the DOR form with the selected DOR details
 function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty, &$response)
 {
     global $db1;
 
     try {
-        if (isExistDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId)) {
+        if (isExistDor($dorDate, $shiftId, $lineId)) {
             // Get the existing DOR record details
             $selQry = "SELECT RecordId, Quantity FROM AtoDor WHERE DorDate = ? AND ShiftId = ? AND LineId = ? AND ModelId = ? AND DorTypeId = ?";
             $res = $db1->execute($selQry, [$dorDate, $shiftId, $lineId, $modelId, $dorTypeId], 1);
@@ -253,7 +389,6 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
     <title><?php echo htmlspecialchars($title ?? 'DOR System'); ?></title>
 </head>
 
-
 <form id="myForm" method="post" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]); ?>" novalidate>
     <div class="container-fluid">
         <div class="mb-3">
@@ -268,7 +403,8 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
                 <?php foreach (["DS" => "Day Shift", "NS" => "Night Shift"] as $value => $label): ?>
                     <div class="col">
                         <div class="input-group-text form-control-lg">
-                            <input class="form-check-input me-2" type="radio" name="rdShift" value="<?= $value; ?>" <?= ($_POST['rdShift'] ?? $selectedShift) === $value ? "checked" : ""; ?>>
+                            <input class="form-check-input me-2" type="radio" name="rdShift" value="<?= $value; ?>"
+                                <?= ($_POST['rdShift'] ?? $selectedShift) === $value ? "checked" : ""; ?>>
                             <label class="form-check-label"><?= $label; ?></label>
                         </div>
                     </div>
@@ -277,26 +413,10 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
         </div>
 
         <div class="mb-3">
-            <label for="txtLineNumber" class="form-label-lg fw-bold">Line No</label>
-            <input type="number" class="form-control form-control-lg" id="txtLineNumber" name="txtLineNumber" min="1" required placeholder="Enter line number"
-                value="<?php echo $_POST["txtLineNumber"] ?? ''; ?>">
-        </div>
-
-        <div class="mb-3">
-            <label for="cmbDorType" class="form-label-lg fw-bold">DOR Type</label>
-            <select class="form-select form-select-lg" id="cmbDorType" name="cmbDorType">
-                <option value="0">Select DOR Type</option>
-                <?php foreach (loadDorType() as $key => $value): ?>
-                    <option value="<?= $key; ?>" <?= ($_POST['cmbDorType'] ?? '') == $key ? 'selected' : ''; ?>><?= $value; ?></option>
-                <?php endforeach; ?>
-            </select>
-        </div>
-
-        <div class="mb-3">
             <label for="txtModelName" class="form-label-lg fw-bold">Model</label>
             <div class="input-group">
-                <input type="text" class="form-control form-control-lg" id="txtModelName" name="txtModelName" placeholder="Enter model name" required
-                    value="<?php echo $_POST["txtModelName"] ?? ''; ?>">
+                <input type="text" class="form-control form-control-lg" id="txtModelName" name="txtModelName"
+                    placeholder="Enter model name" required value="<?php echo $_POST["txtModelName"] ?? ''; ?>">
                 <button type="button" class="btn btn-outline-secondary btn-lg" id="btnScanModel">
                     <i class="bi bi-upc-scan"></i> Scan
                 </button>
@@ -305,15 +425,15 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
 
         <div class="mb-3">
             <label for="txtQty" class="form-label-lg fw-bold">Quantity</label>
-            <input type="number" class="form-control form-control-lg" id="txtQty" name="txtQty" min="1" placeholder="Enter box quantity" required
-                value="<?php echo $_POST["txtQty"] ?? ''; ?>">
+            <input type="number" class="form-control form-control-lg" id="txtQty" name="txtQty" min="1"
+                placeholder="Enter box quantity" required value="<?php echo $_POST["txtQty"] ?? ''; ?>">
         </div>
 
         <div class="d-grid gap-2">
-            <button type="submit" class="btn btn-primary btn-lg" name="btnCreateDor">Create DOR</button>
-            <button type="submit" class="btn btn-secondary btn-lg" name="btnSearchDor">Search DOR</button>
+            <button type="submit" class="btn btn-primary btn-lg" name="btnCreateDor" value="1">Create DOR</button>
+            <button type="submit" class="btn btn-secondary btn-lg" name="btnSearchDor" value="1">Search DOR</button>
             <button type="button" class="btn btn-secondary btn-lg" id="btnClearForm">Clear Form</button>
-            <button type="submit" class="btn btn-secondary btn-lg" name="btnSetValues">Set Test Values</button>
+            <button type="button" class="btn btn-secondary btn-lg" id="btnSetValues">Set Test Values</button>
         </div>
     </div>
 
@@ -382,13 +502,15 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
 
         const modelInput = document.getElementById("txtModelName");
         const qtyInput = document.getElementById("txtQty");
+        const form = document.querySelector("#myForm"); // Move form declaration here
+
 
         let enterManually = false;
         let scanning = false;
         let activeInput = null;
         let clickedButton = null;
 
-        // Save form data when user navigates away
+        // form data when user navigates away
         window.addEventListener('beforeunload', function() {
             saveFormData();
         });
@@ -469,6 +591,7 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
                     } else if (parts.length === 3) {
                         const model = parts[0];
                         const qty = parts[1]; // fix here
+                        const lineNum = parts[2]; // New: Extract line number
 
                         if (!isNaN(qty)) {
                             modelInput.value = model;
@@ -517,20 +640,24 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
 
         // Scanner button for model input
         document.getElementById("btnScanModel").addEventListener("click", async function() {
-            const accessGranted = await navigator.mediaDevices.getUserMedia({
-                    video: true
-                })
-                .then(stream => {
-                    stream.getTracks().forEach(track => track.stop());
-                    return true;
-                })
-                .catch(() => false);
+            if (navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function') {
+                const accessGranted = await navigator.mediaDevices.getUserMedia({
+                        video: true
+                    })
+                    .then(stream => {
+                        stream.getTracks().forEach(track => track.stop());
+                        return true;
+                    })
+                    .catch(() => false);
 
-            if (accessGranted) {
-                activeInput = modelInput;
-                startScanning();
+                if (accessGranted) {
+                    activeInput = modelInput;
+                    startScanning();
+                } else {
+                    alert("Camera access denied.");
+                }
             } else {
-                alert("Camera access denied.");
+                alert("Camera access is not supported on this device or browser.");
             }
         });
 
@@ -582,7 +709,6 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
 
         document.getElementById("qrScannerModal").addEventListener("hidden.bs.modal", stopScanning);
 
-        const form = document.querySelector("#myForm");
         document.querySelectorAll("button[type='submit']").forEach(button => {
             button.addEventListener("click", function() {
                 clickedButton = this;
@@ -591,6 +717,12 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
 
         form.addEventListener("submit", function(e) {
             e.preventDefault();
+
+            // If no button was clicked (e.g., Enter key), default to btnCreateDor
+            if (!clickedButton) {
+                clickedButton = document.querySelector("button[name='btnCreateDor']");
+            }
+
             let errors = [];
 
             if (errors.length > 0) {
@@ -603,7 +735,11 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
             sessionStorage.removeItem('dorFormData');
 
             const formData = new FormData(form);
-            if (clickedButton) {
+            if (clickedButton && clickedButton.name) {
+                // Remove all other submit button names from FormData
+                formData.delete('btnCreateDor');
+                formData.delete('btnSearchDor');
+                // Add only the clicked button
                 formData.append(clickedButton.name, clickedButton.value || "1");
             }
 
@@ -611,18 +747,27 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
                     method: "POST",
                     body: formData
                 })
-                .then(response => response.json())
-                .then((data) => {
-                    if (data.success) {
-                        // Clear form data from session storage when creating new DOR
-                        clearFormData();
-                        window.location.href = data.redirectUrl;
-                    } else {
-                        modalErrorMessage.innerHTML = "<ul><li>" + data.errors.join("</li><li>") + "</li></ul>";
+                .then(response => response.text())
+                .then((text) => {
+                    try {
+                        const data = JSON.parse(text);
+                        if (data.success && data.redirectUrl) {
+                            clearFormData();
+                            window.location.href = data.redirectUrl;
+                        } else if (data.errors && data.errors.length > 0) {
+                            modalErrorMessage.innerHTML = "<ul><li>" + data.errors.join("</li><li>") + "</li></ul>";
+                            errorModal.show();
+                        }
+                    } catch (e) {
+                        console.error("Raw response:", text);
+                        console.error("Parse error:", e);
+                        modalErrorMessage.innerHTML = "An unexpected error occurred. Please try again.";
                         errorModal.show();
                     }
                 })
-                .catch(error => console.error("Error:", error));
+                .finally(() => {
+                    clickedButton = null; // Reset for next submit
+                });
         });
 
         // Function to save form data to session storage
@@ -631,16 +776,11 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
 
             // Save all form inputs
             const dateInput = document.getElementById('dtpDate');
-            const lineInput = document.getElementById('txtLineNumber');
             const modelInput = document.getElementById('txtModelName');
             const qtyInput = document.getElementById('txtQty');
-            const dorTypeSelect = document.getElementById('cmbDorType');
 
             if (dateInput) {
                 formData['dtpDate'] = dateInput.value;
-            }
-            if (lineInput) {
-                formData['txtLineNumber'] = lineInput.value;
             }
             if (modelInput) {
                 formData['txtModelName'] = modelInput.value;
@@ -648,10 +788,6 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
             if (qtyInput) {
                 formData['txtQty'] = qtyInput.value;
             }
-            if (dorTypeSelect) {
-                formData['cmbDorType'] = dorTypeSelect.value;
-            }
-
             // Save radio button values
             const shiftRadios = document.querySelectorAll('input[name="rdShift"]');
             shiftRadios.forEach(radio => {
@@ -673,16 +809,11 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
 
                 // Restore form inputs
                 const dateInput = document.getElementById('dtpDate');
-                const lineInput = document.getElementById('txtLineNumber');
                 const modelInput = document.getElementById('txtModelName');
                 const qtyInput = document.getElementById('txtQty');
-                const dorTypeSelect = document.getElementById('cmbDorType');
 
                 if (dateInput && formData['dtpDate']) {
                     dateInput.value = formData['dtpDate'];
-                }
-                if (lineInput && formData['txtLineNumber']) {
-                    lineInput.value = formData['txtLineNumber'];
                 }
                 if (modelInput && formData['txtModelName']) {
                     modelInput.value = formData['txtModelName'];
@@ -690,10 +821,6 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
                 if (qtyInput && formData['txtQty']) {
                     qtyInput.value = formData['txtQty'];
                 }
-                if (dorTypeSelect && formData['cmbDorType']) {
-                    dorTypeSelect.value = formData['cmbDorType'];
-                }
-
                 // Restore radio button values
                 if (formData['rdShift']) {
                     const radio = document.querySelector(`input[name="rdShift"][value="${formData['rdShift']}"]`);
@@ -712,13 +839,63 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
             sessionStorage.removeItem('dorHomeData');
         }
 
-        // Add test values function
+        // Add test values function - now fetches from server
         function setTestValues() {
-            document.getElementById("txtLineNumber").value = "1";
-            // document.getElementById("txtModelName").value = "7M0656-7020";
-            document.getElementById("txtModelName").value = "7L0113-7021C";
-            document.getElementById("cmbDorType").value = "3";
-            document.getElementById("txtQty").value = "42";
+            console.log("setTestValues called"); // Debug log
+
+            const formData = new FormData();
+            formData.append('btnSetValues', '1');
+
+            fetch(form.action, {
+                    method: "POST",
+                    body: formData
+                })
+                .then(response => {
+                    console.log("Response status:", response.status); // Debug log
+                    return response.text();
+                })
+                .then((text) => {
+                    console.log("Raw response:", text); // Debug log
+                    try {
+                        const data = JSON.parse(text);
+                        console.log("Parsed data:", data); // Debug log
+
+                        if (data.success && data.testData) {
+                            // Populate form with test data from server
+                            document.getElementById("dtpDate").value = data.testData.dateTime || data.testData.date;
+                            document.getElementById("txtModelName").value = data.testData.modelName;
+                            document.getElementById("txtQty").value = data.testData.quantity;
+
+                            // Set shift radio button (force uncheck others)
+                            document.querySelectorAll('input[name="rdShift"]').forEach(radio => {
+                                radio.checked = (radio.value === data.testData.shift);
+                            });
+
+                            // Show success message if available
+                            if (data.testData.message) {
+                                console.log("Success:", data.testData.message);
+                            }
+                        } else if (data.errors && data.errors.length > 0) {
+                            console.error("Server errors:", data.errors);
+                            modalErrorMessage.innerHTML = "<ul><li>" + data.errors.join("</li><li>") + "</li></ul>";
+                            errorModal.show();
+                        } else {
+                            console.warn("Unexpected response format:", data);
+                        }
+                    } catch (e) {
+                        console.error("Error parsing test values response:", text);
+                        console.error("Parse error:", e);
+                        // Fallback to static values if server request fails
+                        document.getElementById("txtModelName").value = "7L0113-7021C";
+                        document.getElementById("txtQty").value = "42";
+                    }
+                })
+                .catch(error => {
+                    console.error("Error fetching test values:", error);
+                    // Fallback to static values if server request fails
+                    document.getElementById("txtModelName").value = "7L0113-7021C";
+                    document.getElementById("txtQty").value = "42";
+                });
         }
 
         // Add clear form function
@@ -726,14 +903,8 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
             // Reset date to today
             document.getElementById("dtpDate").value = "<?php echo $today; ?>";
 
-            // Reset line number
-            document.getElementById("txtLineNumber").value = "";
-
             // Reset model name
             document.getElementById("txtModelName").value = "";
-
-            // Reset DOR type to default
-            document.getElementById("cmbDorType").value = "0";
 
             // Reset quantity
             document.getElementById("txtQty").value = "";
@@ -756,7 +927,7 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
         });
 
         // Add event listener for Set Test Values button
-        document.querySelector('button[name="btnSetValues"]').addEventListener('click', function(e) {
+        document.getElementById('btnSetValues').addEventListener('click', function(e) {
             e.preventDefault(); // Prevent form submission
             setTestValues();
         });
