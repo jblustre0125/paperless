@@ -104,6 +104,52 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
+  // === Work Instruction Notice for Tab 2 ===
+  function showWorkInstructionNotice() {
+    const tab2 = document.getElementById("tab-2");
+    if (!tab2) return;
+    // Only show toast if inputs are not already disabled
+    const inputs = tab2.querySelectorAll("input");
+    const alreadyDisabled = Array.from(inputs).every((input) => input.disabled);
+    if (!alreadyDisabled) {
+      showToast(
+        "Please open the Work Instruction before entering dimension check data.",
+        "info",
+        { duration: 7000 }
+      );
+      disableDimensionCheckInputs();
+    } else {
+      disableDimensionCheckInputs();
+    }
+  }
+
+  // Remove notice and enable inputs when WI button is clicked
+  document
+    .getElementById("btnWorkInstruction")
+    ?.addEventListener("click", function () {
+      sessionStorage.setItem(`wiConfirmed_${recordId}`, "1");
+      enableDiemsnionCheckInputs();
+    });
+
+  // Add a reset button for WI confirmation in tab-2
+  function addWIResetButton() {
+    const tab2 = document.getElementById("tab-2");
+    if (!tab2) return;
+    if (!document.getElementById("wi-reset-btn")) {
+      const btn = document.createElement("button");
+      btn.id = "wi-reset-btn";
+      btn.className = "btn btn-warning btn-sm mt-4 float-end";
+      btn.textContent = "Reset WI";
+      btn.type = "button";
+      btn.onclick = function () {
+        sessionStorage.removeItem(`wiConfirmed_${recordId}`);
+        showWorkInstructionNotice();
+      };
+      tab2.prepend(btn);
+    }
+  }
+
+  // Call on tab change
   function showTab(index) {
     index = parseInt(index);
     if (isNaN(index) || index < 0 || index >= tabPanes.length) {
@@ -126,6 +172,14 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     if (btnBack) {
       btnBack.disabled = index === 0;
+    }
+
+    // Show WI notice for tab-2 if not confirmed
+    if (index === 2 && !sessionStorage.getItem(`wiConfirmed_${recordId}`)) {
+      showWorkInstructionNotice();
+      addWIResetButton();
+    } else if (index === 2) {
+      addWIResetButton();
     }
   }
 
@@ -372,33 +426,16 @@ document.addEventListener("DOMContentLoaded", function () {
   showTab(currentTabIndex);
   tabContent.style.display = "block";
 
-  const wiKey = `wiConfirmed_${recordId}`;
+  // const wiKey = `wiConfirmed_${recordId}`;
 
-  if (currentTabIndex === 2 && !sessionStorage.getItem(wiKey)) {
-    disableDimensionCheckInputs();
-
-    showToast(
-      "You must open the Work Instruction before entering data.",
-      "custom",
-      {
-        confirm: true,
-        onConfirm: () => {
-          sessionStorage.setItem(wiKey, "1");
-          enableDiemsnionCheckInputs();
-          showToast(
-            "Work Instruction confimed. You may now input data",
-            "success"
-          );
-        },
-        onCancel: () => {
-          showToast(
-            "Access to Dimension Check is restricted until Work Instruction is confirmed.",
-            "danger"
-          );
-        },
-      }
-    );
-  }
+  // if (currentTabIndex === 2 && !sessionStorage.getItem(wiKey)) {
+  //   disableDimensionCheckInputs();
+  //   showToast(
+  //     "You must open the Work Instruction before entering data.",
+  //     "info",
+  //     { duration: 7000 }
+  //   );
+  // }
 
   if (document.getElementById("tab-0")?.classList.contains("read-only")) {
     isTab0Saved = true;

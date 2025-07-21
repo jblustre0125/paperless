@@ -76,13 +76,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $badgesHtml = '';
         foreach ($badgeCodes as $code) {
           if ($code !== '') {
-            $badgesHtml .= '<small class="badge bg-warning text-dark border mx-1">' . htmlspecialchars($code) . '</small>';
+            $badgesHtml .= '<small class="badge bg-light text-dark border mx-1">' . htmlspecialchars($code) . '</small>';
           }
         }
         $response['downtimeBadges'] = $badgesHtml;
         $response['downtimeRecords'] = $downtimeRecords;
 
-        // --- Operator badge AJAX update ---
         // Get operator codes for this row
         $operatorCodes = [];
         $opRes = $db1->execute("SELECT OperatorCode1, OperatorCode2, OperatorCode3, OperatorCode4 FROM AtoDorDetail WHERE RecordHeaderId = ?", [$headerId], 1);
@@ -1165,54 +1164,53 @@ try {
       })
       .then(response => response.json())
       .then(data => {
-        if (data.success) {
-          // Show downtime code badges outside modal (in table)
-          const downtimeDiv = document.getElementById(`downtimeInfo${rowId}`);
-          if (downtimeDiv) {
-            if (typeof data.downtimeBadges === 'string' && data.downtimeBadges.trim() !== '') {
-              downtimeDiv.innerHTML = data.downtimeBadges;
-            } else {
-              downtimeDiv.innerHTML = '<small class="badge bg-light text-dark border mx-1">No downtime</small>';
+          if (data.success) {
+            // Show downtime code badges outside modal (in table)
+            const downtimeDiv = document.getElementById(`downtimeInfo${rowId}`);
+            if (downtimeDiv) {
+              if (typeof data.downtimeBadges === 'string' && data.downtimeBadges.trim() !== '') {
+                downtimeDiv.innerHTML = data.downtimeBadges;
+              } else {
+                downtimeDiv.innerHTML = '<small class="badge bg-light text-dark border mx-1">No downtime</small>';
+              }
             }
-          }
-          // Show operator badges outside modal (in table)
-          const operatorDiv = document.getElementById(`operatorList${rowId}`);
-          if (operatorDiv) {
-            if (typeof data.operatorBadges === 'string' && data.operatorBadges.trim() !== '') {
-              operatorDiv.innerHTML = data.operatorBadges;
-            } else {
-              operatorDiv.innerHTML = '<small class="badge bg-light text-dark border mx-1">No operator</small>';
-            }
-          }
-          // Attach click event to View Downtime button to show modal with details
-          const viewBtn = document.getElementById(`downtime${rowId}`);
-          if (viewBtn) {
-            viewBtn.onclick = function() {
-              // Fill modal with downtime details for this row
-              const modalEl = document.getElementById('downtimeModal');
-              if (!modalEl) return;
-              const modal = new bootstrap.Modal(modalEl);
-              document.getElementById('downtimeRowNumber').textContent = rowId;
-              document.getElementById('downtimeModalLotNumber').textContent = boxNo;
-              const recordsDiv = document.getElementById('currentDowntimeRecords');
-              if (recordsDiv) {
-                if (Array.isArray(data.downtimeRecords) && data.downtimeRecords.length > 0) {
-                  let html = '';
-                  data.downtimeRecords.forEach(rec => {
-                    // Defensive: fallback for undefined/null
-                    const code = rec.downtimeCode !== undefined && rec.downtimeCode !== null ? rec
-                      .downtimeCode : '';
-                    let tStart = (rec.timeStart !== undefined && rec.timeStart !== null) ? String(rec
-                      .timeStart) : '';
-                    let tEnd = (rec.timeEnd !== undefined && rec.timeEnd !== null) ? String(rec.timeEnd) : '';
-                    // Try to extract HH:mm if full datetime
-                    if (tStart.length >= 16 && tStart.includes(':')) tStart = tStart.substring(11, 16);
-                    if (tEnd.length >= 16 && tEnd.includes(':')) tEnd = tEnd.substring(11, 16);
-                    if (tStart.length === 0) tStart = '--:--';
-                    if (tEnd.length === 0) tEnd = '--:--';
-                    let duration = (rec.duration !== undefined && rec.duration !== null && rec.duration !==
-                      '') ? rec.duration + ' min' : '--';
-                    html += `<div class="d-flex flex-wrap align-items-center mb-2 p-2 border rounded bg-light">
+            // Show operator badges outside modal (in table)
+            const operatorDiv = document.getElementById(`operatorList${rowId}`);
+            if (operatorDiv) {
+              if (typeof data.operatorBadges === 'string' && data.operatorBadges.trim() !== '') {
+                operatorDiv.innerHTML = data.operatorBadges;
+              } else {
+                operatorDiv.innerHTML = '<small class="badge bg-light text-dark border mx-1">No operator</small>';
+              }
+              // Attach click event to View Downtime button to show modal with details
+              const viewBtn = document.getElementById(`downtime${rowId}`);
+              if (viewBtn) {
+                viewBtn.onclick = function() {
+                  // Fill modal with downtime details for this row
+                  const modalEl = document.getElementById('downtimeModal');
+                  if (!modalEl) return;
+                  const modal = new bootstrap.Modal(modalEl);
+                  document.getElementById('downtimeRowNumber').textContent = rowId;
+                  document.getElementById('downtimeModalLotNumber').textContent = boxNo;
+                  const recordsDiv = document.getElementById('currentDowntimeRecords');
+                  if (recordsDiv) {
+                    if (Array.isArray(data.downtimeRecords) && data.downtimeRecords.length > 0) {
+                      let html = '';
+                      data.downtimeRecords.forEach(rec => {
+                        // Defensive: fallback for undefined/null
+                        const code = rec.downtimeCode !== undefined && rec.downtimeCode !== null ? rec
+                          .downtimeCode : '';
+                        let tStart = (rec.timeStart !== undefined && rec.timeStart !== null) ? String(rec
+                          .timeStart) : '';
+                        let tEnd = (rec.timeEnd !== undefined && rec.timeEnd !== null) ? String(rec.timeEnd) : '';
+                        // Try to extract HH:mm if full datetime
+                        if (tStart.length >= 16 && tStart.includes(':')) tStart = tStart.substring(11, 16);
+                        if (tEnd.length >= 16 && tEnd.includes(':')) tEnd = tEnd.substring(11, 16);
+                        if (tStart.length === 0) tStart = '--:--';
+                        if (tEnd.length === 0) tEnd = '--:--';
+                        let duration = (rec.duration !== undefined && rec.duration !== null && rec.duration !==
+                          '') ? rec.duration + ' min' : '--';
+                        html += `<div class="d-flex flex-wrap align-items-center mb-2 p-2 border rounded bg-light">
                         <div class="d-flex align-items-center flex-wrap">
                           <small class="badge bg-light text-dark border mx-1" style="min-width:60px;text-align:center;">${code}</small>
                           <span class="mx-1">Start:</span>
@@ -1223,122 +1221,115 @@ try {
                           <input type="text" class="form-control form-control-sm mx-1" value="${duration}" readonly style="width:70px;">
                         </div>
                       </div>`;
-                  });
-                  recordsDiv.innerHTML = html;
-                } else {
-                  recordsDiv.innerHTML =
-                    '<p id="noDowntimeRecordsMsg" class="text-muted text-center mb-0">No downtime records added yet.</p>';
+                      });
+                      recordsDiv.innerHTML = html;
+                    } else {
+                      recordsDiv.innerHTML =
+                        '<p id="noDowntimeRecordsMsg" class="text-muted text-center mb-0">No downtime records added yet.</p>';
+                    }
+                  }
                 }
-              }
-              // Re-enable modal buttons if they were disabled
-              const closeBtn = modalEl.querySelector('button[data-bs-dismiss="modal"]');
-              if (closeBtn) closeBtn.disabled = false;
-              const saveBtn = document.getElementById('saveDowntimeBtn');
-              if (saveBtn) saveBtn.disabled = false;
-              // Remove fade class to prevent stuck fade state
-              modalEl.classList.remove('fade');
-              // Remove any lingering modal-backdrop before showing
-              document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
-              // Remove modal-open class from body
-              document.body.classList.remove('modal-open');
-              document.body.style.overflow = '';
-              document.body.style.paddingRight = '';
-              // Add event to fully clean up modal state on close
-              modalEl.addEventListener('hidden.bs.modal', function handler() {
-                modalEl.classList.remove('show');
+                // Re-enable modal buttons if they were disabled
+                const closeBtn = modalEl.querySelector('button[data-bs-dismiss="modal"]');
+                if (closeBtn) closeBtn.disabled = false;
+                const saveBtn = document.getElementById('saveDowntimeBtn');
+                if (saveBtn) saveBtn.disabled = false;
+                // Remove fade class to prevent stuck fade state
                 modalEl.classList.remove('fade');
+                // Remove any lingering modal-backdrop before showing
                 document.querySelectorAll('.modal-backdrop').forEach(b => b.remove());
+                // Remove modal-open class from body
                 document.body.classList.remove('modal-open');
                 document.body.style.overflow = '';
                 document.body.style.paddingRight = '';
-                modalEl.removeEventListener('hidden.bs.modal', handler);
+                // Add event to fully clean up modal state on close
+                modalEl.addEventListener('hidden.bs.modal', function handler() {
+                    modalEl.classList.remove('show');
+                    modalEl.classList.remove('fade');
+                  };
+                }
+              }
+            });
+        }
+
+        setInterval(() => {
+          for (let i = 1; i <= 20; i++) {
+            const boxNoInput = document.getElementById(`boxNo${i}`);
+            if (boxNoInput && boxNoInput.value.trim()) {
+              fetchRowStatus(i);
+            }
+          }
+          // After polling all rows, update the total downtime
+          setTimeout(updateTotalDowntime, 500); // Give AJAX a moment to update DOM
+        }, 1000);
+
+        // Function to compute and update total downtime
+        function updateTotalDowntime() {
+          let totalDowntime = 0;
+          for (let i = 1; i <= 20; i++) {
+            const downtimeDiv = document.getElementById(`downtimeInfo${i}`);
+            if (downtimeDiv) {
+              // Count only real downtime badges (not placeholders or 'No downtime')
+              const badges = downtimeDiv.querySelectorAll('small.badge');
+              badges.forEach(badge => {
+                const text = badge.textContent.trim();
+                // Exclude placeholders and 'No downtime'
+                if (
+                  !badge.classList.contains('placeholder-badge') &&
+                  text !== '' &&
+                  text.toLowerCase() !== 'no downtime'
+                ) {
+                  totalDowntime++;
+                }
               });
-              modal.show();
-            };
+            }
+          }
+          document.getElementById('totalDowntime').textContent = totalDowntime;
+        }
+        let errorModalInstance = null;
+        let errorModalIsOpen = false;
+
+        function showErrorModal(message) {
+          const modalErrorMessage = document.getElementById("modalErrorMessage");
+
+          // Format message as bullet points if it's not already formatted
+          if (message.includes('<ul>') || message.includes('<li>')) {
+            // Message is already formatted as HTML
+            modalErrorMessage.innerHTML = message;
+          } else {
+            // Format as bullet points
+            modalErrorMessage.innerHTML = "<ul><li>" + message + "</li></ul>";
+          }
+
+          // Create modal instance only once
+          if (!errorModalInstance) {
+            errorModalInstance = new bootstrap.Modal(document.getElementById("errorModal"));
+          }
+
+          // Only show if not already open
+          if (!errorModalIsOpen) {
+            errorModalInstance.show();
+            errorModalIsOpen = true;
           }
         }
-      });
-  }
 
-  // Poll every 1 second for each row with a box number
-  setInterval(() => {
-    for (let i = 1; i <= 20; i++) {
-      const boxNoInput = document.getElementById(`boxNo${i}`);
-      if (boxNoInput && boxNoInput.value.trim()) {
-        fetchRowStatus(i);
-      }
-    }
-    // After polling all rows, update the total downtime
-    setTimeout(updateTotalDowntime, 500); // Give AJAX a moment to update DOM
-  }, 1000);
+        // Ensure modal backdrop is properly cleaned up and allow closing
+        document.addEventListener('DOMContentLoaded', function() {
+          const errorModalElement = document.getElementById("errorModal");
 
-  // Function to compute and update total downtime
-  function updateTotalDowntime() {
-    let totalDowntime = 0;
-    for (let i = 1; i <= 20; i++) {
-      const downtimeDiv = document.getElementById(`downtimeInfo${i}`);
-      if (downtimeDiv) {
-        // Count only real downtime badges (not placeholders or 'No downtime')
-        const badges = downtimeDiv.querySelectorAll('small.badge');
-        badges.forEach(badge => {
-          const text = badge.textContent.trim();
-          // Exclude placeholders and 'No downtime'
-          if (
-            !badge.classList.contains('placeholder-badge') &&
-            text !== '' &&
-            text.toLowerCase() !== 'no downtime'
-          ) {
-            totalDowntime++;
-          }
+          // Clean up modal backdrop when modal is hidden
+          errorModalElement.addEventListener('hidden.bs.modal', function() {
+            // Remove any lingering backdrop elements
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            backdrops.forEach(backdrop => backdrop.remove());
+
+            // Remove modal-open class from body
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+            errorModalIsOpen = false;
+          });
         });
-      }
-    }
-    document.getElementById('totalDowntime').textContent = totalDowntime;
-  }
-  let errorModalInstance = null;
-  let errorModalIsOpen = false;
-
-  function showErrorModal(message) {
-    const modalErrorMessage = document.getElementById("modalErrorMessage");
-
-    // Format message as bullet points if it's not already formatted
-    if (message.includes('<ul>') || message.includes('<li>')) {
-      // Message is already formatted as HTML
-      modalErrorMessage.innerHTML = message;
-    } else {
-      // Format as bullet points
-      modalErrorMessage.innerHTML = "<ul><li>" + message + "</li></ul>";
-    }
-
-    // Create modal instance only once
-    if (!errorModalInstance) {
-      errorModalInstance = new bootstrap.Modal(document.getElementById("errorModal"));
-    }
-
-    // Only show if not already open
-    if (!errorModalIsOpen) {
-      errorModalInstance.show();
-      errorModalIsOpen = true;
-    }
-  }
-
-  // Ensure modal backdrop is properly cleaned up and allow closing
-  document.addEventListener('DOMContentLoaded', function() {
-    const errorModalElement = document.getElementById("errorModal");
-
-    // Clean up modal backdrop when modal is hidden
-    errorModalElement.addEventListener('hidden.bs.modal', function() {
-      // Remove any lingering backdrop elements
-      const backdrops = document.querySelectorAll('.modal-backdrop');
-      backdrops.forEach(backdrop => backdrop.remove());
-
-      // Remove modal-open class from body
-      document.body.classList.remove('modal-open');
-      document.body.style.overflow = '';
-      document.body.style.paddingRight = '';
-      errorModalIsOpen = false;
-    });
-  });
   </script>
 
   <script>

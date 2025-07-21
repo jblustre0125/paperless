@@ -22,7 +22,7 @@ if (!isset($recordHeaderId)) {
         </tr>
       </thead>
       <tbody>
-        <tr>x
+        <tr>
           <td>
             <input type="text" class="form-control text-center time-start" placeholder="HH:mm" maxlength="5"
               pattern="[0-9]{2}:[0-9]{2}" id="timeStart<?= $recordHeaderId ?>" />

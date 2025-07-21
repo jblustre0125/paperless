@@ -18,29 +18,29 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   // Create toast container if it doesn't exist
-  if (!document.getElementById('toast-container')) {
-    const toastContainer = document.createElement('div');
-    toastContainer.id = 'toast-container';
-    toastContainer.style.position = 'fixed';
-    toastContainer.style.top = '20px';
-    toastContainer.style.right = '20px';
-    toastContainer.style.zIndex = '9999';
+  if (!document.getElementById("toast-container")) {
+    const toastContainer = document.createElement("div");
+    toastContainer.id = "toast-container";
+    toastContainer.style.position = "fixed";
+    toastContainer.style.top = "20px";
+    toastContainer.style.right = "20px";
+    toastContainer.style.zIndex = "9999";
     document.body.appendChild(toastContainer);
   }
 
-  function showToast(message, type = 'success') {
-    const toastContainer = document.getElementById('toast-container');
-    const toastId = 'toast-' + Date.now();
-    
-    const toast = document.createElement('div');
+  function showToast(message, type = "success") {
+    const toastContainer = document.getElementById("toast-container");
+    const toastId = "toast-" + Date.now();
+
+    const toast = document.createElement("div");
     toast.id = toastId;
     toast.className = `toast show align-items-center text-white bg-${type}`;
-    toast.style.width = '300px';
-    toast.style.marginBottom = '10px';
-    toast.setAttribute('role', 'alert');
-    toast.setAttribute('aria-live', 'assertive');
-    toast.setAttribute('aria-atomic', 'true');
-    
+    toast.style.width = "300px";
+    toast.style.marginBottom = "10px";
+    toast.setAttribute("role", "alert");
+    toast.setAttribute("aria-live", "assertive");
+    toast.setAttribute("aria-atomic", "true");
+
     toast.innerHTML = `
       <div class="d-flex">
         <div class="toast-body">
@@ -49,21 +49,21 @@ document.addEventListener("DOMContentLoaded", function () {
         <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
       </div>
     `;
-    
+
     toastContainer.appendChild(toast);
-    
+
     // Auto-remove after 5 seconds
     setTimeout(() => {
       const toastElement = document.getElementById(toastId);
       if (toastElement) {
-        toastElement.classList.remove('show');
+        toastElement.classList.remove("show");
         setTimeout(() => toastElement.remove(), 500);
       }
     }, 5000);
-    
+
     // Add click to dismiss
-    toast.querySelector('.btn-close').addEventListener('click', function() {
-      toast.classList.remove('show');
+    toast.querySelector(".btn-close").addEventListener("click", function () {
+      toast.classList.remove("show");
       setTimeout(() => toast.remove(), 500);
     });
   }
@@ -218,7 +218,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const saveBtn = modal.querySelector(".btn-save-operators");
     saveBtn.disabled = true;
-    saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Saving...';
+    saveBtn.innerHTML =
+      '<span class="spinner-border spinner-border-sm"></span> Saving...';
 
     debugLog("Saving operators for RecordHeaderId:", recordId, selectedCodes);
 
@@ -358,5 +359,38 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
+  function autoUpdateAllHeaders() {
+    fetch("../controller/dor-dor.php", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "getAllHeaders" }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        debugLog("All headers response:", data);
+        if (data.success && Array.isArray(data.rows)) {
+          data.rows.forEach((row, idx) => {
+            // Row index is idx+1 (table uses 1-based index)
+            const i = idx + 1;
+            const boxNoInput = document.getElementById(`boxNo${i}`);
+            if (boxNoInput) boxNoInput.value = row.boxNo ?? "";
+            const timeStartInput = document.getElementById(`timeStart${i}`);
+            if (timeStartInput) timeStartInput.value = row.timeStart ?? "";
+            const timeEndInput = document.getElementById(`timeEnd${i}`);
+            if (timeEndInput) timeEndInput.value = row.timeEnd ?? "";
+            const durationSpan = document.getElementById(`duration${i}`);
+            if (durationSpan) durationSpan.textContent = row.duration ?? "";
+          });
+        }
+      })
+      .catch((err) => {
+        debugLog("All headers fetch error", err);
+      });
+  }
+
+  setInterval(autoUpdateAllHeaders, 5000); // Poll every 5 seconds
+
   setup();
+  // Initial auto-update
+  autoUpdateAllHeaders();
 });

@@ -451,7 +451,8 @@ $workInstructFile = $workInstruction ?? '';
             <table class="table table-bordered text-center align-middle mb-0">
               <thead class="table-light sticky-table">
                 <tr>
-                  <th class="fs-6 sticky-header" colspan="10" style="top: 0;">C. Dimension Check</th>
+                  <th class="fs-6 sticky-header" colspan="10" style="top: 0; border-top: 2px solid #dee2e6;">C.
+                    Dimension Check</th>
                 </tr>
                 <tr>
                   <th class="fs-6 sticky-header" rowspan="2" style="width: 8%; min-width: 50px; top: 38px;">No.</th>
@@ -748,7 +749,7 @@ $workInstructFile = $workInstruction ?? '';
 
                       <td class="text-center align-middle" style="width: 5%;">
                         <button type="button" class="btn btn-outline-danger btn-sm delete-row" data-row-id="<?= $i ?>"
-                          title="Delete Row">
+                          title="Delete Row" onclick="clearRowFields(<?= $i ?>)">
                           <span style="font-size: 1.2rem; font-weight: bold;">×</span>
                         </button>
                       </td>
@@ -978,6 +979,53 @@ $workInstructFile = $workInstruction ?? '';
   <script src="../js/dor-operator.js"></script>
   <script src="../js/dor-tab.js"></script>
   <script src="../js/viewer.js"></script>
+  <script>
+    function clearRowFields(rowNum) {
+      if (!confirm('Are you sure you want to delete this row? This action cannot be undone.')) return;
+      var boxNo = document.getElementById('boxNo' + rowNum);
+      var timeStart = document.getElementById('timeStart' + rowNum);
+      var timeEnd = document.getElementById('timeEnd' + rowNum);
+      var duration = document.getElementById('duration' + rowNum);
+      var rows = document.querySelectorAll('tr[data-row-id]');
+      var recordHeaderId = null;
+      if (rows[rowNum - 1]) {
+        recordHeaderId = rows[rowNum - 1].getAttribute('data-row-id');
+      }
+      if (!recordHeaderId) {
+        if (boxNo) boxNo.value = '';
+        if (timeStart) timeStart.value = '';
+        if (timeEnd) timeEnd.value = '';
+        if (duration) duration.textContent = '';
+        return;
+      }
+      // Send JSON POST to controller/dor-dor.php
+      fetch('../controller/dor-dor.php', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({
+            type: 'deleteHeader',
+            recordHeaderId: recordHeaderId
+          })
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            if (boxNo) boxNo.value = '';
+            if (timeStart) timeStart.value = '';
+            if (timeEnd) timeEnd.value = '';
+            if (duration) duration.textContent = '';
+          } else {
+            alert('Failed to delete row data: ' + (data.message || 'Unknown error'));
+          }
+        })
+        .catch(() => {
+          alert('Failed to delete row data.');
+        });
+    }
+  </script>
 
 </body>
 
