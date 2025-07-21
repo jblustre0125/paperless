@@ -62,7 +62,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $badgesHtml = '';
         foreach ($badgeCodes as $code) {
           if ($code !== '') {
-            $badgesHtml .= '<small class="badge bg-warning text-dark border mx-1">' . htmlspecialchars($code) . '</small>';
+            $badgesHtml .= '<small class="badge bg-light text-dark border mx-1">' . htmlspecialchars($code) . '</small>';
           }
         }
         $response['downtimeBadges'] = $badgesHtml;
@@ -1093,15 +1093,18 @@ try {
                     let html = '';
                     data.downtimeRecords.forEach(rec => {
                       // Defensive: fallback for undefined/null
-                      const code = rec.downtimeCode !== undefined && rec.downtimeCode !== null ? rec.downtimeCode : '';
-                      let tStart = (rec.timeStart !== undefined && rec.timeStart !== null) ? String(rec.timeStart) : '';
+                      const code = rec.downtimeCode !== undefined && rec.downtimeCode !== null ? rec
+                        .downtimeCode : '';
+                      let tStart = (rec.timeStart !== undefined && rec.timeStart !== null) ? String(rec
+                        .timeStart) : '';
                       let tEnd = (rec.timeEnd !== undefined && rec.timeEnd !== null) ? String(rec.timeEnd) : '';
                       // Try to extract HH:mm if full datetime
                       if (tStart.length >= 16 && tStart.includes(':')) tStart = tStart.substring(11, 16);
                       if (tEnd.length >= 16 && tEnd.includes(':')) tEnd = tEnd.substring(11, 16);
                       if (tStart.length === 0) tStart = '--:--';
                       if (tEnd.length === 0) tEnd = '--:--';
-                      let duration = (rec.duration !== undefined && rec.duration !== null && rec.duration !== '') ? rec.duration + ' min' : '--';
+                      let duration = (rec.duration !== undefined && rec.duration !== null && rec.duration !==
+                        '') ? rec.duration + ' min' : '--';
                       html += `<div class="d-flex flex-wrap align-items-center mb-2 p-2 border rounded bg-light">
                         <div class="d-flex align-items-center flex-wrap">
                           <small class="badge bg-light text-dark border mx-1" style="min-width:60px;text-align:center;">${code}</small>
@@ -1116,7 +1119,8 @@ try {
                     });
                     recordsDiv.innerHTML = html;
                   } else {
-                    recordsDiv.innerHTML = '<p id="noDowntimeRecordsMsg" class="text-muted text-center mb-0">No downtime records added yet.</p>';
+                    recordsDiv.innerHTML =
+                      '<p id="noDowntimeRecordsMsg" class="text-muted text-center mb-0">No downtime records added yet.</p>';
                   }
                 }
                 // Re-enable modal buttons if they were disabled

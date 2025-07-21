@@ -60,7 +60,7 @@
             <style>
                 /* Extra large modal */
                 .modal-xl {
-                    max-width: 90%;
+                    max-width: 50%;
                 }
 
                 /* Limit Tab3 Quick View Modal content to 7 rows and make it scrollable */
@@ -71,13 +71,13 @@
 
                 /* Force downtime modal to always be extra wide */
                 #downtimeModal .modal-dialog {
-                    max-width: 90vw !important;
-                    width: 90vw !important;
+                    max-width: 50vw !important;
+                    width: 50vw !important;
                 }
 
                 /* Limit downtime modal content to 5 rows and make it scrollable */
                 #downtimeModalContent {
-                    max-height: 600px;
+                    max-height: 610px;
                 }
 
                 /* Pointer cursor for clickable elements */
@@ -122,7 +122,8 @@
                                     <li><a class="dropdown-item" href="dor-model.php"><i class="bi bi-diagram-3"></i> Model</a></li>
                                     <li><a class="dropdown-item" href="dor-user.php"><i class="bi bi-person"></i> User</a></li>
                                     <li><a class="dropdown-item" href="dor-line.php"><i class="bi bi-tablet"></i> Line</a></li>
-                                    <li><a class="dropdown-item" href="dor-tablet-management.php"><i class="bi bi-tablet"></i> Tablet</a></li>
+                                    <li><a class="dropdown-item" href="dor-tablet-management.php"><i class="bi bi-tablet"></i>
+                                            Tablet</a></li>
                                 </ul>
                             </li>
 
@@ -148,7 +149,8 @@
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end">
                                     <li><a class="dropdown-item text-danger fw-bold" href="../controller/dor-leader-logout.php"
-                                            onclick="exitApplication(event)"><i class="bi bi-box-arrow-right"></i> Exit Application</a></li>
+                                            onclick="exitApplication(event)"><i class="bi bi-box-arrow-right"></i> Exit Application</a>
+                                    </li>
                                     <li><a class="dropdown-item text-danger fw-bold" href="../controller/dor-leader-logout.php"><i
                                                 class="bi bi-box-arrow-right"></i> Log Out</a></li>
                                 </ul>
@@ -193,7 +195,8 @@
                                         <!-- Card Body - Clickable to go to tablet detail page -->
                                         <div class="card-body py-3 cursor-pointer"
                                             onclick="window.location.href='dor-tablet.php?hostname_id=<?= $row['HostnameId'] ?>'"
-                                            data-bs-toggle="tooltip" data-bs-placement="top" data-hostname="<?= htmlspecialchars($row['Hostname']) ?>"
+                                            data-bs-toggle="tooltip" data-bs-placement="top"
+                                            data-hostname="<?= htmlspecialchars($row['Hostname']) ?>"
                                             data-record-id="<?= $row['RecordId'] ?? 'new' ?>">
                                             <h6 class="card-title mb-1"><?= htmlspecialchars($row['Hostname']) ?></h6>
                                         </div>
@@ -221,7 +224,8 @@
             </div>
 
             <!-- Downtime Modal -->
-            <div class="modal fade" id="downtimeModal" tabindex="-1" aria-labelledby="downtimeModalLabel" aria-hidden="true">
+            <div class="modal fade" id="downtimeModal" tabindex="-1" aria-labelledby="downtimeModalLabel"
+                aria-hidden="true">
                 <div class="modal-dialog modal-xl modal-dialog-centered">
                     <div class="modal-content" id="downtimeModalContent">
                         <!-- Content loaded dynamically -->

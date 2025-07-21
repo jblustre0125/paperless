@@ -138,6 +138,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $input = json_decode(file_get_contents('php://input'), true);
 
+    if (isset($input['type']) && $input['type'] === 'getAllHeaders') {
+        $hostnameId = $_GET['hostname_id'] ?? null;
+        $headers = $controller->getHeaders($hostnameId);
+        $rows = [];
+        foreach ($headers as $row) {
+            // Format time as HH:mm
+            $timeStart = '';
+            $timeEnd = '';
+            if (!empty($row['TimeStart'])) {
+                if ($row['TimeStart'] instanceof DateTime) {
+                    $timeStart = $row['TimeStart']->format('H:i');
+                } else {
+                    $ts = strtotime($row['TimeStart']);
+                    $timeStart = $ts ? date('H:i', $ts) : '';
+                }
+            }
+            if (!empty($row['TimeEnd'])) {
+                if ($row['TimeEnd'] instanceof DateTime) {
+                    $timeEnd = $row['TimeEnd']->format('H:i');
+                } else {
+                    $te = strtotime($row['TimeEnd']);
+                    $timeEnd = $te ? date('H:i', $te) : '';
+                }
+            }
+            $rows[] = [
+                'recordHeaderId' => $row['RecordHeaderId'],
+                'boxNo' => $row['BoxNumber'],
+                'timeStart' => $timeStart,
+                'timeEnd' => $timeEnd,
+                'duration' => $row['Duration']
+            ];
+        }
+        echo json_encode(['success' => true, 'rows' => $rows]);
+        exit;
+    }
     if (isset($input['type']) && $input['type'] === 'saveOperators') {
         $recordHeaderId = $input['recordHeaderId'] ?? null;
         $employeeCodes = $input['employeeCodes'] ?? [];
