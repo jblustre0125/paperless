@@ -68,7 +68,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $response['downtimeBadges'] = $badgesHtml;
         $response['downtimeRecords'] = $downtimeRecords;
 
-        // --- Operator badge AJAX update ---
         // Get operator codes for this row
         $operatorCodes = [];
         $opRes = $db1->execute("SELECT OperatorCode1, OperatorCode2, OperatorCode3, OperatorCode4 FROM AtoDorDetail WHERE RecordHeaderId = ?", [$headerId], 1);
