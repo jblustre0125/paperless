@@ -121,6 +121,18 @@ class DorDor
         }
         return true;
     }
+
+    public function deleteHeader($recordHeaderId)
+    {
+        if (!$recordHeaderId) return false;
+        // Delete related details first
+        $sqlDetail = "DELETE FROM AtoDorDetail WHERE RecordHeaderId = ?";
+        $this->db->execute($sqlDetail, [$recordHeaderId]);
+        // Then delete header
+        $sqlHeader = "DELETE FROM AtoDorHeader WHERE RecordHeaderId = ?";
+        $this->db->execute($sqlHeader, [$recordHeaderId]);
+        return true;
+    }
 }
 
 // ======= Main Request Handling =======
@@ -192,6 +204,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $success = $controller->saveOperators($recordHeaderId, $employeeCodes);
         echo json_encode(['success' => $success]);
+        exit;
+    }
+    if (isset($input['type']) && $input['type'] === 'deleteHeader') {
+        $recordHeaderId = $input['recordHeaderId'] ?? null;
+        if (!$recordHeaderId) {
+            echo json_encode(['success' => false, 'message' => 'Missing recordHeaderId']);
+            exit;
+        }
+        try {
+            $success = $controller->deleteHeader($recordHeaderId);
+            echo json_encode(['success' => $success]);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
         exit;
     }
 
