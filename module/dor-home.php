@@ -1,5 +1,6 @@
 <?php
-$title = "Home";
+error_reporting(0);
+ini_set('display_errors', 0);
 ob_start();
 
 require_once __DIR__ . "/../config/dbop.php";
@@ -47,7 +48,6 @@ if (
     $_SERVER["REQUEST_METHOD"] === "POST" &&
     (isset($_POST['btnCreateDor']) || isset($_POST['btnSearchDor']) || isset($_POST['btnSetValues']))
 ) {
-    ob_end_clean();
     header('Content-Type: application/json; charset=utf-8');
 
     $response = ['success' => false, 'errors' => []];  // Initialize response array
@@ -86,44 +86,20 @@ if (
             $response['errors'][] = "Enter quantity.";
         }
 
-        $shiftId = $lineId = $modelId = $dorTypeId = 0;
-
-        // Initialize session fallbacks for testing/development
-        if (!isset($_SESSION["hostnameId"])) {
-            $_SESSION["hostnameId"] = 1; // Default for testing
-        }
-        if (!isset($_SESSION["hostname"])) {
-            $_SESSION["hostname"] = "ATO1"; // Default for testing
+        // If there are validation errors, return them immediately and do not proceed
+        if (!empty($response['errors'])) {
+            echo json_encode($response);
+            exit;
         }
 
-        // Get the correct LineId and DorTypeId for the selected model and hostname
-        $hostnameId = $_SESSION["hostnameId"] ?? 1;
-        $modelId = 0;
-        // Get model information (get ModelId and LineId from GenModel)
-        $selModelQry = "SELECT MODEL_ID, LINE_ID FROM GenModel WHERE ITEM_ID = ? AND IsActive = 1";
+        $shiftId = $modelId = $dorTypeId = 0;
+
+        // Get model information (get ModelId from GenModel)
+        $selModelQry = "SELECT MODEL_ID FROM GenModel WHERE ITEM_ID = ?";
         $modelRes = $db1->execute($selModelQry, [$modelName], 1);
         if ($modelRes !== false && !empty($modelRes)) {
             $modelId = $modelRes[0]['MODEL_ID'];
             $lineId = $modelRes[0]['LINE_ID'];
-        }
-        // If not found, fallback to previous logic
-        if ($modelId === 0 || $lineId === 0) {
-            // Fallback: try to get lineId from hostnameId
-            $selLineQry = "SELECT LineId, DorTypeId FROM GenLine WHERE LineId = ?";
-            $lineRes = $db1->execute($selLineQry, [$hostnameId], 1);
-            if ($lineRes !== false && !empty($lineRes)) {
-                $lineId = $lineRes[0]['LineId'];
-            } else {
-                $lineId = 1;
-            }
-        }
-        // Now get DorTypeId from GenLine
-        $selDorTypeQry = "SELECT DorTypeId FROM GenLine WHERE LineId = ?";
-        $dorTypeRes = $db1->execute($selDorTypeQry, [$lineId], 1);
-        if ($dorTypeRes !== false && !empty($dorTypeRes)) {
-            $dorTypeId = $dorTypeRes[0]['DorTypeId'];
-        } else {
-            $dorTypeId = 1;
         }
 
         // Get shift information
@@ -136,73 +112,14 @@ if (
             }
         }
 
-        // Get model information
-        $selQry = "EXEC RdGenModel @IsActive=?, @ITEM_ID=?";
-        $res = $db1->execute($selQry, [1, $modelName], 1);
-
-        if ($res !== false) {
-            foreach ($res as $row) {
-                $modelId = $row['MODEL_ID'];
+        if (isset($_POST['btnCreateDor'])) {
+            if (isExistDor($dorDate, $shiftId, $_SESSION['lineId'])) {
+                $response['errors'][] = "DOR already exists.";
+            } else {
+                handleCreateDor($dorDate, $shiftId, $_SESSION['lineId'], $modelId, $_SESSION['dorTypeId'], $qty, $response);
             }
-        }
-
-        // Handle different button actions
-        if (empty($response['errors'])) {
-            // Ensure hostname and hostnameId are set in session for dor-form.php
-            if (!isset($_SESSION["hostname"])) {
-                // Try multiple ways to get hostname, log all possible sources
-                $sources = [];
-                if (function_exists('gethostname')) {
-                    $sources['gethostname'] = gethostname();
-                }
-                if (!empty($_SERVER['COMPUTERNAME'])) {
-                    $sources['SERVER.COMPUTERNAME'] = $_SERVER['COMPUTERNAME'];
-                }
-                if (!empty($_SERVER['HOSTNAME'])) {
-                    $sources['SERVER.HOSTNAME'] = $_SERVER['HOSTNAME'];
-                }
-                if (!empty($_ENV['COMPUTERNAME'])) {
-                    $sources['ENV.COMPUTERNAME'] = $_ENV['COMPUTERNAME'];
-                }
-                if (!empty($_ENV['HOSTNAME'])) {
-                    $sources['ENV.HOSTNAME'] = $_ENV['HOSTNAME'];
-                }
-                // Windows specific: try php_uname('n')
-                $unameHost = php_uname('n');
-                if (!empty($unameHost)) {
-                    $sources['php_uname'] = $unameHost;
-                }
-                // Pick the first non-empty, trimmed value
-                $detectedHostname = "";
-                foreach ($sources as $val) {
-                    $val = trim($val);
-                    if (!empty($val)) {
-                        $detectedHostname = $val;
-                        break;
-                    }
-                }
-                // Sanitize: remove spaces, only allow alphanumeric and dash/underscore
-                if (!empty($detectedHostname)) {
-                    $detectedHostname = preg_replace('/[^A-Za-z0-9\-_]/', '', $detectedHostname);
-                    $_SESSION["hostname"] = $detectedHostname;
-                } else {
-                    $_SESSION["hostname"] = "ATO1"; // Fallback
-                }
-            }
-            if (!isset($_SESSION["hostnameId"])) {
-                // Try to get hostnameId from lineId (if available)
-                $_SESSION["hostnameId"] = $lineId ?: 1;
-            }
-
-            if (isset($_POST['btnCreateDor'])) {
-                if (isExistDor($dorDate, $shiftId, $lineId)) {
-                    $response['errors'][] = "DOR already exists.";
-                } else {
-                    handleCreateDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty, $response);
-                }
-            } elseif (isset($_POST['btnSearchDor'])) {
-                handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty, $response);
-            }
+        } elseif (isset($_POST['btnSearchDor'])) {
+            handleSearchDor($dorDate, $shiftId, $_SESSION['lineId'], $modelId, $_SESSION['dorTypeId'], $qty, $response);
         }
     } catch (Exception $e) {
         globalExceptionHandler($e);
@@ -239,7 +156,7 @@ function handleCreateDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
 
         $recordId = 0;
 
-        $insQry = "EXEC InsAtoDor @DorTypeId=?, @ShiftId=?, @DorDate=?, @ModelId=?, @LineId=?, @Quantity=?, @HostnameId=?, @RecordId=?";
+        $insQry = "EXEC InsAtoDor @DorTypeId=?, @ShiftId=?, @DorDate=?, @ModelId=?, @LineId=?, @Quantity=?, @HostnameId=?, @IsLocked=?, @RecordId=?";
         $params = [
             $dorTypeId,
             $shiftId,
@@ -248,6 +165,7 @@ function handleCreateDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
             $lineId,
             $qty,
             $_SESSION["hostnameId"],
+            0,
             [&$recordId, SQLSRV_PARAM_OUT]
         ];
 

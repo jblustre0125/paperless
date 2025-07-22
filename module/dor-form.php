@@ -51,9 +51,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $response['message'] = 'Jig number is required.';
         } else {
             // Query the MachineMonitoring database for Jig validation
-            $jigQuery = "SELECT JigId, TRIM(JigName) AS JigName 
-                        FROM MachineMonitoring.dbo.MntJig 
-                        WHERE JigTypeId = 1 AND IsActive = 1 
+            $jigQuery = "SELECT JigId, TRIM(JigName) AS JigName
+                        FROM MachineMonitoring.dbo.MntJig
+                        WHERE JigTypeId = 1 AND IsActive = 1
                         AND TRIM(JigName) = ?";
             $res = $db3->execute($jigQuery, [$jigName]);
 
@@ -77,9 +77,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         if (!empty($searchTerm)) {
             // Query for Jig suggestions starting with 'Taping'
-            $suggestQuery = "SELECT JigId, TRIM(JigName) AS JigName 
-                           FROM MachineMonitoring.dbo.MntJig 
-                           WHERE JigTypeId = 1 AND IsActive = 1 
+            $suggestQuery = "SELECT JigId, TRIM(JigName) AS JigName
+                           FROM MachineMonitoring.dbo.MntJig
+                           WHERE JigTypeId = 1 AND IsActive = 1
                            AND TRIM(JigName) LIKE 'Taping%'
                            AND TRIM(JigName) LIKE ?
                            ORDER BY JigName";
@@ -100,11 +100,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         if (!empty($searchTerm)) {
             // Query for userCode suggestions - extract numbers only from ProductionCode
-            $suggestQuery = "SELECT ProductionCode, 
-                                   SUBSTRING(ProductionCode, PATINDEX('%[0-9]%', ProductionCode), 
+            $suggestQuery = "SELECT ProductionCode,
+                                   SUBSTRING(ProductionCode, PATINDEX('%[0-9]%', ProductionCode),
                                             LEN(ProductionCode) - PATINDEX('%[0-9]%', ProductionCode) + 1) AS NumberOnly
-                           FROM GenOperator 
-                           WHERE IsActive = 1 AND IsLoggedIn = 0 
+                           FROM GenOperator
+                           WHERE IsActive = 1 AND IsLoggedIn = 0
                            AND ProductionCode LIKE ?
                            ORDER BY NumberOnly";
             $res = $db1->execute($suggestQuery, ['%' . $searchTerm . '%']);
@@ -133,7 +133,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             unset($_SESSION['dorQty']);
             unset($_SESSION['dorModelId']);
             unset($_SESSION['dorModelName']);
-            unset($_SESSION['dorTypeId']);
             unset($_SESSION['tabQty']);
 
             // Clear user codes
@@ -287,6 +286,9 @@ $drawingFile = getDrawing($_SESSION["dorTypeId"], $_SESSION['dorModelId']) ?? ''
 $activeProcess = isset($_SESSION['activeProcess']) ? $_SESSION['activeProcess'] : 1;
 $workInstructFile = getWorkInstruction($_SESSION["dorTypeId"], $_SESSION['dorModelId'], $activeProcess) ?? '';
 $preCardFile = getPreparationCard($_SESSION['dorModelId']) ?? '';
+
+echo var_dump($workInstructFile);
+echo var_dump($drawingFile);
 
 // Define DOR Type ID and Jig field visibility before HTML
 $dorTypeId = $_SESSION['dorTypeId'] ?? 0;
@@ -1496,10 +1498,10 @@ foreach ($tabData as $checkpointName => $rows) {
 
             let html = '';
             suggestions.forEach(user => {
-                html += `<div class="suggestion-item" 
-                              data-number-only="${user.NumberOnly}" 
+                html += `<div class="suggestion-item"
+                              data-number-only="${user.NumberOnly}"
                               data-production-code="${user.ProductionCode}">
-                           <strong>${user.NumberOnly}</strong> 
+                           <strong>${user.NumberOnly}</strong>
                            <small class="text-muted">(${user.ProductionCode})</small>
                         </div>`;
             });
