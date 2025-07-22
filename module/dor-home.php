@@ -11,6 +11,8 @@ $db1 = new DbOp(1);
 $selQry = "SELECT GETDATE() AS CurrentDate;";
 $res = $db1->execute($selQry, [], 1);
 
+echo var_dump($_SESSION);
+
 if ($res !== false && !empty($res)) {
     foreach ($res as $row) {
         // Ensure $row['CurrentDate'] is a valid DateTime object
@@ -504,7 +506,6 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
         const qtyInput = document.getElementById("txtQty");
         const form = document.querySelector("#myForm"); // Move form declaration here
 
-
         let enterManually = false;
         let scanning = false;
         let activeInput = null;
@@ -856,39 +857,43 @@ function handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
                 })
                 .then((text) => {
                     console.log("Raw response:", text); // Debug log
-                    try {
-                        const data = JSON.parse(text);
-                        console.log("Parsed data:", data); // Debug log
 
-                        if (data.success && data.testData) {
-                            // Populate form with test data from server
-                            document.getElementById("dtpDate").value = data.testData.dateTime || data.testData.date;
-                            document.getElementById("txtModelName").value = data.testData.modelName;
-                            document.getElementById("txtQty").value = data.testData.quantity;
+                    document.getElementById("txtModelName").value = "7L0113-7021C";
+                    document.getElementById("txtQty").value = "100";
 
-                            // Set shift radio button (force uncheck others)
-                            document.querySelectorAll('input[name="rdShift"]').forEach(radio => {
-                                radio.checked = (radio.value === data.testData.shift);
-                            });
+                    // try {
+                    //     const data = JSON.parse(text);
+                    //     console.log("Parsed data:", data); // Debug log
 
-                            // Show success message if available
-                            if (data.testData.message) {
-                                console.log("Success:", data.testData.message);
-                            }
-                        } else if (data.errors && data.errors.length > 0) {
-                            console.error("Server errors:", data.errors);
-                            modalErrorMessage.innerHTML = "<ul><li>" + data.errors.join("</li><li>") + "</li></ul>";
-                            errorModal.show();
-                        } else {
-                            console.warn("Unexpected response format:", data);
-                        }
-                    } catch (e) {
-                        console.error("Error parsing test values response:", text);
-                        console.error("Parse error:", e);
-                        // Fallback to static values if server request fails
-                        document.getElementById("txtModelName").value = "7L0113-7021C";
-                        document.getElementById("txtQty").value = "42";
-                    }
+                    //     if (data.success && data.testData) {
+                    //         // Populate form with test data from server
+                    //         document.getElementById("dtpDate").value = data.testData.dateTime || data.testData.date;
+                    //         document.getElementById("txtModelName").value = data.testData.modelName;
+                    //         document.getElementById("txtQty").value = data.testData.quantity;
+
+                    //         // Set shift radio button (force uncheck others)
+                    //         document.querySelectorAll('input[name="rdShift"]').forEach(radio => {
+                    //             radio.checked = (radio.value === data.testData.shift);
+                    //         });
+
+                    //         // Show success message if available
+                    //         if (data.testData.message) {
+                    //             console.log("Success:", data.testData.message);
+                    //         }
+                    //     } else if (data.errors && data.errors.length > 0) {
+                    //         console.error("Server errors:", data.errors);
+                    //         modalErrorMessage.innerHTML = "<ul><li>" + data.errors.join("</li><li>") + "</li></ul>";
+                    //         errorModal.show();
+                    //     } else {
+                    //         console.warn("Unexpected response format:", data);
+                    //     }
+                    // } catch (e) {
+                    //     console.error("Error parsing test values response:", text);
+                    //     console.error("Parse error:", e);
+                    //     // Fallback to static values if server request fails
+                    //     document.getElementById("txtModelName").value = "7L0113-7021C";
+                    //     document.getElementById("txtQty").value = "100";
+                    // }
                 })
                 .catch(error => {
                     console.error("Error fetching test values:", error);
