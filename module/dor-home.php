@@ -11,8 +11,6 @@ $db1 = new DbOp(1);
 $selQry = "SELECT GETDATE() AS CurrentDate;";
 $res = $db1->execute($selQry, [], 1);
 
-echo var_dump($_SESSION);
-
 if ($res !== false && !empty($res)) {
     foreach ($res as $row) {
         // Ensure $row['CurrentDate'] is a valid DateTime object
@@ -27,22 +25,28 @@ if ($res !== false && !empty($res)) {
         $currentHour = date('H', strtotime($todayString)); // Extract the hour
 
         // Determine the shift
-        $selectedShift = ($currentHour >= 7 && $currentHour < 19) ? "DS" : "NS";
+        if ($_SESSION['dorTypeId'] === 3) {
+            $selectedShift = ($currentHour >= 6 && $currentHour < 18) ? "DS" : "NS";
+        } else {
+            $selectedShift = ($currentHour >= 7 && $currentHour < 19) ? "DS" : "NS";
+        }
     }
 } else {
     // Fallback if the query fails
     $today = date('Y-m-d'); // Date only for input field
     $currentHour = date('H');
-    $selectedShift = ($currentHour >= 7 && $currentHour <= 19) ? "DS" : "NS";
+    // Determine the shift
+    if ($_SESSION['dorTypeId'] === 3) {
+        $selectedShift = ($currentHour >= 6 && $currentHour < 18) ? "DS" : "NS";
+    } else {
+        $selectedShift = ($currentHour >= 7 && $currentHour < 19) ? "DS" : "NS";
+    }
 }
 
 if (
     $_SERVER["REQUEST_METHOD"] === "POST" &&
     (isset($_POST['btnCreateDor']) || isset($_POST['btnSearchDor']) || isset($_POST['btnSetValues']))
 ) {
-    // Add debugging
-    error_log("POST request received. POST data: " . print_r($_POST, true));
-
     ob_end_clean();
     header('Content-Type: application/json; charset=utf-8');
 
@@ -51,9 +55,7 @@ if (
     try {
         // Handle Set Test Values first (no validation needed)
         if (isset($_POST['btnSetValues'])) {
-            error_log("Handling btnSetValues");
             handleSetTestValues($response);
-            error_log("Response for btnSetValues: " . json_encode($response));
             echo json_encode($response);
             exit;
         }
@@ -123,8 +125,6 @@ if (
         } else {
             $dorTypeId = 1;
         }
-        // Debug output (you can remove this in production)
-        error_log("Debug Info - HostnameId: $hostnameId, ModelId: $modelId, LineId: $lineId, DorTypeId: $dorTypeId");
 
         // Get shift information
         $selQry = "EXEC RdGenShift @ShiftCode=?";
@@ -172,10 +172,6 @@ if (
                 if (!empty($unameHost)) {
                     $sources['php_uname'] = $unameHost;
                 }
-                // Log all sources for debugging
-                foreach ($sources as $src => $val) {
-                    error_log("Hostname source [$src]: $val");
-                }
                 // Pick the first non-empty, trimmed value
                 $detectedHostname = "";
                 foreach ($sources as $val) {
@@ -192,7 +188,6 @@ if (
                 } else {
                     $_SESSION["hostname"] = "ATO1"; // Fallback
                 }
-                error_log("Final Detected Hostname: " . $_SESSION["hostname"]);
             }
             if (!isset($_SESSION["hostnameId"])) {
                 // Try to get hostnameId from lineId (if available)
@@ -200,14 +195,12 @@ if (
             }
 
             if (isset($_POST['btnCreateDor'])) {
-                error_log("Handling btnCreateDor");
                 if (isExistDor($dorDate, $shiftId, $lineId)) {
                     $response['errors'][] = "DOR already exists.";
                 } else {
                     handleCreateDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty, $response);
                 }
             } elseif (isset($_POST['btnSearchDor'])) {
-                error_log("Handling btnSearchDor");
                 handleSearchDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty, $response);
             }
         }
@@ -216,7 +209,6 @@ if (
         $response['errors'][] = "An error occurred while processing your request.";
     }
 
-    error_log("Final response: " . json_encode($response));
     echo json_encode($response);
     exit;
 }
@@ -307,11 +299,21 @@ function handleSetTestValues(&$response)
         $dt = new DateTime('now', new DateTimeZone('Asia/Manila'));
         $currentDate = $dt->format('Y-m-d');
         $currentHour = (int)$dt->format('H');
-        // 7:00 to 18:59 is Day Shift, 19:00 to 6:59 is Night Shift
-        if ($currentHour >= 7 && $currentHour < 19) {
-            $currentShift = "DS";
+
+        // 6:00 to 17:59 is Day Shift, 18:00 to 5:59 is Night Shift
+        if ($_SESSION['dorTypeId'] === 3) {
+            if ($currentHour >= 6 && $currentHour < 18) {
+                $currentShift = "DS";
+            } else {
+                $currentShift = "NS";
+            }
+            // 7:00 to 18:59 is Day Shift, 19:00 to 6:59 is Night Shift
         } else {
-            $currentShift = "NS";
+            if ($currentHour >= 7 && $currentHour < 19) {
+                $currentShift = "DS";
+            } else {
+                $currentShift = "NS";
+            }
         }
 
         $response['success'] = true;

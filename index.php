@@ -99,10 +99,6 @@ if (!empty($res2) && is_array($res2) && isset($res2[0]) && is_array($res2[0])) {
         $_SESSION['processId'] = isset($row5['ProcessId']) ? $row5['ProcessId'] : null;
         $_SESSION['ipAddress'] = isset($row5["IpAddress"]) ? $row5["IpAddress"] : null;
         error_log("Fallback session set: hostnameId={$_SESSION['hostnameId']}, hostname={$_SESSION['hostname']}, processId={$_SESSION['processId']}, ipAddress={$_SESSION['ipAddress']}");
-        $query6 = "EXEC UpdGenHostname @HostnameId=?, @IsLoggedIn=?";
-        if (isset($row5["HostnameId"])) {
-            $res6 = $db1->execute($query6, [$row5["HostnameId"], 1], 1);
-        }
     } else {
         error_log("res5 is not an array or does not contain expected data.");
     }
