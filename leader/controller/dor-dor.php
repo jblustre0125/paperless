@@ -125,73 +125,16 @@ class DorDor
         return true;
     }
 
-    public function syncTimeFieldsToDetail()
+    public function deleteHeader($recordHeaderId)
     {
-        $headers = $this->getHeaders();
-        foreach ($headers as $header) {
-            $recordHeaderId = $header['RecordHeaderId'];
-            $timeStart = $header['TimeStart'];
-            $timeEnd = $header['TimeEnd'];
-            $duration = $header['Duration'];
-
-            // Check if detail exists
-            $exists = $this->db->execute(
-                "SELECT COUNT(*) AS cnt FROM AtoDorDetail WHERE RecordHeaderId = ?",
-                [$recordHeaderId]
-            )[0]['cnt'] ?? 0;
-
-            if ($exists == 0) {
-                // Insert a new row if missing
-                $this->db->execute(
-                    "INSERT INTO AtoDorDetail (RecordHeaderId, TimeStart, TimeEnd, Duration) VALUES (?, ?, ?, ?)",
-                    [$recordHeaderId, $timeStart, $timeEnd, $duration]
-                );
-            } else {
-                // Update if exists
-                $this->db->execute(
-                    "UPDATE AtoDorDetail SET TimeStart = ?, TimeEnd = ?, Duration = ? WHERE RecordHeaderId = ?",
-                    [$timeStart, $timeEnd, $duration, $recordHeaderId]
-                );
-            }
-        }
-    }
-
-    public function syncOperatorsFromCheckpoint()
-    {
-        // Get all details with their RecordDetailId and RecordHeaderId
-        $details = $this->db->execute("SELECT RecordDetailId, RecordHeaderId FROM AtoDorDetail");
-        foreach ($details as $detail) {
-            $recordDetailId = $detail['RecordDetailId'];
-            $recordHeaderId = $detail['RecordHeaderId'];
-
-            // Fetch up to 4 unique EmployeeCodes for this detail from AtoDorCheckpointDefinition
-            $checkpointRows = $this->db->execute(
-                "SELECT DISTINCT EmployeeCode FROM AtoDorCheckpointDefinition WHERE RecordDetailId = ? AND EmployeeCode IS NOT NULL AND EmployeeCode <> '' LIMIT 4",
-                [$recordDetailId]
-            );
-
-            $employeeCodes = array_column($checkpointRows, 'EmployeeCode');
-            // Pad to 4 elements
-            while (count($employeeCodes) < 4) $employeeCodes[] = null;
-
-            // Update AtoDorDetail with these codes
-            $this->db->execute(
-                "UPDATE AtoDorDetail SET OperatorCode1 = ?, OperatorCode2 = ?, OperatorCode3 = ?, OperatorCode4 = ? WHERE RecordDetailId = ?",
-                [$employeeCodes[0], $employeeCodes[1], $employeeCodes[2], $employeeCodes[3], $recordDetailId]
-            );
-        }
-    }
-
-    public function getOperatorCodesFromCheckpoint($recordHeaderId)
-    {
-        $sql = "SELECT DISTINCT EmployeeCode
-                FROM AtoDorCheckpointDefinition
-                WHERE RecordHeaderId = ? AND EmployeeCode IS NOT NULL AND EmployeeCode <> ''";
-        $result = $this->db->execute($sql, [$recordHeaderId]);
-        if (!is_array($result)) {
-            return [];
-        }
-        return array_column($result, 'EmployeeCode');
+        if (!$recordHeaderId) return false;
+        // Delete related details first
+        $sqlDetail = "DELETE FROM AtoDorDetail WHERE RecordHeaderId = ?";
+        $this->db->execute($sqlDetail, [$recordHeaderId]);
+        // Then delete header
+        $sqlHeader = "DELETE FROM AtoDorHeader WHERE RecordHeaderId = ?";
+        $this->db->execute($sqlHeader, [$recordHeaderId]);
+        return true;
     }
 }
 
@@ -210,6 +153,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $input = json_decode(file_get_contents('php://input'), true);
 
+    if (isset($input['type']) && $input['type'] === 'getAllHeaders') {
+        $hostnameId = $_GET['hostname_id'] ?? null;
+        $headers = $controller->getHeaders($hostnameId);
+        $rows = [];
+        foreach ($headers as $row) {
+            // Format time as HH:mm
+            $timeStart = '';
+            $timeEnd = '';
+            if (!empty($row['TimeStart'])) {
+                if ($row['TimeStart'] instanceof DateTime) {
+                    $timeStart = $row['TimeStart']->format('H:i');
+                } else {
+                    $ts = strtotime($row['TimeStart']);
+                    $timeStart = $ts ? date('H:i', $ts) : '';
+                }
+            }
+            if (!empty($row['TimeEnd'])) {
+                if ($row['TimeEnd'] instanceof DateTime) {
+                    $timeEnd = $row['TimeEnd']->format('H:i');
+                } else {
+                    $te = strtotime($row['TimeEnd']);
+                    $timeEnd = $te ? date('H:i', $te) : '';
+                }
+            }
+            $rows[] = [
+                'recordHeaderId' => $row['RecordHeaderId'],
+                'boxNo' => $row['BoxNumber'],
+                'timeStart' => $timeStart,
+                'timeEnd' => $timeEnd,
+                'duration' => $row['Duration']
+            ];
+        }
+        echo json_encode(['success' => true, 'rows' => $rows]);
+        exit;
+    }
     if (isset($input['type']) && $input['type'] === 'saveOperators') {
         $recordHeaderId = $input['recordHeaderId'] ?? null;
         $employeeCodes = $input['employeeCodes'] ?? [];
@@ -229,6 +207,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $success = $controller->saveOperators($recordHeaderId, $employeeCodes);
         echo json_encode(['success' => $success]);
+        exit;
+    }
+    if (isset($input['type']) && $input['type'] === 'deleteHeader') {
+        $recordHeaderId = $input['recordHeaderId'] ?? null;
+        if (!$recordHeaderId) {
+            echo json_encode(['success' => false, 'message' => 'Missing recordHeaderId']);
+            exit;
+        }
+        try {
+            $success = $controller->deleteHeader($recordHeaderId);
+            echo json_encode(['success' => $success]);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
         exit;
     }
 
