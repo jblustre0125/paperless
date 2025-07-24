@@ -60,7 +60,7 @@
             <style>
                 /* Extra large modal */
                 .modal-xl {
-                    max-width: 50%;
+                    max-width: 90%;
                 }
 
                 /* Limit Tab3 Quick View Modal content to 7 rows and make it scrollable */
