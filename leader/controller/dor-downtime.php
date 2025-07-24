@@ -341,6 +341,44 @@ class DorDowntime
         return $inserted ? ['success' => true, 'inserted' => true] : ['success' => false, 'message' => 'Insert failed'];
     }
 
+    public function getNewRecords($currentRecordIds = [])
+    {
+        // Get all active records for today that aren't in the current list
+        $placeholders = '';
+        $params = [];
+
+        if (!empty($currentRecordIds)) {
+            $placeholders = str_repeat('?,', count($currentRecordIds) - 1) . '?';
+            $params = array_map('intval', $currentRecordIds);
+        }
+
+        $sql = "SELECT ah.RecordHeaderId, ah.RecordId, ah.BoxNumber, ah.TimeStart
+                FROM AtoDorHeader ah
+                WHERE CAST(ah.TimeStart AS DATE) = CAST(GETDATE() AS DATE)";
+
+        if (!empty($currentRecordIds)) {
+            $sql .= " AND ah.RecordHeaderId NOT IN ($placeholders)";
+        }
+
+        $sql .= " ORDER BY ah.TimeStart DESC";
+
+        $newRecords = $this->db->execute($sql, $params);
+        $response = [];
+
+        if (!empty($newRecords)) {
+            foreach ($newRecords as $record) {
+                $response[] = [
+                    'recordHeaderId' => $record['RecordHeaderId'],
+                    'recordId' => $record['RecordId'],
+                    'boxNumber' => $record['BoxNumber'],
+                    'timeStart' => $record['TimeStart']
+                ];
+            }
+        }
+
+        return ['success' => true, 'newRecords' => $response];
+    }
+
     public function getDowntimeInfo($recordHeaderId)
     {
         $details = [];
@@ -387,7 +425,7 @@ class DorDowntime
                 }
             }
             if (!$hasValidDowntime) {
-                $html = '<small class="badge bg-light text-dark border me-1 mb-1">No downtime</small>';
+                $html = '<small class="badge bg-light text-dark border me-1 mb-1">No downtime recorded</small>';
             }
         }
         return ['success' => true, 'html' => $html];
@@ -412,6 +450,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $recordHeaderId = $data['recordHeaderId'];
             echo json_encode($controller->getDowntimeInfo($recordHeaderId));
+            exit;
+
+        case 'getNewRecords':
+            $currentRecordIds = $data['currentRecordIds'] ?? [];
+            echo json_encode($controller->getNewRecords($currentRecordIds));
             exit;
 
         case 'saveDowntime':
