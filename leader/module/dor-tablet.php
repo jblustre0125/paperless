@@ -519,53 +519,51 @@ window.addEventListener('DOMContentLoaded', () => {
         <!-- Tab Pane -->
         <div class="tab-pane fade" id="tab-3" role="tabpanel">
           <div class="dor-table-container mt-3" style="max-height: 90vh; overflow-y: auto; position: relative;">
-            <!-- Combined Sticky Header with Summary and Table Header -->
-            <div class="sticky-header"
-              style="position: sticky; top: 0; z-index: 15; background: white; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-              <!-- DOR Summary Section -->
-              <div class="dor-summary d-flex justify-content-between align-items-center p-3 mb-0"
-                style="background: white; border: 1px solid #dee2e6; border-bottom: none; border-radius: 0.375rem 0.375rem 0 0;">
-                <small class="badge bg-light text-dark border p-2" style="font-size: 0.875rem;">
-                  <i class="bi bi-box-seam me-1"></i>Total Box Qty: <span id="totalBoxQty"
-                    class="fw-bold text-primary">0</span>
-                </small>
-                <small class="badge bg-light text-dark border p-2" style="font-size: 0.875rem;">
-                  <i class="bi bi-clock me-1"></i>Total Duration: <span id="totalDuration"
-                    class="fw-bold text-primary">0
-                    mins</span>
-                </small>
-                <small class="badge bg-light text-dark border p-2" style="font-size: 0.875rem;">
-                  <i class="bi bi-speedometer2 me-1"></i>Ave. Time/Box: <span id="averagePerBox"
-                    class="fw-bold text-primary">0 mins</span>
-                </small>
-                <small class="badge bg-light text-dark border p-2" style="font-size: 0.875rem;">
-                  <i class="bi bi-pause-circle me-1"></i>Total Downtime: <span id="totalDowntime"
-                    class="fw-bold text-primary">0</span>
-                </small>
-              </div>
-
-              <!-- Table Header - directly connected to summary -->
-              <table class="table table-bordered table-dor mb-0 w-100">
-                <thead class="table-light text-center">
-                  <tr style="background: white; border-top: 1px solid #dee2e6;">
-                    <th colspan="8" style="border-top: 1px solid #dee2e6; padding: 8px;">Daily Operation Record</th>
-                  </tr>
-                  <tr style="background: #f8f9fa;">
-                    <th style="width: 5%;">#</th>
-                    <th style="width: 15%;">Box No.</th>
-                    <th style="width: 12%;">Start Time</th>
-                    <th style="width: 12%;">End Time</th>
-                    <th style="width: 12%;">Duration</th>
-                    <th style="width: 22%;">Operator</th>
-                    <th style="width: 17%;">Downtime</th>
-                    <th style="width: 5%;">*</th>
-                  </tr>
-                </thead>
-              </table>
-            </div>
-
-            <!-- Table Body - scrollable content -->
+            <!-- Table with integrated DOR Summary in header -->
             <table class="table table-bordered table-dor mb-0 w-100">
+              <thead class="table-light text-center sticky-table" style="position: sticky; top: 0; z-index: 15;">
+                <!-- DOR Summary Row -->
+                <tr style="background: white; border-bottom: 1px solid #dee2e6;">
+                  <th colspan="8" style="padding: 12px; border: 1px solid #dee2e6;">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                      <small class="badge bg-light text-dark border p-2" style="font-size: 0.875rem;">
+                        <i class="bi bi-box-seam me-1"></i>Total Box Qty: <span id="totalBoxQty"
+                          class="fw-bold text-primary">0</span>
+                      </small>
+                      <small class="badge bg-light text-dark border p-2" style="font-size: 0.875rem;">
+                        <i class="bi bi-clock me-1"></i>Total Duration: <span id="totalDuration"
+                          class="fw-bold text-primary">0 mins</span>
+                      </small>
+                      <small class="badge bg-light text-dark border p-2" style="font-size: 0.875rem;">
+                        <i class="bi bi-speedometer2 me-1"></i>Ave. Time/Box: <span id="averagePerBox"
+                          class="fw-bold text-primary">0 mins</span>
+                      </small>
+                      <small class="badge bg-light text-dark border p-2" style="font-size: 0.875rem;">
+                        <i class="bi bi-pause-circle me-1"></i>Total Downtime: <span id="totalDowntime"
+                          class="fw-bold text-primary">0</span>
+                      </small>
+                    </div>
+                  </th>
+                </tr>
+                <!-- Table Title Row -->
+                <tr style="background: white;">
+                  <th colspan="8"
+                    style="padding: 8px; border-left: 1px solid #dee2e6; border-right: 1px solid #dee2e6; border-bottom: 1px solid #dee2e6;">
+                    Daily Operation Record
+                  </th>
+                </tr>
+                <!-- Column Headers Row -->
+                <tr style="background: #f8f9fa;">
+                  <th style="width: 5%;">#</th>
+                  <th style="width: 15%;">Box No.</th>
+                  <th style="width: 12%;">Start Time</th>
+                  <th style="width: 12%;">End Time</th>
+                  <th style="width: 12%;">Duration</th>
+                  <th style="width: 22%;">Operator</th>
+                  <th style="width: 17%;">Downtime</th>
+                  <th style="width: 5%;">*</th>
+                </tr>
+              </thead>
               <tbody>
                 <?php
                 // Assume there's a single $recordId used for all rows.
@@ -1043,6 +1041,11 @@ window.addEventListener('DOMContentLoaded', () => {
           if (timeStart) timeStart.value = '';
           if (timeEnd) timeEnd.value = '';
           if (duration) duration.textContent = '';
+
+          // Refresh the page after successful deletion
+          setTimeout(() => {
+            location.reload();
+          }, 1000);
         } else {
           alert('Failed to delete row data: ' + (data.message || 'Unknown error'));
         }
