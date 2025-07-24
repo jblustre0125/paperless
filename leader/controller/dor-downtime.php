@@ -340,6 +340,58 @@ class DorDowntime
 
         return $inserted ? ['success' => true, 'inserted' => true] : ['success' => false, 'message' => 'Insert failed'];
     }
+
+    public function getDowntimeInfo($recordHeaderId)
+    {
+        $details = [];
+        $atoDorDetails = $this->AtoDor();
+
+        foreach ($atoDorDetails as $row) {
+            if ($row['RecordHeaderId'] == $recordHeaderId) {
+                $details[] = $row;
+            }
+        }
+
+        $downtimeOptions = $this->getDowntimeList();
+        $actionTakenOptions = $this->getActionList();
+
+        $downtimeMap = [];
+        foreach ($downtimeOptions as $downtime) {
+            $downtimeMap[$downtime['DowntimeId']] = $downtime;
+        }
+        $actionTakenMap = [];
+        foreach ($actionTakenOptions as $action) {
+            $actionTakenMap[$action['ActionTakenId']] = [
+                'ActionTakenDescription' => $action['ActionTakenName']
+            ];
+        }
+
+        $html = '';
+        if (empty($details)) {
+            $html = '<small class="badge bg-light text-dark border me-1 mb-1">No downtime</small>';
+        } else {
+            $hasValidDowntime = false;
+            foreach ($details as $detail) {
+                $downtimeId = $detail['DowntimeId'] ?? null;
+                $actionTakenId = $detail['ActionTakenId'] ?? null;
+
+                $downtimeCode = $downtimeMap[$downtimeId]['DowntimeCode'] ?? null;
+                $actionTakenTitle = $actionTakenMap[$actionTakenId]['ActionDescription'] ?? 'No description';
+
+                if ($downtimeCode) {
+                    $html .= '<small class="badge bg-light text-dark border me-1 mb-1" title="' . htmlspecialchars($actionTakenTitle) . '">'
+                        . htmlspecialchars($downtimeCode) .
+                        '</small>';
+
+                    $hasValidDowntime = true;
+                }
+            }
+            if (!$hasValidDowntime) {
+                $html = '<small class="badge bg-light text-dark border me-1 mb-1">No downtime</small>';
+            }
+        }
+        return ['success' => true, 'html' => $html];
+    }
 }
 
 $controller = new DorDowntime();
@@ -353,6 +405,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $type = $data['type'] ?? ($_POST['btnSubmit'] ?? null);
 
     switch ($type) {
+        case 'getDowntimeInfo':
+            if (!isset($data['recordHeaderId'])) {
+                echo json_encode(['success' => false, 'message' => 'Missing parameters']);
+                exit;
+            }
+            $recordHeaderId = $data['recordHeaderId'];
+            echo json_encode($controller->getDowntimeInfo($recordHeaderId));
+            exit;
+
         case 'saveDowntime':
             if (!isset($data['recordHeaderId'], $data['downtimeData'])) {
                 echo json_encode(['success' => false, 'message' => 'Missing parameters']);
