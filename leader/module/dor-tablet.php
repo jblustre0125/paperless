@@ -725,7 +725,7 @@ $workInstructFile = $workInstruction ?? '';
                             $allDetails = $details[$recordHeaderId] ?? [];
 
                             if (empty($allDetails)) {
-                              echo '<small class="badge bg-secondary text-white me-1 mb-1">No Downtime</small>';
+                              echo '<small class="badge bg-light text-dark border me-1 mb-1">No Downtime</small>';
                             } else {
                               foreach ($allDetails as $detail) {
                                 $downtimeId = $detail['DowntimeId'] ?? null;
@@ -735,7 +735,7 @@ $workInstructFile = $workInstruction ?? '';
                                 $actionTakenTitle = $actionTakenMap[$actionTakenId]['ActionDescription'] ?? 'No Description';
 
                                 if ($downtimeCode) {
-                                  echo '<small class="badge bg-secondary text-white me-1 mb-1" title="' . htmlspecialchars($actionTakenTitle) . '">'
+                                  echo '<small class="badge bg-light text-dark border me-1 mb-1" title="' . htmlspecialchars($actionTakenTitle) . '">'
                                     . htmlspecialchars($downtimeCode) .
                                     '</small>';
                                 }

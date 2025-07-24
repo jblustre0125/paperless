@@ -11,7 +11,40 @@ document.addEventListener("DOMContentLoaded", function () {
     toastContainer.style.zIndex = "9999";
     document.body.appendChild(toastContainer);
   }
+
+  refreshDowntimeInfo();
+
+  setInterval(refreshDowntimeInfo, 3000);
 });
+
+function refreshDowntimeInfo(){
+  const downtimeInfoDivs = document.querySelectorAll('[id^="downtimeInfo"]');
+
+  downtimeInfoDivs.forEach(div => {
+    const recordHeaderId = div.id.replace('downtimeInfo', '');
+
+    fetch('../controller/dor-downtime.php', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
+        type: 'getDowntimeInfo',
+        recordHeaderId: recordHeaderId
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if(data.success){
+        div.innerHTML = data.html;
+      }
+    })
+    .catch(error => {
+      console.error('Error refreshing downtime info:', error);
+    });
+  });
+}
 
 function filterDropdown(input) {
   const wrapper = input.closest(".searchable-dropdown");
