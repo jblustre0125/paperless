@@ -244,6 +244,7 @@ function handleCreateDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
         }
 
         $recordId = 0;
+        $isLocked = 0;
 
         $insQry = "EXEC InsAtoDor @DorTypeId=?, @ShiftId=?, @DorDate=?, @ModelId=?, @LineId=?, @Quantity=?, @HostnameId=?, @RecordId=?";
         $params = [
@@ -254,7 +255,7 @@ function handleCreateDor($dorDate, $shiftId, $lineId, $modelId, $dorTypeId, $qty
             $lineId,
             $qty,
             $_SESSION["hostnameId"],
-            [&$recordId, SQLSRV_PARAM_OUT]
+            [&$recordId, SQLSRV_PARAM_OUT],
         ];
 
         $res = $db1->execute($insQry, $params, 1);
