@@ -17,33 +17,67 @@ document.addEventListener("DOMContentLoaded", function () {
   setInterval(refreshDowntimeInfo, 3000);
 });
 
-function refreshDowntimeInfo(){
-  const downtimeInfoDivs = document.querySelectorAll('[id^="downtimeInfo"]');
-
-  downtimeInfoDivs.forEach(div => {
-    const recordHeaderId = div.id.replace('downtimeInfo', '');
-
-    fetch('../controller/dor-downtime.php', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({
-        type: 'getDowntimeInfo',
-        recordHeaderId: recordHeaderId
-      })
-    })
-    .then(response => response.json())
-    .then(data => {
-      if(data.success){
-        div.innerHTML = data.html;
+function refreshDowntimeInfo() {
+  // First, check for new records that operators might have created
+  fetch("../controller/dor-downtime.php", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({
+      type: "getNewRecords",
+      currentRecordIds: getCurrentRecordIds(),
+    }),
+  })
+    .then((response) => response.json())
+    .then((data) => {
+      if (data.success && data.newRecords && data.newRecords.length > 0) {
+        // Reload the page to include new records
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
+        return; // Don't continue with regular refresh if we're reloading
       }
     })
-    .catch(error => {
-      console.error('Error refreshing downtime info:', error);
+    .catch((error) => {
+      console.error("Error checking for new records:", error);
     });
+
+  // Then refresh existing downtime info
+  const downtimeInfoDivs = document.querySelectorAll('[id^="downtimeInfo"]');
+
+  downtimeInfoDivs.forEach((div) => {
+    const recordHeaderId = div.id.replace("downtimeInfo", "");
+
+    fetch("../controller/dor-downtime.php", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        type: "getDowntimeInfo",
+        recordHeaderId: recordHeaderId,
+      }),
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.success) {
+          div.innerHTML = data.html;
+        }
+      })
+      .catch((error) => {
+        console.error("Error refreshing downtime info:", error);
+      });
   });
+}
+
+function getCurrentRecordIds() {
+  const downtimeInfoDivs = document.querySelectorAll('[id^="downtimeInfo"]');
+  return Array.from(downtimeInfoDivs).map((div) =>
+    div.id.replace("downtimeInfo", "")
+  );
 }
 
 function filterDropdown(input) {
@@ -364,7 +398,7 @@ function updateDowntimeBadge(recordHeaderId, badgeTextOverride = null) {
   if (placeholder) placeholder.remove();
 
   const newBadge = document.createElement("small");
-  newBadge.className = "badge bg-secondary text-white me-1 mb-1";
+  newBadge.className = "badge bg-light text-dark border me-1 mb-1";
   newBadge.textContent = badgeText;
   badgeContainer.appendChild(newBadge);
 }

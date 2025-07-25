@@ -47,6 +47,57 @@
         <html lang="en">
 
         <head>
+
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <title><?= htmlspecialchars($title) ?></title>
+
+            <!-- CSS Dependencies -->
+            <link rel="stylesheet" href="../../css/bootstrap.min.css" />
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+            <link href="../css/leader-dashboard.css" rel="stylesheet" />
+
+            <!-- Inline Styles -->
+            <style>
+                /* Extra large modal */
+                .modal-xl {
+                    max-width: 90%;
+                }
+
+                /* Limit Tab3 Quick View Modal content to 7 rows and make it scrollable */
+                #tab3ModalContent {
+                    max-height: 450px;
+                    overflow-y: auto;
+                }
+
+                /* Force downtime modal to always be extra wide */
+                #downtimeModal .modal-dialog {
+                    max-width: 50vw !important;
+                    width: 50vw !important;
+                }
+
+                /* Limit downtime modal content to 5 rows and make it scrollable */
+                #downtimeModalContent {
+                    max-height: 610px;
+                }
+
+                /* Pointer cursor for clickable elements */
+                .cursor-pointer {
+                    cursor: pointer;
+                }
+
+                /* Ensure toast notifications appear above other content */
+                #toast-container {
+                    z-index: 1080;
+                }
+
+                /* Fix for modal backdrop */
+                body.modal-open {
+                    overflow: hidden;
+                    padding-right: 0 !important;
+                }
+            </style>
+
           <meta charset="UTF-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1.0" />
           <title><?= htmlspecialchars($title) ?></title>
@@ -96,6 +147,7 @@
             padding-right: 0 !important;
           }
           </style>
+
         </head>
 
         <body>
