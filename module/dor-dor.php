@@ -91,10 +91,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $response['success'] = true;
       }
     }
+
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode($response);
     exit;
   }
+
   ob_end_clean();
   header('Content-Type: application/json; charset=utf-8');
 
@@ -522,19 +524,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
   }
 }
 
-// Check if required session variables exist
-if (!isset($_SESSION['dorTypeId']) || !isset($_SESSION['dorModelId'])) {
-  header("Location: dor-home.php");
-  exit;
-}
-
-// Clear any existing form data when starting a new DOR session
-// This ensures old data from previous DOR sessions doesn't persist
-if (isset($_SESSION['dorRecordId']) && $_SESSION['dorRecordId'] > 0) {
-  // Only clear sessionStorage if starting a truly new DOR session (not on every reload)
-  // Do NOT clear sessionStorage on every reload, only when starting a new DOR from dor-home.php
-}
-
 $employeeCode = isset($_SESSION['employeeCode']) ? $_SESSION['employeeCode'] : 'Unknown Operator';
 
 $drawingFile = '';
@@ -611,6 +600,7 @@ try {
           <div class="dor-summary">
             <span class="summary-item">Total Box Qty: <span id="totalBoxQty">0</span></span>
             <span class="summary-item">Total Duration: <span id="totalDuration">0 mins</span></span>
+            <span class="summary-item">Ave. Time/Box: <span id="averageTime">0 mins</span></span>
             <span class="summary-item">Total Downtime: <span id="totalDowntime">0</span></span>
           </div>
         </div>
@@ -626,9 +616,8 @@ try {
                 <th>Start Time</th>
                 <th>End Time</th>
                 <th>Duration</th>
-                <th>Operator</th>
-                <th>Downtime</th>
-                <th>*</th>
+                <th style="width:auto;">Operator</th>
+                <th style="width:auto;">Downtime</th>
               </tr>
             </thead>
           </table>
@@ -665,7 +654,7 @@ try {
                 <td class="duration-column text-center align-middle">
                   <span id="duration<?= $i ?>" class="duration-value"></span>
                 </td>
-                <td class="operator-column align-middle text-center">
+                <td class="operator-column align-middle text-center" style="width:auto;">
                   <div class="action-container">
                     <button type="button" class="btn btn-outline-primary btn-sm btn-operator" id="operator<?= $i ?>"
                       disabled title="Operator management restricted to leaders">
@@ -696,7 +685,7 @@ try {
                   <input type="hidden" id="operators<?= $i ?>" name="operators<?= $i ?>"
                     value="<?= implode(',', $employeeCodes) ?>">
                 </td>
-                <td class="remarks-column align-middle text-center">
+                <td class="remarks-column align-middle text-center" style="width:auto;">
                   <div class="action-container">
                     <button type="button" class="btn btn-outline-secondary btn-sm" id="downtime<?= $i ?>">
                       <i class="bi bi-clock-history"></i> View Downtime
@@ -725,12 +714,6 @@ try {
                       ?>
                     </div>
                   </div>
-                </td>
-                <td class="delete-column align-middle text-center">
-                  <button type="button" class="btn btn-outline-danger btn-sm delete-row" data-row-id="<?= $i ?>"
-                    title="Delete Row">
-                    <span style="font-size: 1.2rem; font-weight: bold;">×</span>
-                  </button>
                 </td>
               </tr>
             <?php } ?>
@@ -1023,9 +1006,6 @@ try {
   <!-- PiP Viewer HTML: supports maximize and minimize modes -->
   <div id="pipViewer" class="pip-viewer d-none maximize-mode">
     <div id="pipHeader">
-      <div id="pipProcessLabels" class="pip-process-labels">
-        <!-- Process labels will be dynamically inserted here -->
-      </div>
       <div class="pip-controls">
         <button id="pipMaximize" class="pip-btn d-none" title="Maximize"><i class="bi bi-fullscreen"></i></button>
         <button id="pipMinimize" class="pip-btn" title="Minimize"><i class="bi bi-fullscreen-exit"></i></button>
@@ -1040,8 +1020,8 @@ try {
 
   <!-- To fix `Uncaught ReferenceError: Modal is not defined` -->
   <script src="../js/bootstrap.bundle.min.js"></script>
-
   <script src="../js/jsQR.min.js"></script>
+
   <script>
     // --- AJAX polling for operator/downtime updates per row ---
     function fetchRowStatus(rowId) {
@@ -1777,21 +1757,8 @@ try {
             },
             body: formData
           })
-          .then(response => {
-            if (response.redirected) {
-              window.location.href = response.url;
-            } else {
-              return response.json();
-            }
-          })
-          .then(data => {
-            if (data) {
-              if (data.success && data.redirectUrl) {
-                window.location.href = data.redirectUrl;
-              } else if (data.errors && data.errors.length > 0) {
-                showErrorModal(data.errors.join('\n'));
-              }
-            }
+          .then(() => {
+            window.location.href = '/paperless/module/dor-home.php';
           })
           .catch(error => {
             console.error("Error:", error);
@@ -1933,6 +1900,7 @@ try {
       // Reset summary displays
       document.getElementById('totalBoxQty').textContent = '0';
       document.getElementById('totalDuration').textContent = '0 mins';
+      document.getElementById('averageTime').textContent = '0 mins';
       document.getElementById('totalDowntime').textContent = '0';
 
       // Reset row states
@@ -1967,6 +1935,9 @@ try {
     // Track which submit button was clicked
     document.getElementById("btnProceed").addEventListener("click", function(e) {
       e.preventDefault(); // Prevent default button behavior
+      if (!confirm('Are you sure you want to save this DOR?')) {
+        return;
+      }
       clickedButton = this;
       // Trigger form submit event
       form.dispatchEvent(new Event('submit'));
@@ -2786,6 +2757,7 @@ try {
         }
       });
     });
+
     // Prevent moving to time start/end if box number is invalid
     document.querySelectorAll('.time-input').forEach(input => {
       input.addEventListener('focus', function(e) {
@@ -2922,9 +2894,16 @@ try {
       const totalDuration = calculateTotalDuration();
       const totalDowntime = calculateTotalDowntime();
 
+      // Calculate average time per box
+      let averageTime = 0;
+      if (totalBoxQty > 0) {
+        averageTime = Math.round(totalDuration / totalBoxQty);
+      }
+
       // Update the summary display
       document.getElementById('totalBoxQty').textContent = totalBoxQty;
       document.getElementById('totalDuration').textContent = formatDuration(totalDuration);
+      document.getElementById('averageTime').textContent = formatDuration(averageTime);
       document.getElementById('totalDowntime').textContent = totalDowntime;
     }
 
@@ -2941,9 +2920,7 @@ try {
     document.addEventListener('DOMContentLoaded', function() {
       updateDORSummary();
     });
-  </script>
 
-  <script>
     // Operator Management Modal Functionality
     let operatorModalInstance = null;
     let currentRowId = null;
@@ -3337,9 +3314,7 @@ try {
         }
       }
     }
-  </script>
 
-  <script>
     // Downtime Management Modal Functionality
     let downtimeModalInstance = null;
     let currentDowntimeRowId = null;
@@ -3571,62 +3546,6 @@ try {
   <script src="../js/pdf.worker.min.js"></script>
   <script src="../js/hammer.min.js"></script>
   <script src="../js/dor-pip-viewer.js"></script>
-
-  <script>
-    // Add this to your existing JavaScript
-    function initializeProcessLabels() {
-      const tabQty = <?php echo $_SESSION["tabQty"] ?? 0; ?>;
-      const processLabelsContainer = document.getElementById('pipProcessLabels');
-      if (!processLabelsContainer) {
-        console.error('pipProcessLabels element not found');
-        return;
-      }
-      processLabelsContainer.innerHTML = ''; // Clear existing labels
-
-      for (let i = 1; i <= tabQty; i++) {
-        const label = document.createElement('div');
-        label.className = 'pip-process-label';
-        label.textContent = `P${i}`;
-        label.dataset.process = i;
-
-        // Add click handler
-        label.addEventListener('click', function() {
-          // Remove active class from all labels
-          document.querySelectorAll('.pip-process-label').forEach(l => l.classList.remove('active'));
-          // Add active class to clicked label
-          this.classList.add('active');
-
-          // Load work instruction immediately
-          const processNumber = parseInt(this.dataset.process);
-          fetch(`/paperless/module/get-work-instruction.php?process=${processNumber}`)
-            .then(response => response.json())
-            .then(data => {
-              if (data.success && data.file) {
-                const pipContent = document.getElementById("pipContent");
-                pipContent.innerHTML = "";
-                loadPdfFile(data.file);
-              }
-            });
-        });
-
-        processLabelsContainer.appendChild(label);
-      }
-    }
-
-    // Set first process as active by default
-    if (processLabelsContainer) {
-      const firstLabel = processLabelsContainer.querySelector('.pip-process-label');
-      if (firstLabel) {
-        firstLabel.classList.add('active');
-      }
-    }
-
-
-    // Call this when the PiP viewer is initialized
-    document.addEventListener('DOMContentLoaded', function() {
-      initializeProcessLabels();
-    });
-  </script>
 
 </body>
 
