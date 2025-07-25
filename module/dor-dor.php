@@ -87,6 +87,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
           }
         }
         $response['operatorBadges'] = $operatorBadgesHtml;
+        $response['operatorCodes'] = $operatorCodes; // Add this line to return actual codes
 
         $response['success'] = true;
       }
@@ -663,6 +664,30 @@ try {
                     <div class="operator-codes" id="operatorList<?= $i ?>">
                       <?php
                       // Get employee codes from session
+                      // $recordId = $_SESSION['dorRecordId'] ?? 0;
+                      // $existingOperators = [];
+
+                      // if ($recordId > 0) {
+                      //   $existingRecordSql = "SELECT h.BoxNumber, d.OperatorCode1,d.OperatorCode2, d.OperatorCode3, d.OperatorCode4
+                      //   FROM AtoDorHeader h
+                      //   LEFT JOIN AtoDorDetail d ON h.RecordHeaderId = d.RecordHeaderId WHERE h.RecordId = ?";
+
+                      //   $existingRecords = $db1->execute($existingRecordSql, [$recordId], 0);
+
+                      //   foreach ($existingRecords as $record) {
+                      //     $operators = [];
+                      //     for ($j = 1; $j <= 4; $j++) {
+                      //       $opCode = $record["OperatorCode$j"] ?? '';
+                      //       if ($opCode !== '' && $opCode !== null) {
+                      //         $operators[] = $opCode;
+                      //       }
+                      //     }
+                      //     if (!empty($operators)) {
+                      //       $existingOperators[$record['BoxNumber']] = $operators;
+                      //     }
+                      //   }
+                      // }
+
                       $employeeCodes = [];
                       for ($j = 1; $j <= 4; $j++) {
                         if (isset($_SESSION["userCode$j"]) && !empty($_SESSION["userCode$j"])) {
@@ -1052,8 +1077,21 @@ try {
             if (operatorDiv) {
               if (typeof data.operatorBadges === 'string' && data.operatorBadges.trim() !== '') {
                 operatorDiv.innerHTML = data.operatorBadges;
+
+                // Update the hidden operators input to preserve database values
+                const operatorsInput = document.getElementById(`operators${rowId}`);
+                if (operatorsInput && data.operatorCodes) {
+                  // data.operatorCodes should be an array of operator codes from the database
+                  operatorsInput.value = data.operatorCodes.join(',');
+                }
               } else {
                 operatorDiv.innerHTML = '<small class="badge bg-light text-dark border mx-1">No operator</small>';
+
+                // Clear the hidden input if no operators
+                const operatorsInput = document.getElementById(`operators${rowId}`);
+                if (operatorsInput) {
+                  operatorsInput.value = '';
+                }
               }
             }
             // Attach click event to View Downtime button to show modal with details
@@ -1142,6 +1180,8 @@ try {
       }
       // After polling all rows, update the total downtime
       setTimeout(updateTotalDowntime, 500); // Give AJAX a moment to update DOM
+      // Also save form data after polling to capture any operator updates
+      setTimeout(saveFormData, 600);
     }, 1000);
 
     // Function to compute and update total downtime
@@ -1167,6 +1207,52 @@ try {
       }
       document.getElementById('totalDowntime').textContent = totalDowntime;
     }
+
+    // Function to merge database values with session storage, giving priority to database
+    function mergeOperatorData(rowId, databaseCodes, sessionCodes) {
+      const operatorsInput = document.getElementById(`operators${rowId}`);
+      const operatorListDiv = document.getElementById(`operatorList${rowId}`);
+
+      // If database has operator codes, use those (leader has assigned operators)
+      if (databaseCodes && databaseCodes.length > 0) {
+        if (operatorsInput) {
+          operatorsInput.value = databaseCodes.join(',');
+        }
+
+        if (operatorListDiv) {
+          operatorListDiv.innerHTML = '';
+          databaseCodes.forEach(code => {
+            const badge = document.createElement('small');
+            badge.className = 'badge bg-light text-dark border me-1 mb-1';
+            badge.textContent = code;
+            operatorListDiv.appendChild(badge);
+          });
+        }
+
+        return databaseCodes;
+      }
+      // Otherwise, use session codes (fallback)
+      else if (sessionCodes && sessionCodes.length > 0) {
+        if (operatorsInput) {
+          operatorsInput.value = sessionCodes.join(',');
+        }
+
+        if (operatorListDiv) {
+          operatorListDiv.innerHTML = '';
+          sessionCodes.forEach(code => {
+            const badge = document.createElement('small');
+            badge.className = 'badge bg-light text-dark border me-1 mb-1';
+            badge.textContent = code;
+            operatorListDiv.appendChild(badge);
+          });
+        }
+
+        return sessionCodes;
+      }
+
+      return [];
+    }
+
     let errorModalInstance = null;
     let errorModalIsOpen = false;
 
@@ -1796,6 +1882,9 @@ try {
       sessionStorage.setItem('dorDorData', JSON.stringify(formData));
       // Also save the current record ID to prevent restoring data from different DOR sessions
       sessionStorage.setItem('dorRecordId', <?php echo $_SESSION['dorRecordId'] ?? 0; ?>);
+
+      // Save timestamp to track when data was last saved
+      sessionStorage.setItem('dorDataTimestamp', Date.now().toString());
     }
 
     // Function to restore form data from session storage
@@ -1835,6 +1924,34 @@ try {
           }
           if (operatorsInput && formData[`operators${i}`]) {
             operatorsInput.value = formData[`operators${i}`];
+
+            // Update operator display to match the restored data
+            const operatorListDiv = document.getElementById(`operatorList${i}`);
+            if (operatorListDiv) {
+              const operatorCodes = formData[`operators${i}`].split(',').filter(code => code.trim());
+              operatorListDiv.innerHTML = '';
+
+              operatorCodes.forEach(code => {
+                if (code.trim()) {
+                  const badge = document.createElement('small');
+                  badge.className = 'badge bg-light text-dark border me-1 mb-1';
+                  badge.textContent = code.trim();
+                  operatorListDiv.appendChild(badge);
+                }
+              });
+
+              // If no operators, show placeholder badges based on default session operators
+              if (operatorCodes.length === 0) {
+                // Get the original session operator codes for placeholders
+                const defaultOperators = <?php echo json_encode($employeeCodes ?? []); ?>;
+                defaultOperators.forEach(code => {
+                  const badge = document.createElement('small');
+                  badge.className = 'badge bg-light text-dark border me-1 mb-1';
+                  badge.textContent = code;
+                  operatorListDiv.appendChild(badge);
+                });
+              }
+            }
           }
         }
 
@@ -1844,6 +1961,16 @@ try {
           updateDuration(i);
         }
         updateDORSummary();
+
+        // After restoring session data, fetch any database updates to override session values
+        setTimeout(() => {
+          for (let i = 1; i <= 20; i++) {
+            const boxNoInput = document.getElementById(`boxNo${i}`);
+            if (boxNoInput && boxNoInput.value.trim()) {
+              fetchRowStatus(i); // This will get the latest database values
+            }
+          }
+        }, 500);
 
       } catch (error) {
         console.error('Error restoring form data:', error);
