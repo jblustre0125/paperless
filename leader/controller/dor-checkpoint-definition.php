@@ -12,7 +12,8 @@ $db = new dbOp(1);
 // Get hostname_id
 $hostname_id = isset($_GET['hostname_id']) ? (int)$_GET['hostname_id'] : 0;
 if ($hostname_id <= 0) {
-    echo "Invalid HostnameId.";
+    header('Content-Type: application/json');
+    echo json_encode(['success' => false, 'message' => 'Invalid HostnameId']);
     exit;
 }
 
@@ -52,6 +53,7 @@ foreach ($operatorRaw as $row) {
     if (!in_array($procIdx, $processIndexes)) {
         $processIndexes[] = $procIdx;
     }
+    $operatorCodesByProcess[$procIdx][] = $row['EmployeeCode'];
 }
 sort($processIndexes);
 

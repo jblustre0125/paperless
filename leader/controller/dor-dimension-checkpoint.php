@@ -1,4 +1,7 @@
 <?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 
 require_once '../../config/dbop.php';
 if (session_status() === PHP_SESSION_NONE) {
@@ -135,25 +138,26 @@ try {
         if ($exists) {
             $setClause = implode(", ", $fields);
             $sql = "UPDATE AtoDor SET $setClause WHERE RecordId = ?";
-            $db->execute($sql, [...$params, $recordId]);
+            $db->execute($sql, array_merge($params, [$recordId]));
         } else {
             $columns = ['RecordId'];
             $placeholders = ['?'];
             $values = [$recordId];
 
-            foreach ($fields as $index => $field) {
+            $paramIndex = 0;
+            foreach ($fields as $field) {
                 if (strpos($field, ' = ') !== false) {
                     [$col, $val] = explode(' = ', $field);
-                    if (trim($val) !== 'GETDATE()') {
+                    if (trim($val) === 'GETDATE()') {
+                        $columns[] = trim($col);
+                        $placeholders[] = 'GETDATE()';
+                    } else {
                         $columns[] = trim($col);
                         $placeholders[] = '?';
-                        $values[] = $params[$index];
+                        $values[] = $params[$paramIndex++];
                     }
                 }
             }
-
-            $columns[] = "ModifiedDate";
-            $placeholders[] = "GETDATE()";
 
             $sql = "INSERT INTO AtoDor (" . implode(", ", $columns) . ") VALUES (" . implode(", ", $placeholders) . ")";
             $db->execute($sql, $values);
