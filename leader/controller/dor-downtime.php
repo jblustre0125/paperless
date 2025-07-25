@@ -52,7 +52,7 @@ class DorDowntime
     private function insertDowntime($name)
     {
         $code = $this->generateCode('OTH', 'GenDorDowntime', 'DowntimeCode');
-        $categoryId = 3;
+        $categoryId = 4;
 
         error_log("insertDowntime: Attempting to insert - Name: '$name', Code: '$code', CategoryId: $categoryId");
 

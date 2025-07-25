@@ -10,7 +10,18 @@ if (empty($_SESSION['user_id']) || empty($_SESSION['production_code'])) {
 
 $method = new Method(1);
 $currentTabletId = $_SESSION['hostnameId'] ?? null;
-$hostnames = $method->getOnlineTablets($currentTabletId);
+$hostnames = $method->getAllTabletWithStatus($currentTabletId);
 
-echo count($hostnames);
-?>
+// Only hash the fields that matter for status
+$statusArray = [];
+foreach ($hostnames as $row) {
+    $statusArray[] = [
+        'HostnameId' => $row['HostnameId'],
+        'LineStatusId' => $row['LineStatusId'],
+        'IsLoggedIn' => $row['IsLoggedIn'],
+        'Status' => $row['Status'],
+        // add more fields if needed
+    ];
+}
+
+echo md5(json_encode($statusArray));
