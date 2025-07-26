@@ -101,6 +101,9 @@ class DorDor
             'OperatorCode2' => $employeeCodes[1] ?? null,
             'OperatorCode3' => $employeeCodes[2] ?? null,
             'OperatorCode4' => $employeeCodes[3] ?? null,
+            'TimeStart'     => $header['TimeStart'] ?? null,
+            'TimeEnd'       => $header['TimeEnd'] ?? null,
+            'Duration'      => $header['Duration'] ?? null,
         ];
 
         $setClause = implode(", ", array_map(fn($k) => "$k = ?", array_keys($fields)));

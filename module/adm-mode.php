@@ -3,25 +3,62 @@ require_once __DIR__ . "/../config/header.php";
 require_once __DIR__ . "/../config/dbop.php";
 $title = "Choose Mode";
 
-// Uncomment to bypass
-// Set hostname for operator mode
-// if (isset($_GET['mode']) && $_GET['mode'] === 'operator') {
-//     $db1 = new DbOp(1);
+$clientIp = getClientIp();
+if ($clientIp == "::1") {
+    $clientIp = '192.168.21.144';
+    $_SESSION['ipAddress'] = $clientIp;
+}
 
-//     // Set session variables
-//     $_SESSION['hostname'] = 'NBCP-TAB-001';
-//     $_SESSION['hostnameId'] = 1;
-//     $_SESSION['ipAddress'] = '192.168.21.144';
+$errorMsg = '';
 
-//     // Update IsLoggedIn status in database
-//     $updQry2 = "EXEC UpdGenHostname @HostnameId=?, @IsLoggedIn=?";
-//     $db1->execute($updQry2, [$_SESSION['hostnameId'], 1], 1);
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mode'])) {
+    $mode = $_POST['mode'];
+    $db1 = new DbOp(1);
+    $leaderQuery = "SELECT TOP 1 * FROM GenHostname WHERE IpAddress = ? AND IsLeader = 1";
+    $leaderRes = $db1->execute($leaderQuery, [$clientIp], 1);
+    $isLeader = (!empty($leaderRes) && is_array($leaderRes) && isset($leaderRes[0]));
 
-//     header('Location: dor-home.php');
-//     exit;
-// }
+    if ($mode === 'operator') {
+        if ($isLeader) {
+            $errorMsg = 'isLeader is set to 1.';
+        } else {
+            $_SESSION['hostnameId'] = 150;
+            $_SESSION['hostname'] = 'NBCP-TAB-150';
+            $_SESSION['processId'] = 'NULL';
+            $_SESSION['ipAddress'] = '192.168.21.144';
+            $_SESSION['lineId'] = 130;
+            $_SESSION['lineNumber'] = 'ATO15';
+            $_SESSION['dorTypeId'] = 3;
+
+            $updDevQry = "EXEC UpdGenLine @LineId=?, @IsLoggedIn=?";
+            $resDevQry = $db1->execute($updDevQry, [$_SESSION['lineId'], 1], 1);
+
+            $updDevQry2 = "EXEC UpdGenHostname @HostnameId=?, @IsLoggedIn=?";
+            $resDevQry2 = $db1->execute($updDevQry2, [$_SESSION['hostnameId'], 1], 1);
+
+            header("Location: dor-home.php");
+            exit;
+        }
+    } elseif ($mode === 'leader') {
+        if (!$isLeader) {
+            $errorMsg = 'isLeader is set to 0.';
+        } else {
+            header("Location: ../leader/module/dor-leader-login.php");
+            exit;
+        }
+    } elseif ($mode === 'common') {
+        header("Location: adm-dashboard.php");
+        exit;
+    }
+}
+
+function getClientIp()
+{
+    if (!empty($_SERVER['HTTP_CLIENT_IP'])) return $_SERVER['HTTP_CLIENT_IP'];
+    if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) return explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'])[0];
+    return $_SERVER['REMOTE_ADDR'];
+}
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 
@@ -39,12 +76,16 @@ $title = "Choose Mode";
 <body>
     <div class="text-center mt-5">
         <h2 class="mb-4">Choose Mode</h2>
-        <div class="d-grid gap-3 col-6 mx-auto">
-            <!-- <a href="?mode=operator" class="btn btn-primary btn-lg">Operator Mode</a> -->
-            <a href="dor-home.php" class="btn btn-primary btn-lg">Operator Mode</a>
-            <a href="../leader/module/dor-leader-login.php" class="btn btn-warning btn-lg">Leader Dashboard</a>
-            <a href="adm-dashboard.php" class="btn btn-secondary btn-lg">Admin Dashboard</a>
-        </div>
+        <?php if (!empty($errorMsg)): ?>
+            <div class="alert alert-danger col-6 mx-auto" role="alert">
+                <?php echo htmlspecialchars($errorMsg); ?>
+            </div>
+        <?php endif; ?>
+        <form method="post" class="d-grid gap-3 col-6 mx-auto">
+            <button type="submit" name="mode" value="operator" class="btn btn-primary btn-lg">Operator Mode</button>
+            <button type="submit" name="mode" value="leader" class="btn btn-warning btn-lg">Leader Dashboard</button>
+            <button type="submit" name="mode" value="common" class="btn btn-secondary btn-lg">Common Dashboard</button>
+        </form>
     </div>
 </body>
 

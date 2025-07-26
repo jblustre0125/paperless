@@ -22,8 +22,84 @@ import android.content.pm.PackageManager
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import android.widget.Toast
+import java.net.NetworkInterface
+import java.util.*
 
 class MainActivity : AppCompatActivity() {
+
+    private fun getCurrentIpAddress(): String {
+        try {
+            val networkInterfaces = Collections.list(NetworkInterface.getNetworkInterfaces())
+            for (networkInterface in networkInterfaces) {
+                val inetAddresses = Collections.list(networkInterface.inetAddresses)
+                for (inetAddress in inetAddresses) {
+                    if (!inetAddress.isLoopbackAddress && inetAddress.hostAddress.indexOf(':') < 0) {
+                        val ip = inetAddress.hostAddress
+                        // Check if it's a local network IP (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+                        if (ip.startsWith("192.168.") || ip.startsWith("10.") ||
+                            ip.matches(Regex("^172\\.(1[6-9]|2[0-9]|3[0-1])\\..*"))) {
+
+                            // Check if default gateway is 192.168.20.254, use hardcoded IP
+                            if (isDefaultGateway192_168_20_254()) {
+                                return "192.168.21.144"
+                            }
+
+                            return ip
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        // Fallback to default IP if detection fails
+        return "192.168.21.144"
+    }
+
+    private fun isDefaultGateway192_168_20_254(): Boolean {
+        try {
+            val networkInterfaces = Collections.list(NetworkInterface.getNetworkInterfaces())
+            for (networkInterface in networkInterfaces) {
+                val inetAddresses = Collections.list(networkInterface.inetAddresses)
+                for (inetAddress in inetAddresses) {
+                    if (!inetAddress.isLoopbackAddress && inetAddress.hostAddress.indexOf(':') < 0) {
+                        val ip = inetAddress.hostAddress
+                        if (ip.startsWith("192.168.") || ip.startsWith("10.") ||
+                            ip.matches(Regex("^172\\.(1[6-9]|2[0-9]|3[0-1])\\..*"))) {
+
+                            // Try to get default gateway for this interface
+                            try {
+                                val route = Runtime.getRuntime().exec("ip route show")
+                                val reader = route.inputStream.bufferedReader()
+                                var line: String?
+                                while (reader.readLine().also { line = it } != null) {
+                                    if (line?.contains("default") == true && line?.contains("192.168.20.254") == true) {
+                                        return true
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                // Alternative method for Android
+                                try {
+                                    val process = Runtime.getRuntime().exec("getprop net.dns1")
+                                    val reader = process.inputStream.bufferedReader()
+                                    val dns = reader.readLine()
+                                    if (dns == "192.168.20.254") {
+                                        return true
+                                    }
+                                } catch (e2: Exception) {
+                                    e2.printStackTrace()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return false
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -104,13 +180,11 @@ class MainActivity : AppCompatActivity() {
 
         webView.addJavascriptInterface(WebAppInterface(), "AndroidApp")
 
-        webView.loadUrl("https://192.168.21.145/paperless/index.php")
-        //webView.loadUrl("https://192.168.21.144:444/paperless/index.php")
-        //webView.loadUrl("https://192.168.22.145:444/paperless/index.php")
-        //webView.loadUrl("https://192.168.21.145/paperless/leader/module/dor-leader-login.php")
+        //webView.loadUrl("https://192.168.21.145/paperless/index.php")
+        webView.loadUrl("https://192.168.21.144:444/paperless/index.php")
     }
 
-    @Suppress("DEPRECATION")    
+    @Suppress("DEPRECATION")
     private fun hideSystemUI() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             try {
