@@ -31,13 +31,13 @@ $filteredDetails = [];
 
 if ($recordId !== null) {
   $headers = $db->execute("SELECT * FROM AtoDorHeader WHERE RecordId = ?", [$recordId]);
+  $filteredDetails = [];
   if (!empty($headers)) {
-    $recordHeaderIds = array_column($headers, 'RecordHeaderId');
-    foreach ($atoDorDetails as $detail) {
-      $rhid = (int)$detail['RecordHeaderId'];
-      if (in_array($rhid, $recordHeaderIds)) {
-        $filteredDetails[$rhid][] = $detail;
-      }
+    foreach ($headers as $header) {
+      $rhid = $header['RecordHeaderId'];
+      // Fetch downtime details for this RecordHeaderId
+      $details = $db->execute("SELECT * FROM AtoDorDetail WHERE RecordHeaderId = ?", [$rhid]);
+      $filteredDetails[$rhid] = $details;
     }
   }
 }
@@ -98,7 +98,8 @@ if ($recordId !== null) {
     /* .table-container removed */
   </style>
 
-  <table class="table table-bordered table-sm align-middle text-center m-2 mx-auto" style="width:auto;min-width:60%;max-width:90%;border-collapse:separate;border-spacing:0;background:white;">
+  <table class="table table-bordered table-sm align-middle text-center m-2 mx-auto"
+    style="width:auto;min-width:60%;max-width:90%;border-collapse:separate;border-spacing:0;background:white;">
     <thead class="table-light sticky-table">
       <tr>
         <th style="width: 5%;">#</th>
@@ -150,6 +151,7 @@ if ($recordId !== null) {
               }
             }
           }
+          $showNoDowntime = empty($badges);
 
           $modalId = "viewDowntimeModal_" . $rhid;
           $modalLabelId = "downtimeModalLabel_" . $rhid;
@@ -169,9 +171,13 @@ if ($recordId !== null) {
                   View Downtime
                 </button>
                 <div class="d-flex flex-wrap justify-content-center gap-1">
-                  <?php foreach ($badges as $badge): ?>
-                    <span class="badge bg-secondary"><?= $badge ?></span>
-                  <?php endforeach; ?>
+                  <?php if ($showNoDowntime): ?>
+                    <span class="badge bg-light border text-dark me-1 mb-1">No downtime recorded</span>
+                  <?php else: ?>
+                    <?php foreach ($badges as $badge): ?>
+                      <span class="badge bg-light border text-dark me-1 mb-1"><?= $badge ?></span>
+                    <?php endforeach; ?>
+                  <?php endif; ?>
                 </div>
               </div>
             </td>

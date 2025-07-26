@@ -1,385 +1,1468 @@
-        <?php
+<?php
+session_set_cookie_params([
+    'lifetime' => 0,
+    'path' => '/',
+    'secure' => isset($_SERVER['HTTPS']),
+    'httponly' => true,
+    'samesite' => 'Lax'
+]);
+ob_start();
+session_start();
 
-        /**
-         * DOR Leader Dashboard
-         *
-         * This is the main dashboard interface for DOR (Defect Occurrence Rate) leaders.
-         * It displays all running production lines and provides access to various system functions.
-         */
+// file_put_contents('debug-session.log', print_r([
+//     'SESSION' => $_SESSION,
+//     'POST' => $_POST
+// ], true));
+$title = "DOR Dashboard";
 
-        // Start output buffering to prevent header issues
-        ob_start();
+require_once '../controller/dor-checkpoint-definition.php';
+require_once '../controller/dor-visual-checkpoint.php';
+require_once '../controller/dor-dimension-checkpoint.php';
+require_once '../controller/dor-dor.php';
+require_once '../controller/dor-downtime.php';
+require_once '../controller/dor-leader-method.php';
+require_once '../controller/dor-documents-viewer.php';
+require_once '../controller/dor-jig-controller.php';
 
-        // Set strict caching headers to prevent browser caching
-        header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
-        header("Cache-Control: post-check=0, pre-check=0", false);
-        header("Pragma: no-cache");
-        header("Expires: Sat, 26 Jul 1997 05:00:00 GMT");
+$isSubmitted = isset($_GET['submitted']) && $_GET['submitted'] == 1;
 
-        // Start session management
-        session_start();
+// Get latest record
+$sql = "SELECT TOP 1 RecordId, DorTypeId, ModelId FROM AtoDor WHERE HostnameId = ? ORDER BY RecordId DESC";
+$result = $db->execute($sql, [$hostname_id]);
 
-        // Include required configuration files
-        require_once __DIR__ . "/../../config/header.php";       // Global header configurations
-        require_once __DIR__ . "/../../config/dbop.php";         // Database operations
-        require_once "../controller/dor-leader-method.php";      // Leader-specific methods
+$recordId = $result[0]['RecordId'];
+$dorTypeId = $result[0]['DorTypeId'];
+$modelId = $result[0]['ModelId'];
 
-        // Set page title
-        $title = "Leader Dashboard";
+// Get Item ID from GenModel
+$sql = "SELECT ITEM_ID FROM GenModel WHERE MODEL_ID = ?";
+$result = $db->execute($sql, [$modelId]);
+$itemId = $result[0]['ITEM_ID'] ?? 0;
 
-        // Initialize leader methods controller
-        $method = new Method(1);
+// Prepare dimension checks
+$dimChecks = $db->execute("SELECT * FROM AtoDimensionCheck WHERE RecordId = ? ORDER BY DimCheckId ASC", [$recordId]);
 
-        // Get current tablet ID from session
-        $currentTabletId = $_SESSION['hostnameId'] ?? null;
+$indexedDimChecks = [];
+$counter = 1;
+foreach ($dimChecks as $row) {
+    $indexedDimChecks[$counter++] = $row;
+}
+$drawingFile = $drawing ?? '';
+$prepCardFile = $prepCard ?? '';
+$workInstructFile = $workInstruction ?? '';
 
-        // Fetch all online tablets (excluding current one if set)
-        $hostnames = $method->getOnlineTablets($currentTabletId);
-        $productionCode = $_SESSION['production_code'] ?? null;
 
-        // Redirect to login if user is not authenticated
-        if (empty($_SESSION['user_id']) || empty($_SESSION['production_code'])) {
-            header('Location: dor-leader-login.php');
-            exit;
+$jigController = new DorJigController();
+$dorJigInfo = $jigController->getDorJigInfo($recordId);
+?>
+<?php if (isset($_SESSION['flash_success'])): ?>
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            showToast("<?= addslashes($_SESSION['flash_success']) ?>", "success");
+        });
+    </script>
+    <?php unset($_SESSION['flash_success']); ?>
+<?php endif; ?>
+
+<?php if (isset($_SESSION['flash_error'])): ?>
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            showToast("<?= addslashes($_SESSION['flash_error']) ?>", "danger");
+        });
+    </script>
+    <?php unset($_SESSION['flash_error']); ?>
+<?php endif; ?>
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?= $title ?></title>
+    <link rel="stylesheet" href="../../css/bootstrap.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="../css/leader-dashboard.css" rel="stylesheet">
+    <link href="../../css/dor-navbar.css" rel="stylesheet">
+    <link rel="stylesheet" href="../css/dor-tablet.css">
+
+    <style>
+        /* Ensure thead is sticky and on top */
+        /* Make thead sticky and on top */
+        thead.sticky-table th {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            /* must be higher than tbody */
+            background: white;
+            border-bottom: 1px solid #dee2e6;
         }
-        ?>
-        <!DOCTYPE html>
-        <html lang="en">
 
-        <head>
+        /* Ensure table borders don't collapse into each other */
+        table.table {
+            border-collapse: separate;
+            border-spacing: 0;
+        }
 
-            <meta charset="UTF-8" />
-            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-            <title><?= htmlspecialchars($title) ?></title>
+        thead {
+            z-index: 10;
+        }
 
-            <!-- CSS Dependencies -->
-            <link rel="stylesheet" href="../../css/bootstrap.min.css" />
-            <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-            <link href="../css/leader-dashboard.css" rel="stylesheet" />
+        /* All tbody cells have borders and white background */
+        table tbody td {
+            border: 1px solid #dee2e6;
+            background: #fff;
+            position: relative;
+            border-bottom: 1px solid #dde2e6 !important;
+            z-index: 1;
+            /* lower than thead */
+        }
 
-            <!-- Inline Styles -->
-            <style>
-                /* Extra large modal */
-                .modal-xl {
-                    max-width: 90%;
-                }
+        /* First row of tbody: top border (to avoid overlap) */
+        table tbody tr:first-child td {
+            border-top: 1px solid #dee2e6;
+            border-bottom: 1px solid #dde2e6 !important;
+            z-index: 1;
+        }
 
-                /* Limit Tab3 Quick View Modal content to 7 rows and make it scrollable */
-                #tab3ModalContent {
-                    max-height: 450px;
-                    overflow-y: auto;
-                }
-
-                /* Force downtime modal to always be extra wide */
-                #downtimeModal .modal-dialog {
-                    max-width: 50vw !important;
-                    width: 50vw !important;
-                }
-
-                /* Limit downtime modal content to 5 rows and make it scrollable */
-                #downtimeModalContent {
-                    max-height: 610px;
-                }
-
-                /* Pointer cursor for clickable elements */
-                .cursor-pointer {
-                    cursor: pointer;
-                }
-
-                /* Ensure toast notifications appear above other content */
-                #toast-container {
-                    z-index: 1080;
-                }
-
-                /* Fix for modal backdrop */
-                body.modal-open {
-                    overflow: hidden;
-                    padding-right: 0 !important;
-                }
-            </style>
-
-          <meta charset="UTF-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-          <title><?= htmlspecialchars($title) ?></title>
-
-          <!-- CSS Dependencies -->
-          <link rel="stylesheet" href="../../css/bootstrap.min.css" />
-          <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-          <link href="../css/leader-dashboard.css" rel="stylesheet" />
-
-          <!-- Inline Styles -->
-          <style>
-          /* Extra large modal */
-          .modal-xl {
-            max-width: 50%;
-          }
-
-          /* Limit Tab3 Quick View Modal content to 7 rows and make it scrollable */
-          #tab3ModalContent {
-            max-height: 450px;
-            overflow-y: auto;
-          }
-
-          /* Force downtime modal to always be extra wide */
-          #downtimeModal .modal-dialog {
-            max-width: 50vw !important;
-            width: 50vw !important;
-          }
-
-          /* Limit downtime modal content to 5 rows and make it scrollable */
-          #downtimeModalContent {
-            max-height: 610px;
-          }
-
-          /* Pointer cursor for clickable elements */
-          .cursor-pointer {
-            cursor: pointer;
-          }
-
-          /* Ensure toast notifications appear above other content */
-          #toast-container {
-            z-index: 1080;
-          }
-
-          /* Fix for modal backdrop */
-          body.modal-open {
+        .viewer {
+            position: fixed;
+            width: 600px;
+            height: 500px;
+            background: #fff;
+            border: 1px solid #aaa;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            z-index: 9999;
             overflow: hidden;
-            padding-right: 0 !important;
-          }
-          </style>
+        }
 
-        </head>
+        .viewer .header {
+            background: #444;
+            color: #fff;
+            padding: 8px;
+            cursor: move;
+            font-weight: bold;
+        }
 
-        <body>
-          <!-- Main Navigation Bar -->
-          <nav class="navbar navbar-expand-md navbar-dark bg-dark shadow-sm">
-            <div class="container-lg">
-              <!-- Mobile toggle button -->
-              <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-              </button>
+        .viewer iframe,
+        .viewer img {
+            width: 100%;
+            height: calc(100% - 40px);
+            /* subtract header height */
+            border: none;
+            display: block;
+        }
 
-              <!-- Navigation Items -->
-              <div class="collapse navbar-collapse" id="navbarNav">
-                <!-- Left-aligned menu items -->
-                <ul class="navbar-nav me-auto">
-                  <li class="nav-item">
-                    <a class="nav-link active fs-5" href="dor-leader-dashboard.php">DOR System</a>
-                  </li>
+        .current-operators {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: wrap !important;
+            gap: 10px !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
 
-                  <<<<<<< HEAD <!-- Master Data Dropdown -->
-                    <li class="nav-item dropdown">
-                      <a class="nav-link dropdown-toggle fs-5" href="#" data-bs-toggle="dropdown">Master Data</a>
-                      <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="dor-model.php"><i class="bi bi-diagram-3"></i> Model</a></li>
-                        <li><a class="dropdown-item" href="dor-user.php"><i class="bi bi-person"></i> User</a></li>
-                        <li><a class="dropdown-item" href="dor-line.php"><i class="bi bi-tablet"></i> Line</a></li>
-                        <li><a class="dropdown-item" href="dor-tablet-management.php"><i class="bi bi-tablet"></i>
-                            Tablet</a></li>
-                      </ul>
-                    </li>
-                    =======
-                    <!-- Reports Dropdown -->
-                    <li class="nav-item dropdown">
-                      <a class="nav-link dropdown-toggle fs-5" href="#" data-bs-toggle="dropdown">Reports</a>
-                      <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="dor-report.php">DOR</a></li>
-                      </ul>
-                    </li>
-                </ul>
+        .operator-card-wrapper {
+            flex: 0 0 calc(50% - 5px) !important;
+            max-width: calc(50% - 5px) !important;
+            min-width: calc(50% - 5px) !important;
+            box-sizing: border-box !important;
+        }
 
-                <!-- Right-aligned user controls -->
-                <ul class="navbar-nav">
-                  <?php
-                                // Get current tablet information
-                                $currentTablet = isset($_SESSION['hostnameId']) ? $method->getCurrentTablet($_SESSION['hostnameId']) : null;
-                                $tabletName = $currentTablet ? htmlspecialchars($currentTablet['Hostname']) : 'Tablet Name';
-                                ?>
-                  <<<<<<< HEAD <a class="nav-link dropdown-toggle fw-bold" href="#" data-bs-toggle="dropdown">
-                    <i class="bi bi-tablet"></i> <?= $tabletName ?>
-                    </a>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                      <li><a class="dropdown-item text-danger fw-bold" href="../controller/dor-leader-logout.php"
-                          onclick="exitApplication(event)"><i class="bi bi-box-arrow-right"></i> Exit Application</a>
-                      </li>
-                      <li><a class="dropdown-item text-danger fw-bold" href="../controller/dor-leader-logout.php"><i
-                            class="bi bi-box-arrow-right"></i> Log Out</a></li>
-                    </ul>
-                    </li>
-                </ul>
-              </div>
-              =======
-              <a class="nav-link dropdown-toggle fw-bold" href="#" data-bs-toggle="dropdown">
-                <i class="bi bi-tablet"></i> <?= $tabletName ?>
-              </a>
-              <ul class="dropdown-menu dropdown-menu-end">
-                <li><a class="dropdown-item text-danger fw-bold" href="../controller/dor-leader-logout.php"
-                    onclick="exitApplication(event)"><i class="bi bi-box-arrow-right"></i> Exit Application</a>
-                </li>
-                <li><a class="dropdown-item text-danger fw-bold" href="../controller/dor-leader-logout.php"><i
-                      class="bi bi-box-arrow-right"></i> Log Out</a></li>
-              </ul>
-              </li>
-              </ul>
-            </div>
-            </div>
-          </nav>
+        .operator-card {
+            width: 100% !important;
+            height: auto !important;
+            border: 2px solid #0d6efd !important;
+            border-radius: 8px !important;
+            background: white !important;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
 
-          <!-- Flash Message Display (if any) -->
-          <?php if (!empty($_SESSION['flash_message'])): ?>
-          <script>
-          document.addEventListener('DOMContentLoaded', function() {
-            showToast("<?= addslashes($_SESSION['flash_message']) ?>", "warning");
-          });
-          </script>
-          <?php unset($_SESSION['flash_message']); ?>
-          <?php endif; ?>
+        .operator-card .card-body {
+            padding: 15px !important;
+            text-align: center !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            min-height: 100px !important;
+        }
 
-          <!-- Toast Notification Container -->
-          <div id="toast-container" class="position-fixed top-0 end-0 p-3"></div>
+        .operator-card .card-title {
+            font-size: 1rem !important;
+            font-weight: 600 !important;
+            margin-bottom: 5px !important;
+            color: #333 !important;
+        }
 
-          <!-- Main Content Container -->
-          <div class="container mt-5">
-            <h4 class="mb-3">Running Lines</h4>
+        .operator-card .text-muted {
+            font-size: 0.85rem !important;
+            color: #6c757d !important;
+            margin-bottom: 10px !important;
+        }
 
-            <!-- Tablet/Line Cards Container -->
-            <div id="tablet-list">
-              <div class="row row-cols-2 row-cols-md-4 row-cols-lg-6 g-3">
-                <?php if (!empty($hostnames)): ?>
-                <?php foreach ($hostnames as $row): ?>
-                <div class="col">
-                  <div class="card text-center shadow-sm border-success position-relative">
-                    <!-- Quick View Button -->
-                    <button class="btn btn-sm btn-outline-success open-tab3-modal position-absolute top-0 end-0 m-1 z-3"
-                      data-hostname-id="<?= $row['HostnameId'] ?>"
-                      data-record-id="<?= isset($row['RecordId']) ? htmlspecialchars($row['RecordId']) : 'null' ?>"
-                      title="Quick View Tab 3">
-                      <i class="bi bi-eye-fill"></i>
-                    </button>
+        .btn-remove-operator {
+            background: transparent !important;
+            border: 1px solid #dc3545 !important;
+            color: #dc3545 !important;
+            padding: 4px 8px !important;
+            border-radius: 4px !important;
+            font-size: 0.75rem !important;
+            transition: all 0.2s ease !important;
+        }
 
-                    <!-- Card Body - Clickable to go to tablet detail page -->
-                    <div class="card-body py-3 cursor-pointer"
-                      onclick="window.location.href='dor-tablet.php?hostname_id=<?= $row['HostnameId'] ?>'"
-                      data-bs-toggle="tooltip" data-bs-placement="top"
-                      data-hostname="<?= htmlspecialchars($row['Hostname']) ?>"
-                      data-record-id="<?= $row['RecordId'] ?? 'new' ?>">
-                      <h6 class="card-title mb-1"><?= htmlspecialchars($row['Hostname']) ?></h6>
+        .modal-xl {
+            max-width: 90% !important;
+        }
+
+        .btn-remove-operator:hover {
+            background: #dc3545 !important;
+            color: white !important;
+        }
+
+        /* Force override any conflicting styles */
+        .modal-body .current-operators {
+            display: flex !important;
+        }
+
+        .modal-body .current-operators .operator-card-wrapper {
+            flex: 0 0 calc(50% - 5px) !important;
+        }
+    </style>
+</head>
+
+<body class="fs-6" style="margin-left: 0; margin-right: 0; padding: 0;">
+    <form method="POST">
+        <nav class="navbar navbar-expand navbar-light bg-light shadow-sm fixed-top">
+            <div class="container-fluid py-2">
+                <div class="d-flex justify-content-between align-items-center flex-wrap w-100">
+                    <!-- Left group: File viewers -->
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button type="button" class="btn btn-secondary btn-lg nav-btn-group btn-nav-fixed" id="btnDrawing"
+                            data-file="<?= htmlspecialchars($drawingFile) ?>" aria-label="Open Drawing">
+                            Drawing
+                        </button>
+
+                        <button type="button" class="btn btn-secondary btn-lg nav-btn-group btn-nav-fixed" id="btnWorkInstruction"
+                            data-file="<?= htmlspecialchars($workInstructFile) ?>" aria-label="Open Work Instruction">
+                            <span class="short-label">WI</span>
+                            <span class="long-label">Work Instruction</span>
+                        </button>
+
+                        <button type="button" class="btn btn-secondary btn-lg nav-btn-group btn-nav-fixed" id="btnPrepCard"
+                            data-file="<?= htmlspecialchars($prepCardFile) ?>" aria-label="Open Preparation Card">
+                            <span class="short-label">Prep Card</span>
+                            <span class="long-label">Preparation Card</span>
+                        </button>
+
+                        <button type="button" class="btn btn-secondary btn-lg nav-btn-group btn-nav-fixed"
+                            onclick="window.location.href='dor-leader-dashboard.php'" aria-label="Go to Operator Tablets">
+                            <span class="short-label">Opt Tab</span>
+                            <span class="long-label">Operator Tablets</span>
+                        </button>
                     </div>
-                  </div>
+
+                    <!-- Hidden form values -->
+                    <input type="hidden" name="record_id" value="<?= $recordId ?>">
+                    <input type="hidden" name="current_tab_index" id="currentTabInput"
+                        value="<?= isset($_GET['tab']) ? (int)$_GET['tab'] : 0 ?>">
+
+                    <!-- Right group: Navigation -->
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button type="button" class="btn btn-secondary btn-lg nav-btn-group btn-nav-fixed" id="btnBack"
+                            aria-label="Go Back">
+                            Back
+                        </button>
+
+                        <button type="submit" class="btn btn-primary btn-lg nav-btn-group btn-nav-fixed" name="btnNext" id="btnNext"
+                            aria-label="Proceed to Next Checkpoint">
+                            <span class="short-label">Next</span>
+                            <span class="long-label">Proceed to Next Checkpoint</span>
+                        </button>
+                    </div>
+
                 </div>
-                <?php endforeach; ?>
+            </div>
+        </nav>
+
+
+        <!-- PDF Viewer Container -->
+        <div id="pdfModal"
+            style="display:none; position:fixed; top:10%; left:10%; width:80%; height:80%; background:#fff; z-index:1000; box-shadow: 0 0 20px rgba(0,0,0,0.5); overflow:auto;">
+            <div style="text-align:right; padding:10px;">
+                <button onclick="closePDFViewer()">Close</button>
+            </div>
+            <div id="pdfViewer" style="padding: 10px;"></div>
+        </div>
+
+
+        <div class="container-fluid py-0 m-0">
+            <!-- CheckpointA -->
+            <div class="tab-content fixed-top" style="margin-top: 30px; display:none;" id="dorTabContent">
+                <div <?php
+                        $tabIndex = isset($_GET['tab']) ? intval($_GET['tab']) : 0;
+                        $isTab0Saved = isset($isTab0Saved) ? $isTab0Saved : false;
+                        ?>
+                    class="tab-pane fade <?php if ($tabIndex == 0) echo 'show active '; ?><?php if ($isTab0Saved) echo 'read-only'; ?>"
+                    id="tab-0" role="tabpanel">
+                    <div class="table-container" style="max-height:90vh; overflow-y: auto; margin-top: 10px;">
+                        <table class="table table-bordered text-center align-middle w-100">
+                            <thead class="table-light text-center  sticky-table">
+                                <tr>
+                                    <th class="fs-6" colspan="<?= 6 + count($processIndexes) ?>">A. Required Item and Jig Condition VS
+                                        Work Instruction</th>
+                                </tr>
+                                <tr>
+                                    <?php if ($dorJigInfo && $dorJigInfo['DorTypeId'] == 2 && $dorJigInfo['JigName']): ?>
+                                        <th class="fs-6 text center" colspan="<?= 6 + count($processIndexes) ?>"
+                                            style="background: #e3f2fd; color: #1976d2; font-weight: 600;">
+                                            <div class="d-flex align-items-center justify-content-center gap-2">
+                                                <i class="bi bi-tools"></i>
+                                                <span> Jig: <?= htmlspecialchars($dorJigInfo['JigName']) ?>
+                                        </th></span>
+                    </div>
+                    </th>
                 <?php else: ?>
-                <!-- Empty State -->
-                <div class="col-12">
-                  <div class="alert alert-info text-center">
-                    <i class="bi bi-info-circle me-2"></i> No running lines
-                  </div>
-                </div>
+                    <th></th>
                 <?php endif; ?>
-              </div>
+                </tr>
+                <tr>
+                    <th class="fs-6 text-start" rowspan="2" style="width: 25%;">Checkpoints</th>
+                    <th class="fs-6" colspan="2" rowspan="2" style="width: 30%;">Criteria</th>
+                    <th class="fs-6" colspan="<?= count($processIndexes) ?>" style="width: 30%;">Operator</th>
+                    <th class="fs-6" rowspan="2" style="width: 15%;">Leader</th>
+                </tr>
+                <tr>
+                    <?php foreach ($processIndexes as $index): ?>
+                        <th style="width: <?= floor(30 / count($processIndexes)) ?>%;">P<?= $index ?></th>
+                    <?php endforeach; ?>
+                </tr>
+                </thead>
+                <tbody>
+                    <?php
+                    $grouped = [];
+                    foreach ($checkpoints as $cp) {
+                        $grouped[$cp['SequenceId']][] = $cp;
+                    }
+
+                    foreach ($grouped as $sequenceId => $group):
+                        foreach ($group as $index => $cp):
+                            $checkpointId = (int)$cp['CheckpointId'];
+                            $good = trim($cp['CriteriaGood']);
+                            $notGood = trim($cp['CriteriaNotGood']);
+                            $colspanGood = empty($notGood) ? 2 : 1;
+                            $leaderDefault = $leaderResponses[$checkpointId] ?? null;
+                    ?>
+                            <tr>
+                                <?php if ($index === 0): ?>
+                                    <td class="text-start fs-6" rowspan="<?= count($group) ?>" style="width: 25%;">
+                                        <?= $cp['SequenceId']; ?>. <?= htmlspecialchars($cp['CheckpointName']); ?>
+                                    </td>
+                                <?php endif; ?>
+
+                                <td class="fs-6" colspan="<?= $colspanGood; ?>" style="width: <?= $colspanGood === 2 ? '30%' : '15%' ?>;">
+                                    <?= htmlspecialchars($good); ?>
+                                </td>
+
+                                <?php if (!empty($notGood)): ?>
+                                    <td class="fs-6" style="width: 15%;"><?= htmlspecialchars($notGood); ?></td>
+                                <?php endif; ?>
+
+                                <?php if (!empty($processIndexes)): ?>
+                                    <?php foreach ($processIndexes as $procIdx): ?>
+                                        <?php
+                                        $procIdx = (int)$procIdx;
+                                        $debugInfo = "CheckpointID: $checkpointId, ProcessIndex: $procIdx";
+                                        $responseExists = isset($operatorResponses[$checkpointId][$procIdx]);
+                                        $rawResponse = $responseExists ? trim($operatorResponses[$checkpointId][$procIdx]) : null;
+
+                                        if ($responseExists && $rawResponse !== '') {
+                                            $displayResponse = htmlspecialchars($rawResponse, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                                            $title = "$debugInfo: $rawResponse";
+                                        } else {
+                                            $displayResponse = '<span class="text-muted">-</span>';
+                                            $title = "$debugInfo: No data";
+                                        }
+                                        ?>
+                                        <td class="fs-6 text-center" style="width: <?= floor(30 / count($processIndexes)) ?>%;"
+                                            title="<?= htmlspecialchars($title) ?>">
+                                            <?= $displayResponse ?>
+                                        </td>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
+                                    <td class="fs-6 text-center" colspan="1" style="width: 30%;">
+                                        <span class="text-muted">No operator data available</span>
+                                    </td>
+                                <?php endif; ?>
+
+                                <td class="py-2 px-3 fs-6" style="width: 15%;">
+                                    <?php
+                                    $radioName = "leader[$checkpointId]";
+                                    $hasResponse = isset($leaderResponses[$checkpointId]);
+                                    ?>
+
+                                    <?php if ($hasResponse): ?>
+                                        <?php
+                                        $badgeClass = match ($leaderDefault) {
+                                            'OK' => 'text-success fw-bold',
+                                            'NG' => 'text-danger fw-bold',
+                                            'NA' => 'text-secondary fw-bold',
+                                            default => 'text-muted',
+                                        };
+                                        ?>
+                                        <div class="text-center">
+                                            <span class="<?= $badgeClass ?>"><?= htmlspecialchars($leaderDefault) ?></span>
+                                        </div>
+                                    <?php else: ?>
+                                        <div class="d-flex justify-content-center align-items-center gap-3 flex-nowrap overflow-auto"
+                                            style="white-space: nowrap;">
+                                            <?php foreach (['OK', 'NA', 'NG'] as $val): ?>
+                                                <div class="form-check d-flex align-items-center m-0" style="gap: 4px;">
+                                                    <input type="radio" name="<?= $radioName ?>"
+                                                        id="leader-<?= $checkpointId ?>-<?= strtolower($val) ?>" class="form-check-input"
+                                                        value="<?= $val ?>" <?= ($leaderDefault === $val) ? 'checked' : '' ?>>
+                                                    <label class="form-check-label m-0" for="leader-<?= $checkpointId ?>-<?= strtolower($val) ?>">
+                                                        <?= $val ?>
+                                                    </label>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                    <?php endforeach;
+                    endforeach; ?>
+                </tbody>
+                </table>
+                </div>
+                <button type="submit" name="btnVisual" id="hiddenVisual" style="display: none;">Submit</button>
             </div>
-            >>>>>>> DOR-Leader
-          </div>
-          </nav>
+            <div class="tab-pane fade" id="tab-1" role="tabpanel">
+                <div class="mt-5">
+                    <?php $tabNames = ['Hatsumono', 'Nakamono', 'Owarimono']; ?>
+                    <!-- Sub-tabs -->
+                    <ul class="nav nav-tabs" id="visualCheckpointTab" role="tablist">
+                        <?php foreach ($tabNames as $index => $tab):
+                            $tabId = strtolower($tab); ?>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link <?= $index === 0 ? 'active' : '' ?>" id="<?= $tabId ?>-tab" data-bs-toggle="tab"
+                                    data-bs-target="#<?= $tabId ?>" type="button" role="tab" aria-controls="<?= $tabId ?>"
+                                    aria-selected="<?= $index === 0 ? 'true' : 'false' ?>">
+                                    <?= $tab ?>
+                                </button>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                    <div class="tab-content mt-4" id="visualCheckpointTabContent">
+                        <?php foreach ($tabNames as $index => $tab):
+                            $tabId = strtolower($tab); ?>
+                            <div class="tab-pane fade <?= $index === 0 ? 'show active' : '' ?>" id="<?= $tabId ?>" role="tabpanel"
+                                aria-labelledby="<?= $tabId ?>-tab">
+                                <input type="hidden" name="record_id" value="<?= htmlspecialchars($recordId) ?>">
+                                <input type="hidden" name="production_code"
+                                    value="<?= htmlspecialchars($_SESSION['production_code'] ?? '') ?>">
+                                <div class="table-wrapper mt-3" style="border: solid 1px #ddd">
+                                    <table class="table table-bordered text-center align-middle">
+                                        <thead class="table-light sticky-table">
+                                            <tr>
+                                                <th colspan="4" class="fs-6">B. Visual Inspection Checkpoint</th>
+                                            </tr>
+                                            <tr>
+                                                <th class="fs-6">Checkpoints</th>
+                                                <th class="fs-6" colspan="2">Criteria</th>
+                                                <th class="fs-6"><?= $tab ?></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php
+                                            $groupedVisuals = [];
+                                            foreach ($visualCheckpoints as $v) {
+                                                $groupedVisuals[$v['SequenceId']][] = $v;
+                                            }
 
-          <!-- Flash Message Display (if any) -->
-          <?php if (!empty($_SESSION['flash_message'])): ?>
-          <script>
-          document.addEventListener('DOMContentLoaded', function() {
-            showToast("<?= addslashes($_SESSION['flash_message']) ?>", "warning");
-          });
-          </script>
-          <?php unset($_SESSION['flash_message']); ?>
-          <?php endif; ?>
+                                            foreach ($groupedVisuals as $sequenceId => $group):
+                                                foreach ($group as $index => $v):
+                                                    $checkpointId = $v['CheckpointId'];
+                                                    $typeId = $v['CheckpointTypeId'];
+                                                    $options = $checkpointControlMap[$typeId] ?? ['text'];
+                                                    $value = $v[$tab] ?? '';
+                                                    $isRadio = $options !== ['text'];
+                                            ?>
+                                                    <tr>
+                                                        <?php if ($index === 0): ?>
+                                                            <td class="text-start fs-6" rowspan="<?= count($group) ?>" style="min-width: 110px;">
+                                                                <?= $v['SequenceId'] ?>. <?= htmlspecialchars($v['CheckpointName']) ?>
+                                                            </td>
+                                                        <?php endif; ?>
 
-          <!-- Toast Notification Container -->
-          <div id="toast-container" class="position-fixed top-0 end-0 p-3"></div>
+                                                        <td class="fs-6" colspan="<?= empty($v['CriteriaNotGood']) ? 2 : 1 ?>" style="min-width: 100px;">
+                                                            <?= htmlspecialchars($v['CriteriaGood']) ?>
+                                                        </td>
 
-          <!-- Main Content Container -->
-          <div class="container mt-5">
-            <h4 class="mb-3">Running Lines</h4>
-
-            <!-- Tablet/Line Cards Container -->
-            <div id="tablet-list">
-              <div class="row row-cols-2 row-cols-md-4 row-cols-lg-6 g-3">
-                <?php if (!empty($hostnames)): ?>
-                <?php foreach ($hostnames as $row): ?>
-                <div class="col">
-                  <div class="card text-center shadow-sm border-success position-relative">
-                    <!-- Quick View Button -->
-                    <button class="btn btn-sm btn-outline-success open-tab3-modal position-absolute top-0 end-0 m-1 z-3"
-                      data-hostname-id="<?= $row['HostnameId'] ?>"
-                      data-record-id="<?= isset($row['RecordId']) ? htmlspecialchars($row['RecordId']) : 'null' ?>"
-                      title="Quick View Tab 3">
-                      <i class="bi bi-eye-fill"></i>
-                    </button>
-
-                    <!-- Card Body - Clickable to go to tablet detail page -->
-                    <div class="card-body py-3 cursor-pointer"
-                      onclick="window.location.href='dor-tablet.php?hostname_id=<?= $row['HostnameId'] ?>'"
-                      data-bs-toggle="tooltip" data-bs-placement="top"
-                      data-hostname="<?= htmlspecialchars($row['Hostname']) ?>"
-                      data-record-id="<?= $row['RecordId'] ?? 'new' ?>">
-                      <h6 class="card-title mb-1"><?= htmlspecialchars($row['Hostname']) ?></h6>
+                                                        <?php if (!empty($v['CriteriaNotGood'])): ?>
+                                                            <td class="fs-6" style="min-width: 100px;">
+                                                                <?= htmlspecialchars($v['CriteriaNotGood']) ?>
+                                                            </td>
+                                                        <?php endif; ?>
+                                                        <td class="fs-6" style="min-width: 220px;">
+                                                            <?php $name = "visual[$checkpointId][$tab]"; ?>
+                                                            <?php if ($isRadio): ?>
+                                                                <div class="d-flex flex-wrap gap-2 justify-content-center">
+                                                                    <?php foreach ($options as $opt): ?>
+                                                                        <div class="form-check form-check-inline">
+                                                                            <input type="radio" class="form-check-input" name="<?= $name ?>" value="<?= $opt ?>"
+                                                                                id="<?= $name ?>_<?= strtolower(str_replace(' ', '', $opt)) ?>"
+                                                                                <?= $value === $opt ? 'checked' : '' ?>>
+                                                                            <label class="form-check-label"
+                                                                                for="<?= $name ?>_<?= strtolower(str_replace(' ', '', $opt)) ?>">
+                                                                                <?= $opt ?>
+                                                                            </label>
+                                                                        </div>
+                                                                    <?php endforeach; ?>
+                                                                </div>
+                                                            <?php else: ?>
+                                                                <input type="text" name="<?= $name ?>" class="form-control"
+                                                                    value="<?= htmlspecialchars($value) ?>">
+                                                            <?php endif; ?>
+                                                        </td>
+                                                    </tr>
+                                                <?php endforeach; ?>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                    <button type="submit" name="btnProceed" id="btnProceed"
+                                        class="btn btn-primary float-end">Submit</button>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
                     </div>
-                  </div>
                 </div>
-                <<<<<<< HEAD <?php endforeach; ?> <?php else: ?> <!-- Empty State -->
-                  <div class="col-12">
-                    <div class="alert alert-info text-center">
-                      <i class="bi bi-info-circle me-2"></i> No running lines
-                    </div>
-                    =======
-                  </div>
-
-                  <!-- Downtime Modal -->
-                  <div class="modal fade" id="downtimeModal" tabindex="-1" aria-labelledby="downtimeModalLabel"
-                    aria-hidden="true">
-                    <div class="modal-dialog modal-xl modal-dialog-centered">
-                      <div class="modal-content" id="downtimeModalContent">
-                        <!-- Content loaded dynamically -->
-                      </div>
-                      >>>>>>> DOR-Leader
-                    </div>
-                    <?php endif; ?>
-                  </div>
-              </div>
             </div>
 
-            <!-- Tab3 Quick View Modal -->
-            <div class="modal fade" id="tab3QuickModal" tabindex="-1" aria-hidden="true">
-              <div class="modal-dialog modal-xl modal-dialog-centered">
-                <div class="modal-content" id="tab3ModalContent">
+            <div class="tab-pane fade" id="tab-2" role="tabpanel">
+                <div class="container-fluid mt-3" style="max-height: 90vh; overflow-y: auto; position: relative;">
+                    <table class="table table-bordered text-center align-middle mb-0">
+                        <thead class="table-light sticky-table">
+                            <tr>
+                                <th class="fs-6 sticky-header" colspan="10" style="top: 0; border-top: 2px solid #dee2e6;">C.
+                                    Dimension Check</th>
+                            </tr>
+                            <tr>
+                                <th class="fs-6 sticky-header" rowspan="2" style="width: 8%; min-width: 50px; top: 38px;">No.</th>
+                                <?php foreach (['Hatsumono', 'Nakamono', 'Owarimono'] as $section): ?>
+                                    <th class="fs-6 sticky-header" colspan="3" style="width: 30.666%; top: 38px;"><?= $section ?></th>
+                                <?php endforeach; ?>
+                            </tr>
+                            <tr>
+                                <?php for ($i = 1; $i <= 9; $i++): ?>
+                                    <th class="fs-6 sticky-header" style="width: 10.222%; top: 76px;"><?= (($i - 1) % 3) + 1 ?></th>
+                                <?php endfor; ?>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php for ($i = 1; $i <= 20; $i++): ?>
+                                <?php $row = $indexedDimChecks[$i] ?? []; ?>
+                                <tr>
+                                    <td class="fs-6"><?= $i ?></td>
+                                    <input type="hidden" name="dim_check_id[<?= $i ?>]" value="<?= $row['DimCheckId'] ?? '' ?>">
+                                    <?php foreach (['hatsumono', 'nakamono', 'owarimono'] as $section): ?>
+                                        <?php for ($j = 1; $j <= 3; $j++): ?>
+                                            <td>
+                                                <?php
+                                                $key = ucfirst($section) . $j;
+                                                $value = $row[$key] ?? ($_POST["{$section}_value_{$j}"][$i] ?? '');
+                                                ?>
+                                                <input type="number" class="form-control" name="<?= $section ?>_value_<?= $j ?>[<?= $i ?>]"
+                                                    value="<?= htmlspecialchars($value) ?>" />
+                                            </td>
+                                        <?php endfor; ?>
+                                    <?php endforeach; ?>
+                                </tr>
+                            <?php endfor; ?>
+
+                            <tr>
+                                <td class="fw-bold text-center fs-6">Judge</td>
+                                <?php foreach (['hatsumono', 'nakamono', 'owarimono'] as $section): ?>
+                                    <?php for ($i = 1; $i <= 3; $i++): ?>
+                                        <td>
+                                            <div class="d-flex flex-column align-items-center gap-1">
+                                                <?php foreach (['OK', 'NA', 'NG'] as $opt): ?>
+                                                    <label class="form-check-label small w-100 text-center">
+                                                        <input type="radio" class="form-check-input me-1" name="judge_<?= $section ?>_<?= $i ?>"
+                                                            value="<?= $opt ?>"
+                                                            <?= (($_POST["judge_{$section}_{$i}"] ?? $record[ucfirst($section) . $i . "Judge"] ?? '') === $opt) ? 'checked' : '' ?>>
+                                                        <?= $opt ?>
+                                                    </label>
+                                                <?php endforeach; ?>
+                                            </div>
+                                            <input type="hidden" name="checkby_<?= $section . $i ?>"
+                                                value="<?= htmlspecialchars($_POST["checkby_{$section}{$i}"] ?? $record[ucfirst($section) . $i . "CheckBy"] ?? ($_SESSION['production_code'] ?? '')) ?>">
+                                        </td>
+                                    <?php endfor; ?>
+                                <?php endforeach; ?>
+                            </tr>
+
+                        </tbody>
+                    </table>
                 </div>
-              </div>
+
+                <button type="submit" name="btnSubmit" id="hiddenSubmit" style="display: none;">Submit</button>
             </div>
 
-            <!-- Downtime Modal -->
-            <div class="modal fade" id="downtimeModal" tabindex="-1" aria-labelledby="downtimeModalLabel"
-              aria-hidden="true">
-              <div class="modal-dialog modal-xl modal-dialog-centered">
-                <div class="modal-content" id="downtimeModalContent">
-                  <!-- Content loaded dynamically -->
+            <!-- Tab Pane -->
+            <div class="tab-pane fade" id="tab-3" role="tabpanel">
+                <div class="dor-table-container mt-3" style="max-height: 90vh; overflow-y: auto; position: relative;">
+                    <!-- Table with integrated DOR Summary in header -->
+                    <table class="table table-bordered table-dor mb-0 w-100">
+                        <thead class="table-light text-center sticky-table" style="position: sticky; top: 0; z-index: 15;">
+                            <!-- DOR Summary Row -->
+                            <tr style="background: white; border-bottom: 1px solid #dee2e6;">
+                                <th colspan="8" style="padding: 12px; border: 1px solid #dee2e6;">
+                                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                        <small class="badge bg-light text-dark border p-2" style="font-size: 0.875rem;">
+                                            <i class="bi bi-box-seam me-1"></i>Total Box Qty: <span id="totalBoxQty"
+                                                class="fw-bold text-primary">0</span>
+                                        </small>
+                                        <small class="badge bg-light text-dark border p-2" style="font-size: 0.875rem;">
+                                            <i class="bi bi-clock me-1"></i>Total Duration: <span id="totalDuration"
+                                                class="fw-bold text-primary">0 mins</span>
+                                        </small>
+                                        <small class="badge bg-light text-dark border p-2" style="font-size: 0.875rem;">
+                                            <i class="bi bi-speedometer2 me-1"></i>Ave. Time/Box: <span id="averagePerBox"
+                                                class="fw-bold text-primary">0 mins</span>
+                                        </small>
+                                        <small class="badge bg-light text-dark border p-2" style="font-size: 0.875rem;">
+                                            <i class="bi bi-exclamation-circle me-1 "></i>Total Downtime: <span id="totalDowntime"
+                                                class="fw-bold text-primary">0</span>
+                                        </small>
+                                    </div>
+                                </th>
+                            </tr>
+                            <!-- Table Title Row -->
+                            <tr style="background: white;">
+                                <th colspan="8"
+                                    style="padding: 8px; border-left: 1px solid #dee2e6; border-right: 1px solid #dee2e6; border-bottom: 1px solid #dee2e6;">
+                                    Daily Operation Record
+                                </th>
+                            </tr>
+                            <!-- Column Headers Row -->
+                            <tr style="background: #f8f9fa;">
+                                <th style="width: 5%;">#</th>
+                                <th style="width: 15%;">Box No.</th>
+                                <th style="width: 12%;">Start Time</th>
+                                <th style="width: 12%;">End Time</th>
+                                <th style="width: 12%;">Duration</th>
+                                <th style="width: 22%;">Operator</th>
+                                <th style="width: 17%;">Downtime</th>
+                                <th style="width: 5%;">*</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php
+                            // Assume there's a single $recordId used for all rows.
+                            $recordId = $headers[0]['RecordId'] ?? $fallbackRecordIds[0] ?? null;
+                            $employeeCodes = [];
+
+                            if ($recordId) {
+                                // Fetch EmployeeCodes once
+                                $employeeQuery = $db->execute(
+                                    "SELECT DISTINCT EmployeeCode FROM AtoDorCheckpointDefinition WHERE RecordId = ? AND IsLeader = 0",
+                                    [$recordId]
+                                );
+                                $codes = array_column($employeeQuery, 'EmployeeCode');
+
+                                // Get ModelId and MP from AtoDor and GenModel
+                                $atoDor = $db->execute("SELECT ModelId FROM AtoDor WHERE RecordId = ?", [$recordId]);
+                                $modelId = $atoDor[0]['ModelId'] ?? null;
+
+                                $mp = 0;
+                                if ($modelId) {
+                                    $genModel = $db->execute("SELECT MP FROM GenModel WHERE MODEL_ID = ?", [$modelId]);
+                                    $mp = (int)($genModel[0]['MP'] ?? 0);
+                                }
+
+                                // Slice operators based on MP
+                                $employeeCodes = array_slice($codes, 0, $mp);
+                            }
+                            ?>
+                            <?php
+                            $modals = [];
+
+                            // Get fallback RecordIds directly from AtoDor (for use in all 20 rows)
+                            $fallbackQuery = $db->execute("SELECT RecordId FROM AtoDor WHERE HostnameId = ?", [$hostnameId]);
+                            $fallbackRecordIds = array_column($fallbackQuery, 'RecordId');
+                            $fallbackRecordId = $fallbackRecordIds[0] ?? null;
+
+                            // Get employee codes for fallback RecordId
+                            $fallbackEmployeeCodes = [];
+                            if ($fallbackRecordId) {
+                                $employeeQuery = $db->execute(
+                                    "SELECT DISTINCT EmployeeCode FROM AtoDorCheckpointDefinition WHERE RecordId = ? AND IsLeader = 0",
+                                    [$fallbackRecordId]
+                                );
+                                $fallbackEmployeeCodes = array_column($employeeQuery, 'EmployeeCode');
+
+                                // Get MP (Max Personnel) from GenModel
+                                $atoDor = $db->execute("SELECT ModelId FROM AtoDor WHERE RecordId = ?", [$fallbackRecordId]);
+                                $modelId = $atoDor[0]['ModelId'] ?? null;
+
+                                $mp = 0;
+                                if ($modelId) {
+                                    $genModel = $db->execute("SELECT MP FROM GenModel WHERE MODEL_ID = ?", [$modelId]);
+                                    $mp = (int)($genModel[0]['MP'] ?? 0);
+                                }
+
+                                // Limit codes to MP
+                                $fallbackEmployeeCodes = array_slice($fallbackEmployeeCodes, 0, $mp);
+                            }
+
+                            for ($i = 1; $i <= 20; $i++) {
+                                $header = $headers[$i - 1] ?? [];
+
+                                $recordHeaderId = $header['RecordHeaderId'] ?? 'unknown_' . $i;
+                                $recordHeaderIdSafe = htmlentities($recordHeaderId);
+
+                                // Default to fallback
+                                $employeeCodes = $fallbackEmployeeCodes;
+
+                                // Try to load from AtoDorDetail
+                                $operatorResult = $db->execute(
+                                    "SELECT OperatorCode1, OperatorCode2, OperatorCode3, OperatorCode4 FROM AtoDorDetail WHERE RecordHeaderId = ?",
+                                    [$recordHeaderId]
+                                );
+                                if (!empty($operatorResult)) {
+                                    $operatorRow = $operatorResult[0];
+                                    $employeeCodesFromDetail = array_filter([
+                                        $operatorRow['OperatorCode1'] ?? null,
+                                        $operatorRow['OperatorCode2'] ?? null,
+                                        $operatorRow['OperatorCode3'] ?? null,
+                                        $operatorRow['OperatorCode4'] ?? null,
+                                    ]);
+
+                                    if (!empty($employeeCodesFromDetail)) {
+                                        $employeeCodes = $employeeCodesFromDetail;
+                                    }
+                                }
+
+
+                                $modalId = "operatorModal_" . htmlspecialchars($recordHeaderId);
+                            ?>
+                                <tr data-row-id="<?= $recordHeaderIdSafe ?>"
+                                    data-mp-requirement="<?= htmlspecialchars($header['MP'] ?? 1) ?>"
+                                    data-model-name="<?= htmlspecialchars($header['ITEM_ID'] ?? '') ?>">
+                                    <td class="text-center align-middle" style="width: 5%;">
+                                        <?= $i ?> <i class="bi bi-qr-code-scan ms-1"></i>
+                                    </td>
+                                    <td style="width: 15%;">
+                                        <input type="text" class="form-control text-center scan-box-no" id="boxNo<?= $i ?>"
+                                            name="boxNo<?= $i ?>" value="<?= htmlspecialchars($header['BoxNumber'] ?? '') ?>" disabled>
+                                        <input type="hidden" id="modelName<?= $i ?>" name="modelName<?= $i ?>">
+                                        <input type="hidden" id="lotNumber<?= $i ?>" name="lotNumber<?= $i ?>">
+                                    </td>
+
+                                    <td style="width: 12%;">
+                                        <input type="text" class="form-control text-center time-input" id="timeStart<?= $i ?>"
+                                            name="timeStart<?= $i ?>"
+                                            value="<?= isset($header['TimeStart']) ? date('H:i', $header['TimeStart'] instanceof \DateTime ? $header['TimeStart']->getTimestamp() : strtotime($header['TimeStart'])) : '' ?>"
+                                            placeholder="HH:mm" maxlength="5" pattern="[0-9]{2}:[0-9]{2}" disabled>
+                                    </td>
+
+                                    <td style="width: 12%;">
+                                        <input type="text" class="form-control text-center time-input" id="timeEnd<?= $i ?>"
+                                            name="timeEnd<?= $i ?>"
+                                            value="<?= isset($header['TimeEnd']) ? date('H:i', $header['TimeEnd'] instanceof \DateTime ? $header['TimeEnd']->getTimestamp() : strtotime($header['TimeEnd'])) : '' ?>"
+                                            placeholder="HH:mm" maxlength="5" pattern="[0-9]{2}:[0-9]{2}" disabled>
+                                    </td>
+
+                                    <td class="text-center align-middle" style="width: 12%;">
+                                        <span id="duration<?= $i ?>" class="duration-value">
+                                            <?= htmlspecialchars($header['Duration'] ?? '') ?>
+                                        </span>
+                                    </td>
+
+                                    <td class="text-center align-middle" style="width: 22%;">
+                                        <div class="d-flex flex-column align-items-center">
+                                            <button type="button" class="btn btn-outline-primary btn-sm btn-operator mb-1"
+                                                data-bs-toggle="modal" data-bs-target="#operatorModal<?= $recordHeaderId ?>"
+                                                data-record-id="operator<?= $recordHeaderId ?>">
+                                                <i class="bi bi-person-plus"></i> View Operators
+                                            </button>
+
+                                            <div class="operator-codes d-flex flex-wrap justify-content-center"
+                                                id="operatorList<?= $recordHeaderId ?>">
+                                                <?php foreach (array_unique($employeeCodes) as $code):
+                                                    $name = $operatorMap[$code] ?? 'No operators'; ?>
+                                                    <small class="badge bg-light text-dark border me-1 mb-1" title="<?= htmlspecialchars($name) ?>">
+                                                        <?= htmlspecialchars($code) ?>
+                                                    </small>
+                                                <?php endforeach; ?>
+                                            </div>
+
+                                            <input type="hidden" id="operators<?= htmlspecialchars($recordHeaderId) ?>"
+                                                value="<?= htmlspecialchars(implode(',', $employeeCodes)) ?>">
+                                        </div>
+                                    </td>
+
+                                    <td class="text-center align-middle" style="width: 17%;">
+                                        <?php
+                                        $atoDorDetails = $controller->AtoDor();
+                                        $downtimeOptions = $controller->getDowntimeList();
+                                        $actionTakenOptions = $controller->getActionList();
+                                        $remarksOptions = $controller->getRemarksList();
+
+                                        // Map AtoDorDetail by RecordHeaderId
+                                        $details = [];
+                                        foreach ($atoDorDetails as $row) {
+                                            $details[$row['RecordHeaderId']][] = $row;
+                                        }
+
+                                        // Map DowntimeId => downtime data
+                                        $downtimeMap = [];
+                                        foreach ($downtimeOptions as $downtime) {
+                                            $downtimeMap[$downtime['DowntimeId']] = $downtime;
+                                        }
+
+                                        // Map ActionTakenId => action data
+                                        $actionTakenMap = [];
+                                        foreach ($actionTakenOptions as $action) {
+                                            $actionTakenMap[$action['ActionTakenId']] = [
+                                                'ActionDescription' => $action['ActionTakenName']
+                                            ];
+                                        }
+                                        ?>
+                                        <div class="d-flex flex-column align-items-center">
+                                            <button type="button" class="btn btn-outline-secondary btn-sm p-1 mb-1 downtime-trigger"
+                                                data-bs-toggle="modal" data-bs-target="#downtimeModal<?= $recordHeaderIdSafe ?>"
+                                                data-record-id="<?= $recordHeaderIdSafe ?>">
+                                                <i class="bi bi-clock-history"></i> View Downtime
+                                            </button>
+
+                                            <div class="downtime-info d-flex flex-wrap justify-content-center"
+                                                id="downtimeInfo<?= $recordHeaderIdSafe ?>">
+                                                <?php
+                                                $allDetails = $details[$recordHeaderId] ?? [];
+
+                                                if (empty($allDetails)) {
+                                                    echo '<small class="badge bg-light text-dark border me-1 mb-1">No Downtime</small>';
+                                                } else {
+                                                    foreach ($allDetails as $detail) {
+                                                        $downtimeId = $detail['DowntimeId'] ?? null;
+                                                        $actionTakenId = $detail['ActionTakenId'] ?? null;
+
+                                                        $downtimeCode = $downtimeMap[$downtimeId]['DowntimeCode'] ?? null;
+                                                        $actionTakenTitle = $actionTakenMap[$actionTakenId]['ActionDescription'] ?? 'No Description';
+
+                                                        if ($downtimeCode) {
+                                                            echo '<small class="badge bg-light text-dark border me-1 mb-1" title="' . htmlspecialchars($actionTakenTitle) . '">'
+                                                                . htmlspecialchars($downtimeCode) .
+                                                                '</small>';
+                                                        }
+                                                    }
+                                                }
+                                                ?>
+                                            </div>
+                                        </div>
+                                    </td>
+
+
+                                    <td class="text-center align-middle" style="width: 5%;">
+                                        <button type="button" class="btn btn-outline-danger btn-sm delete-row" data-row-id="<?= $i ?>"
+                                            title="Delete Row" onclick="clearRowFields(<?= $i ?>)">
+                                            <span style="font-size: 1.2rem; font-weight: bold;">×</span>
+                                        </button>
+                                    </td>
+                                </tr>
+
+                                <!-- Operator Modal -->
+                                <?php ob_start(); ?>
+                                <div class="modal fade operator-modal" id="operatorModal<?= $recordHeaderId ?>" tabindex="-1"
+                                    aria-labelledby="operatorModalLabel<?= $recordHeaderId ?>" aria-hidden="true"
+                                    data-record-id="<?= $recordHeaderId ?>">
+
+                                    <div class="modal-dialog modal-dialog-centered modal-xl">
+                                        <div class="modal-content shadow">
+                                            <div class="modal-header bg-primary text-white d-flex justify-content-between">
+                                                <h5 class="modal-title" id="operatorModalLabel<?= $recordHeaderId ?>">
+                                                    Manage Operators - Row <?= htmlspecialchars($i) ?>
+                                                </h5>
+                                                <div class="d-flex align-items-center gap-3">
+                                                    <span class="text-white">
+                                                        Box Number: <span
+                                                            id="modalBoxNumber<?= $recordHeaderId ?>"><?= htmlspecialchars($header['BoxNumber'] ?? '') ?></span>
+                                                    </span>
+                                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                                                        aria-label="Close"></button>
+                                                </div>
+                                            </div>
+                                            <div class="modal-body">
+                                                <div class="mb-3">
+                                                    <input type="text" class="form-control operator-search"
+                                                        placeholder="Search operator name or code...">
+                                                    <div class="search-results mt-2"></div>
+                                                </div>
+
+                                                <div class="current-operators">
+                                                    <?php foreach (array_unique($employeeCodes) as $code):
+                                                        $name = $operatorMap[$code] ?? 'No operator'; ?>
+                                                        <div class="operator-card-wrapper">
+                                                            <div class="operator-card" data-code="<?= htmlspecialchars($code) ?>">
+                                                                <div class="card-body">
+                                                                    <h6 class="card-title"><?= htmlspecialchars($name) ?></h6>
+                                                                    <small class="text-muted"><?= htmlspecialchars($code) ?></small>
+                                                                    <button type="button" class="btn-remove-operator">
+                                                                        <i class="bi bi-x-circle"></i> Remove
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    <?php endforeach; ?>
+                                                </div>
+
+                                                <input type="hidden" class="updated-operators"
+                                                    id="operatorsHidden<?= htmlspecialchars($recordHeaderId) ?>"
+                                                    value="<?= htmlspecialchars(implode(',', $employeeCodes)) ?>">
+                                            </div>
+
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-success btn-save-operators"
+                                                    data-record-id="<?= $recordHeaderId ?>">
+                                                    Save Changes
+                                                </button>
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Downtime Modal -->
+                                <div class="modal fade" id="downtimeModal<?= $recordHeaderId ?>" tabindex="-1"
+                                    aria-labelledby="downtimeModalLabel<?= $recordHeaderId ?>" aria-hidden="true"
+                                    data-record-id="<?= $recordHeaderId ?>">
+
+                                    <div class="modal-dialog modal-xl modal-dialog-centered">
+                                        <div class="modal-content shadow">
+                                            <div class="modal-header bg-secondary text-white d-flex justify-content-between">
+                                                <h5 class="modal-title" id="downtimeModalLabel<?= $recordHeaderId ?>">
+                                                    Manage Downtime - Row <?= htmlspecialchars($i) ?>
+                                                </h5>
+                                                <div class="d-flex align-items-center gap-3">
+                                                    <span class="text-white">
+                                                        Box Number: <span
+                                                            id="modalBoxNumber<?= $recordHeaderId ?>"><?= htmlspecialchars($header['BoxNumber'] ?? '') ?></span>
+                                                    </span>
+                                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                                                        aria-label="Close"></button>
+                                                </div>
+                                            </div>
+
+                                            <div class="modal-body">
+                                                <!-- Time Inputs -->
+                                                <div class="mb-3">
+                                                    <table class="table table-bordered text-center align-middle">
+                                                        <thead class="table-light">
+                                                            <tr>
+                                                                <th style="width:25%;">Time Start</th>
+                                                                <th style="width:25%;">Time End</th>
+                                                                <th>Duration</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            <tr>
+                                                                <td>
+                                                                    <input type="number" class="form-control text-center time-start" placeholder="HH:mm"
+                                                                        maxlength="5" pattern="[0-9]{2}:[0-9]{2}" id="timeStart<?= $recordHeaderId ?>" />
+                                                                </td>
+                                                                <td>
+                                                                    <input type="number" class="form-control text-center time-end" placeholder="HH:mm"
+                                                                        maxlength="5" pattern="[0-9]{2}:[0-9]{2}" id="timeEnd<?= $recordHeaderId ?>" />
+                                                                </td>
+                                                                <td>
+                                                                    <span id="duration<?= $recordHeaderId ?>" class="badge bg-secondary">00:00</span>
+                                                                </td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+
+                                                <!-- Downtime Dropdown -->
+                                                <div class="mb-3">
+                                                    <label class="form-label">Downtime</label>
+                                                    <div class="searchable-dropdown">
+                                                        <input type="text" class="form-control" onkeyup="filterDropdown(this)"
+                                                            placeholder="Search Downtime...">
+                                                        <ul class="dropdown-list list-group position-absolute w-100"
+                                                            style="max-height: 150px; overflow-y: auto; z-index: 1000; display: none;">
+                                                            <?php foreach ($downtimeOptions as $d): ?>
+                                                                <li class="list-group-item list-group-item-action" onclick="selectOption(this)"
+                                                                    data-id="<?= $d['DowntimeId'] ?>">
+                                                                    <?= htmlspecialchars($d['DowntimeCode']) ?> -
+                                                                    <?= htmlspecialchars($d['DowntimeName']) ?>
+                                                                </li>
+                                                            <?php endforeach; ?>
+                                                            <li class="list-group-item list-group-item-action text-primary fw-bold"
+                                                                onclick="selectOption(this)" data-id="custom">Others</li>
+                                                        </ul>
+                                                        <input type="hidden" id="downtimeSelect<?= $recordHeaderId ?>" />
+                                                        <input type="text" id="downtimeInput<?= $recordHeaderId ?>" class="form-control mt-2 d-none"
+                                                            placeholder="Enter custom downtime">
+                                                    </div>
+                                                </div>
+
+                                                <!-- Action Taken Dropdown -->
+                                                <div class="mb-3">
+                                                    <label class="form-label">Action Taken</label>
+                                                    <div class="searchable-dropdown">
+                                                        <input type="text" class="form-control" onkeyup="filterDropdown(this)"
+                                                            placeholder="Search Action Taken...">
+                                                        <ul class="dropdown-list list-group position-absolute w-100"
+                                                            style="max-height: 150px; overflow-y: auto; z-index: 1000; display: none;">
+                                                            <?php foreach ($actionTakenOptions as $a): ?>
+                                                                <li class="list-group-item list-group-item-action" onclick="selectOption(this)"
+                                                                    data-id="<?= $a['ActionTakenId'] ?>">
+                                                                    <?= htmlspecialchars($a['ActionTakenCode']) ?> -
+                                                                    <?= htmlspecialchars($a['ActionTakenName']) ?>
+                                                                </li>
+                                                            <?php endforeach; ?>
+                                                            <li class="list-group-item list-group-item-action text-primary fw-bold"
+                                                                onclick="selectOption(this)" data-id="custom">Others</li>
+                                                        </ul>
+                                                        <input type="hidden" id="actionTakenSelect<?= $recordHeaderId ?>" />
+                                                        <input type="text" id="actionTakenInput<?= $recordHeaderId ?>"
+                                                            class="form-control mt-2 d-none" placeholder="Enter custom action taken">
+                                                    </div>
+                                                </div>
+
+                                                <!-- Remarks Dropdown -->
+                                                <div class="mb-3">
+                                                    <label class="form-label">Remarks</label>
+                                                    <div class="searchable-dropdown">
+                                                        <input type="text" class="form-control" onkeyup="filterDropdown(this)"
+                                                            placeholder="Search Remarks...">
+                                                        <ul class="dropdown-list list-group position-absolute w-100"
+                                                            style="max-height: 150px; overflow-y: auto; z-index: 1000; display: none;">
+                                                            <?php foreach ($remarksOptions as $r): ?>
+                                                                <li class="list-group-item list-group-item-action" onclick="selectOption(this)"
+                                                                    data-id="<?= $r['RemarksId'] ?>">
+                                                                    <?= htmlspecialchars($r['RemarksCode']) ?> -
+                                                                    <?= htmlspecialchars($r['RemarksName']) ?>
+                                                                </li>
+                                                            <?php endforeach; ?>
+                                                            <li class="list-group-item list-group-item-action text-primary fw-bold"
+                                                                onclick="selectOption(this)" data-id="custom">Others</li>
+                                                        </ul>
+                                                        <input type="hidden" id="remarksSelect<?= $recordHeaderId ?>" />
+                                                        <input type="text" id="remarksInput<?= $recordHeaderId ?>" class="form-control mt-2 d-none"
+                                                            placeholder="Enter custom remarks">
+                                                    </div>
+                                                </div>
+
+                                                <!-- PIC -->
+                                                <div class="mb-3">
+                                                    <label for="picInput<?= $recordHeaderId ?>" class="form-label">PIC (Person In
+                                                        Charge)</label>
+                                                    <input type="text" id="picInput<?= $recordHeaderId ?>" class="form-control"
+                                                        placeholder="Enter PIC name">
+                                                </div>
+
+                                                <!-- Downtime Records History -->
+                                                <div class="mb-3">
+                                                    <div class="card border-0 shadow-sm rounded">
+                                                        <div class="card-header bg-light d-flex align-items-center justify-content-between"
+                                                            style="cursor:pointer;" data-bs-toggle="collapse"
+                                                            data-bs-target="#downtimeHistoryCollapse<?= $recordHeaderId ?>" aria-expanded="false"
+                                                            aria-controls="downtimeHistoryCollapse<?= $recordHeaderId ?>">
+                                                            <h6 class="mb-0 d-flex align-items-center">
+                                                                <i class="bi bi-clock-history me-2 text-primary"></i> Downtime Records History
+                                                            </h6>
+                                                            <button class="btn btn-sm btn-outline-secondary px-2 py-1" type="button">
+                                                                <span class="collapse-icon" id="collapseIcon<?= $recordHeaderId ?>"><i
+                                                                        class="bi bi-chevron-down"></i></span>
+                                                            </button>
+                                                        </div>
+                                                        <div id="downtimeHistoryCollapse<?= $recordHeaderId ?>" class="collapse">
+                                                            <div class="card-body p-0">
+                                                                <div class="table-responsive rounded">
+                                                                    <table class="table table-hover table-sm text-center align-middle mb-0"
+                                                                        style="background: #fff;">
+                                                                        <thead class="table-light">
+                                                                            <tr>
+                                                                                <th style="width:60px; min-width:60px;"><i
+                                                                                        class="bi bi-clock me-1 text-primary"></i>Start</th>
+                                                                                <th style="width:60px; min-width:60px;"><i
+                                                                                        class="bi bi-clock me-1 text-danger"></i>End</th>
+                                                                                <th style="width:60px; min-width:60px;"><i
+                                                                                        class="bi bi-hourglass-split me-1 text-warning"></i>Duration</th>
+                                                                                <th style="width:60px; min-width:60px;"><i
+                                                                                        class="bi bi-exclamation-circle me-1 text-info"></i>Downtime</th>
+                                                                                <th style="width:120px; min-width:120px;"><i
+                                                                                        class="bi bi-tools me-1 text-success"></i>Action</th>
+                                                                                <th style="width:50px; min-width:50px;"><i
+                                                                                        class="bi bi-person me-1 text-secondary"></i>PIC</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody id="downtimeHistoryBody<?= $recordHeaderId ?>">
+                                                                            <tr>
+                                                                                <td colspan="6" class="text-muted py-4"><i
+                                                                                        class="bi bi-hourglass-split me-2"></i>Loading downtime records...</td>
+                                                                            </tr>
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <script>
+                                                    document.addEventListener('DOMContentLoaded', function() {
+                                                        // Toggle collapse icon
+                                                        var collapseEl = document.getElementById('downtimeHistoryCollapse<?= $recordHeaderId ?>');
+                                                        var iconEl = document.getElementById('collapseIcon<?= $recordHeaderId ?>');
+                                                        if (collapseEl && iconEl) {
+                                                            collapseEl.addEventListener('show.bs.collapse', function() {
+                                                                iconEl.innerHTML = '<i class="bi bi-chevron-up"></i>';
+                                                            });
+                                                            collapseEl.addEventListener('hide.bs.collapse', function() {
+                                                                iconEl.innerHTML = '<i class="bi bi-chevron-down"></i>';
+                                                            });
+                                                        }
+                                                        // Only fetch downtime records when card is expanded
+                                                        if (collapseEl) {
+                                                            collapseEl.addEventListener('show.bs.collapse', function() {
+                                                                fetch('../controller/dor-downtime.php', {
+                                                                        method: 'POST',
+                                                                        headers: {
+                                                                            'Content-Type': 'application/json'
+                                                                        },
+                                                                        body: JSON.stringify({
+                                                                            type: 'getDowntimeRecords',
+                                                                            recordHeaderId: '<?= $recordHeaderId ?>'
+                                                                        })
+                                                                    })
+                                                                    .then(res => res.json())
+                                                                    .then(data => {
+                                                                        const tbody = document.getElementById(
+                                                                            'downtimeHistoryBody<?= $recordHeaderId ?>');
+                                                                        if (!tbody) return;
+                                                                        tbody.innerHTML = '';
+                                                                        if (!data.success || !data.records || data.records.length === 0) {
+                                                                            tbody.innerHTML =
+                                                                                '<tr><td colspan="6" class="text-muted">No downtime recorded</td></tr>';
+                                                                            return;
+                                                                        }
+                                                                        data.records.forEach(rec => {
+                                                                            // Robustly parse time, fallback to '-'
+                                                                            function formatTime(val) {
+                                                                                // Debug: log the value being formatted
+                                                                                console.log('formatTime input:', val);
+                                                                                if (!val || typeof val !== 'string') return '';
+                                                                                let d = new Date(val);
+                                                                                if (!isNaN(d.getTime())) {
+                                                                                    let hours = d.getHours().toString().padStart(2, '0');
+                                                                                    let minutes = d.getMinutes().toString().padStart(2, '0');
+                                                                                    return `${hours}:${minutes}`;
+                                                                                }
+                                                                                const match = val.match(/(\d{2}):(\d{2})/);
+                                                                                return match ? match[0] : '';
+                                                                            }
+                                                                            let dtStart = formatTime(rec.TimeStart);
+                                                                            let dtEnd = formatTime(rec.TimeEnd);
+                                                                            const duration = rec.Duration ?? '';
+                                                                            const dtCode = rec.DowntimeCode ?? '';
+                                                                            const actionTaken = rec.ActionTakenName ?? '';
+                                                                            const pic = rec.Pic ?? '';
+                                                                            // Wrap action text and add tooltip
+                                                                            const actionCell =
+                                                                                `<span class="d-inline-block text-truncate" style="max-width:120px;white-space:normal;" title="${actionTaken}">${actionTaken}</span>`;
+                                                                            tbody.innerHTML += `<tr>
+            <td style="width:60px;">${dtStart}</td>
+            <td style="width:60px;">${dtEnd}</td>
+            <td style="width:60px;">${duration}</td>
+            <td style="width:80px;">${dtCode}</td>
+            <td>${actionCell}</td>
+            <td>${pic}</td>
+          </tr>`;
+                                                                        });
+                                                                    })
+                                                                    .catch(() => {
+                                                                        const tbody = document.getElementById(
+                                                                            'downtimeHistoryBody<?= $recordHeaderId ?>');
+                                                                        if (tbody) tbody.innerHTML =
+                                                                            '<tr><td colspan="6" class="text-danger">Error loading downtime history</td></tr>';
+                                                                    });
+                                                            });
+                                                        }
+                                                    });
+                                                </script>
+                                            </div>
+
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-success btn-save-downtime"
+                                                    data-record-id="<?= $recordHeaderId ?>">
+                                                    Save Downtime
+                                                </button>
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php
+                                $modals[] = ob_get_clean();
+                            }
+                            ?>
+                        </tbody>
+                    </table>
                 </div>
-              </div>
             </div>
+        </div>
+        </div>
+    </form>
 
-            <!-- Loading Modal -->
-            <div class="modal fade" id="loadingModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
-              <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content">
-                  <div class="modal-body text-center py-5">
-                    <div class="spinner-border text-primary" role="status"></div>
-                    <p class="mt-3 text-muted">Loading...</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+    <?php
+    echo implode("\n", $modals);
+    ?>
+    <?php
+    $downtimeMap = $downtimeMap ?? [];
+    $actionTakenMap = $actionTakenMap ?? [];
+    ?>
+    <script>
+        // window.downtimeMap = <?= json_encode($downtimeMap, JSON_HEX_TAG | JSON_UNESCAPED_SLASHES) ?>;
+        // window.actionTakenMap = <?= json_encode($actionTakenMap, JSON_HEX_TAG | JSON_UNESCAPED_SLASHES) ?>;
+        window.operatorMap = <?php echo json_encode($operatorMap); ?> || {};
+        //console.log("Loaded downtimeMap:", window.downtimeMap);
+    </script>
 
-            <!-- JavaScript Dependencies -->
-            <script src="../../js/bootstrap.bundle.min.js"></script>
-            <script src="../js/dor-dashboard.js"></script>
+    <script src="../../js/pdf.min.js"></script>
+    <script src="../../js/hammer.min.js"></script>
+    <script src="../../js/bootstrap.bundle.min.js"></script>
+    <script src="../js/dor-downtime.js"></script>
+    <script src="../js/dor-operator.js"></script>
+    <script src="../js/dor-tab.js"></script>
+    <script src="../js/viewer.js"></script>
+    <script>
+        function clearRowFields(rowNum) {
+            if (!confirm('Are you sure you want to delete this row? This action cannot be undone.')) return;
+            var boxNo = document.getElementById('boxNo' + rowNum);
+            var timeStart = document.getElementById('timeStart' + rowNum);
+            var timeEnd = document.getElementById('timeEnd' + rowNum);
+            var duration = document.getElementById('duration' + rowNum);
+            var rows = document.querySelectorAll('tr[data-row-id]');
+            var recordHeaderId = null;
+            if (rows[rowNum - 1]) {
+                recordHeaderId = rows[rowNum - 1].getAttribute('data-row-id');
+            }
+            if (!recordHeaderId) {
+                if (boxNo) boxNo.value = '';
+                if (timeStart) timeStart.value = '';
+                if (timeEnd) timeEnd.value = '';
+                if (duration) duration.textContent = '';
+                return;
+            }
+            // Send JSON POST to controller/dor-dor.php
+            fetch('../controller/dor-dor.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        type: 'deleteHeader',
+                        recordHeaderId: recordHeaderId
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        if (boxNo) boxNo.value = '';
+                        if (timeStart) timeStart.value = '';
+                        if (timeEnd) timeEnd.value = '';
+                        if (duration) duration.textContent = '';
 
-        </body>
+                        // Refresh the page after successful deletion
+                        setTimeout(() => {
+                            location.reload();
+                        }, 1000);
+                    } else {
+                        alert('Failed to delete row data: ' + (data.message || 'Unknown error'));
+                    }
+                })
+                .catch(() => {
+                    alert('Failed to delete row data.');
+                });
+        }
 
-        </html>
+        // DOR Summary Functions
+        function calculateSummary() {
+            let totalBoxQty = 0;
+            let totalDurationMins = 0;
+
+            // Count filled box numbers
+            for (let i = 1; i <= 20; i++) {
+                const boxNo = document.getElementById(`boxNo${i}`);
+                if (boxNo && boxNo.value.trim() !== '') {
+                    totalBoxQty++;
+                }
+
+                // Calculate duration
+                const durationElement = document.getElementById(`duration${i}`);
+                if (durationElement && durationElement.textContent.trim() !== '') {
+                    const durationText = durationElement.textContent.trim();
+
+                    // Handle different duration formats
+                    if (durationText.includes('hours') || durationText.includes('mins')) {
+                        // Parse formats like "2 hours 30 mins", "2 hours", "30 mins"
+                        const hoursMatch = durationText.match(/(\d+)\s*hours/);
+                        const minutesMatch = durationText.match(/(\d+)\s*mins/);
+
+                        const hours = hoursMatch ? parseInt(hoursMatch[1]) : 0;
+                        const minutes = minutesMatch ? parseInt(minutesMatch[1]) : 0;
+
+                        totalDurationMins += (hours * 60) + minutes;
+                    } else if (durationText.includes('h') || durationText.includes('m')) {
+                        // Parse formats like "2h 30m", "1h", "45m"
+                        const hoursMatch = durationText.match(/(\d+)h/);
+                        const minutesMatch = durationText.match(/(\d+)m/);
+
+                        const hours = hoursMatch ? parseInt(hoursMatch[1]) : 0;
+                        const minutes = minutesMatch ? parseInt(minutesMatch[1]) : 0;
+
+                        totalDurationMins += (hours * 60) + minutes;
+                    } else if (durationText.includes(':')) {
+                        // Handle "HH:mm" format
+                        const [hours, minutes] = durationText.split(':').map(Number);
+                        totalDurationMins += (hours * 60) + minutes;
+                    } else {
+                        // Handle plain numbers (assume minutes)
+                        totalDurationMins += parseInt(durationText) || 0;
+                    }
+                }
+            }
+
+            // Count downtime incidents from badges (exclude "No Downtime" messages)
+            let totalDowntimeCount = 0;
+            document.querySelectorAll('[id^="downtimeInfo"]').forEach(container => {
+                const badges = container.querySelectorAll('.badge');
+                badges.forEach(badge => {
+                    const badgeText = badge.textContent.trim().toLowerCase();
+                    // Exclude any badge that contains "no downtime" or similar messages
+                    if (!badgeText.includes('no downtime') &&
+                        !badgeText.includes('no downtime recorded') &&
+                        !badgeText.includes('downtime recorded') &&
+                        badgeText !== '' &&
+                        badgeText !== '-') {
+                        totalDowntimeCount++;
+                    }
+                });
+            });
+
+            // Update display with proper formatting
+            document.getElementById('totalBoxQty').textContent = totalBoxQty;
+
+            const totalHours = Math.floor(totalDurationMins / 60);
+            const remainingMins = totalDurationMins % 60;
+
+            // Format output to match your preferred format
+            if (totalHours > 0 && remainingMins > 0) {
+                document.getElementById('totalDuration').textContent = `${totalHours} hours ${remainingMins} mins`;
+            } else if (totalHours > 0) {
+                document.getElementById('totalDuration').textContent = `${totalHours} hours`;
+            } else {
+                document.getElementById('totalDuration').textContent = `${remainingMins} mins`;
+            }
+
+            document.getElementById('totalDowntime').textContent = totalDowntimeCount;
+
+            // Calculate and display average per box
+            let averagePerBoxMins = 0;
+            if (totalBoxQty > 0) {
+                averagePerBoxMins = Math.round(totalDurationMins / totalBoxQty);
+            }
+
+            const avgHours = Math.floor(averagePerBoxMins / 60);
+            const avgRemainingMins = averagePerBoxMins % 60;
+
+            if (avgHours > 0 && avgRemainingMins > 0) {
+                document.getElementById('averagePerBox').textContent = `${avgHours} hours ${avgRemainingMins} mins`;
+            } else if (avgHours > 0) {
+                document.getElementById('averagePerBox').textContent = `${avgHours} hours`;
+            } else {
+                document.getElementById('averagePerBox').textContent = `${avgRemainingMins} mins`;
+            }
+        }
+
+        function refreshSummary() {
+            calculateSummary();
+            showToast('Summary refreshed successfully!', 'success');
+        }
+
+        function exportSummary() {
+            const summary = {
+                totalBoxQty: document.getElementById('totalBoxQty').textContent,
+                totalDuration: document.getElementById('totalDuration').textContent,
+                totalDowntime: document.getElementById('totalDowntime').textContent,
+                averagePerBox: document.getElementById('averagePerBox').textContent,
+                timestamp: new Date().toISOString()
+            };
+
+            const dataStr = JSON.stringify(summary, null, 2);
+            const dataBlob = new Blob([dataStr], {
+                type: 'application/json'
+            });
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `dor-summary-${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+
+            showToast('Summary exported successfully!', 'success');
+        }
+
+        // Auto-refresh summary when data changes
+        function initSummaryAutoRefresh() {
+            // Watch for changes in box numbers and durations
+            const observers = [];
+
+            for (let i = 1; i <= 20; i++) {
+                const boxNo = document.getElementById(`boxNo${i}`);
+                const duration = document.getElementById(`duration${i}`);
+
+                if (boxNo) {
+                    boxNo.addEventListener('input', calculateSummary);
+                }
+
+                if (duration) {
+                    const observer = new MutationObserver(calculateSummary);
+                    observer.observe(duration, {
+                        childList: true,
+                        subtree: true
+                    });
+                    observers.push(observer);
+                }
+            }
+
+            // Watch for downtime changes
+            document.querySelectorAll('[id^="downtimeInfo"]').forEach(container => {
+                const observer = new MutationObserver(calculateSummary);
+                observer.observe(container, {
+                    childList: true,
+                    subtree: true
+                });
+                observers.push(observer);
+            });
+
+            // Initial calculation
+            calculateSummary();
+        }
+
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            initSummaryAutoRefresh();
+        });
+    </script>
+
+</body>
+
+</html>
