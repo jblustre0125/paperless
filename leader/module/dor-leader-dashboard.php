@@ -102,14 +102,14 @@ usort($uniqueSuggestions, function ($a, $b) {
 
         /* Force downtime modal to always be extra wide */
         #downtimeModal .modal-dialog {
-            max-width: 50vw !important;
-            width: 50vw !important;
+            max-width: 90% !important;
+            width: 90% !important;
         }
 
         /* Limit downtime modal content to 5 rows and make it scrollable */
-        #downtimeModalContent {
-            max-height: 610px;
-        }
+        /* #downtimeModalContent {
+            max-height: 700px;
+        } */
 
         /* Pointer cursor for clickable elements */
         .cursor-pointer {
@@ -473,7 +473,7 @@ usort($uniqueSuggestions, function ($a, $b) {
         </div>
     </div>
 
-    <!-- Loading Modal -->
+    <!-- Loading Modal
     <div class="modal fade" id="loadingModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
@@ -483,13 +483,14 @@ usort($uniqueSuggestions, function ($a, $b) {
                 </div>
             </div>
         </div>
-    </div>
+    </div> -->
 
     <!-- Pass PHP data to JavaScript -->
     <script>
         // Make search suggestions available to JavaScript
         window.searchSuggestions = <?= json_encode($uniqueSuggestions) ?>;
     </script>
+
 
     <!-- JavaScript Dependencies -->
     <script src="../../js/bootstrap.bundle.min.js"></script>

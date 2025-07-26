@@ -1,3 +1,110 @@
+/**
+ * Initializes downtime history table and collapse icon for the modal
+ * @param {string|number} recordHeaderId
+ */
+function initDowntimeHistory(recordHeaderId) {
+  var collapseEl = document.getElementById(
+    "downtimeHistoryCollapse" + recordHeaderId
+  );
+  var iconEl = document.getElementById("collapseIcon" + recordHeaderId);
+  // Only icon toggles collapse
+  if (iconEl && collapseEl) {
+    iconEl.style.cursor = "pointer";
+    iconEl.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var bsCollapse = bootstrap.Collapse.getOrCreateInstance(collapseEl);
+      bsCollapse.toggle();
+    });
+    collapseEl.addEventListener("show.bs.collapse", function () {
+      iconEl.innerHTML = '<i class="bi bi-chevron-up"></i>';
+    });
+    collapseEl.addEventListener("hide.bs.collapse", function () {
+      iconEl.innerHTML = '<i class="bi bi-chevron-down"></i>';
+    });
+    // Only fetch downtime records when card is expanded
+    collapseEl.addEventListener("show.bs.collapse", function () {
+      fetch("../controller/dor-downtime.php", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          type: "getDowntimeRecords",
+          recordHeaderId: recordHeaderId,
+        }),
+      })
+        .then(function (res) {
+          return res.json();
+        })
+        .then(function (data) {
+          var tbody = document.getElementById(
+            "downtimeHistoryBody" + recordHeaderId
+          );
+          if (!tbody) return;
+          tbody.innerHTML = "";
+          if (!data.success || !data.records || data.records.length === 0) {
+            tbody.innerHTML =
+              '<tr><td colspan="6" class="text-muted">No downtime recorded</td></tr>';
+            return;
+          }
+          data.records.forEach(function (rec) {
+            function formatTime(val) {
+              if (!val || typeof val !== "string") return "";
+              var d = new Date(val);
+              if (!isNaN(d.getTime())) {
+                var hours = d.getHours().toString().padStart(2, "0");
+                var minutes = d.getMinutes().toString().padStart(2, "0");
+                return hours + ":" + minutes;
+              }
+              var match = val.match(/(\d{2}):(\d{2})/);
+              return match ? match[0] : "";
+            }
+            var dtStart = formatTime(rec.TimeStart);
+            var dtEnd = formatTime(rec.TimeEnd);
+            var duration = rec.Duration || "";
+            var dtCode = rec.DowntimeCode || "";
+            var actionTaken = rec.ActionTakenName || "";
+            var pic = rec.Pic || "";
+            var actionCell =
+              '<span class="d-inline-block text-truncate" style="max-width:120px;white-space:normal;" title="' +
+              actionTaken +
+              '">' +
+              actionTaken +
+              "</span>";
+            tbody.innerHTML +=
+              "<tr>" +
+              '<td style="width:60px;">' +
+              dtStart +
+              "</td>" +
+              '<td style="width:60px;">' +
+              dtEnd +
+              "</td>" +
+              '<td style="width:60px;">' +
+              duration +
+              "</td>" +
+              '<td style="width:80px;">' +
+              dtCode +
+              "</td>" +
+              "<td>" +
+              actionCell +
+              "</td>" +
+              "<td>" +
+              pic +
+              "</td>" +
+              "</tr>";
+          });
+        })
+        .catch(function () {
+          var tbody = document.getElementById(
+            "downtimeHistoryBody" + recordHeaderId
+          );
+          if (tbody)
+            tbody.innerHTML =
+              '<tr><td colspan="6" class="text-danger">Error loading downtime history</td></tr>';
+        });
+    });
+  }
+}
 // Modal management system
 const modalManager = {
   modals: [],
@@ -222,16 +329,10 @@ function openTab3Modal(hostnameId, recordId) {
  * @param {number} rowIndex - The row index
  */
 function loadDowntimeContent(recordHeaderId, rowIndex) {
-  const loadingModalElement = document.getElementById("loadingModal");
-  const loadingModal = bootstrap.Modal.getOrCreateInstance(loadingModalElement);
-
   const downtimeModalElement = document.getElementById("downtimeModal");
   const downtimeModal =
     bootstrap.Modal.getOrCreateInstance(downtimeModalElement);
-
   const wrapper = document.getElementById("downtimeModalContent");
-
-  loadingModal.show();
 
   // Fetch downtime content
   fetch(
@@ -243,14 +344,15 @@ function loadDowntimeContent(recordHeaderId, rowIndex) {
     })
     .then((html) => {
       wrapper.innerHTML = html;
-      loadingModal.hide();
+      // Initialize downtime history after modal HTML is inserted
+      if (typeof initDowntimeHistory === "function") {
+        initDowntimeHistory(recordHeaderId);
+      }
       downtimeModal.show();
-      // Initialize modal logic for this recordHeaderId
       setupTimeInputListeners(recordHeaderId);
       setupCustomDropdowns(recordHeaderId);
     })
     .catch((err) => {
-      // Show error state
       wrapper.innerHTML = `
         <div class="modal-header">
           <h5 class="modal-title text-danger">Error</h5>
@@ -260,12 +362,10 @@ function loadDowntimeContent(recordHeaderId, rowIndex) {
           <div class="alert alert-danger">Failed to load downtime details. Please try again.</div>
         </div>
       `;
-      loadingModal.hide();
       downtimeModal.show();
       console.error("Error loading downtime:", err);
     });
 }
-
 /**
  * Displays a toast notification
  * @param {string} message - The message to display
@@ -533,27 +633,74 @@ function updateDowntimeBadge(recordHeaderId, badgeTextOverride = null) {
   if (placeholder) placeholder.remove();
 
   const newBadge = document.createElement("small");
-  newBadge.className = "badge bg-secondary text-white me-1 mb-1";
+  newBadge.className = "badge bg-light text-dark border me-1 mb-1";
   newBadge.textContent = badgeText;
   badgeContainer.appendChild(newBadge);
 }
 
 // Save downtime event handler
-function handleSaveDowntime(event) {
+async function handleSaveDowntime(event) {
   if (!event.target.classList.contains("btn-save-downtime")) return;
 
   try {
     const button = event.target;
     const modal = button.closest(".modal");
-    const recordHeaderId = button.dataset.recordId;
+    const recordHeaderId = modal.dataset.recordId;
 
     const timeStart = document.getElementById(
       `timeStart${recordHeaderId}`
-    )?.value;
-    const timeEnd = document.getElementById(`timeEnd${recordHeaderId}`)?.value;
+    ).value;
+    const timeEnd = document.getElementById(`timeEnd${recordHeaderId}`).value;
 
     if (!timeStart || !timeEnd) {
       throw new Error("Start and End times are required.");
+    }
+
+    //fetch main box times from server
+    const headerRes = await fetch("../controller/dor-downtime.php", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "getHeaderTimes",
+        recordHeaderId: recordHeaderId,
+      }),
+    });
+
+    let headerData;
+    try {
+      headerData = await headerRes.json();
+    } catch (jsonError) {
+      const text = await headerRes.text();
+      showToast(`Server error: ${text}`, "danger");
+      return;
+    }
+
+    if (!headerData.success) {
+      throw new Error("Could not fetch main box time range.");
+    }
+
+    const mainTimeStart = headerData.timeStart;
+    const mainTimeEnd = headerData.timeEnd;
+
+    //validate downtime timers are within main box times
+    function toMinutes(t) {
+      const [h, m] = t.split(":").map(Number);
+      return h * 60 + m;
+    }
+
+    const tStart = toMinutes(timeStart);
+    const tEnd = toMinutes(timeEnd);
+    const mStart = toMinutes(mainTimeStart);
+    const mEnd = toMinutes(mainTimeEnd);
+
+    function isWithinRange(start, end, rangeStart, rangeEnd) {
+      if (rangeEnd < rangeStart) rangeEnd += 24 * 60;
+      if (end < start) end += 24 * 60;
+      return start >= rangeStart && end <= rangeEnd;
+    }
+
+    if (!isWithinRange(tStart, tEnd, mStart, mEnd)) {
+      throw new Error("Downtime must be within the box range.");
     }
 
     const duration = calculateDuration(timeStart, timeEnd);
@@ -569,7 +716,7 @@ function handleSaveDowntime(event) {
     )?.value;
     const downtimeDisplay = document
       .querySelector(`#downtimeSelect${recordHeaderId}`)
-      ?.closest(".searchable-dropdown")
+      .closest(".searchable-dropdown")
       ?.querySelector('input[type="text"]')?.value;
 
     const actionTakenId = document.getElementById(
@@ -609,7 +756,9 @@ function handleSaveDowntime(event) {
       downtimeData.CustomRemarksName = remarksText;
     }
 
-    fetch("../controller/dor-downtime.php", {
+    console.log("Sending downtime data:", downtimeData); // Debug log
+
+    const response = await fetch("../controller/dor-downtime.php", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -617,40 +766,30 @@ function handleSaveDowntime(event) {
         recordHeaderId,
         downtimeData,
       }),
-    })
-      .then((response) => response.json())
-      .then((result) => {
-        if (!result.success) {
-          throw new Error(result.message || "Failed to save downtime");
-        }
+    });
 
-        const downtimeLabel =
-          downtimeId === "custom" ? downtimeText : downtimeDisplay;
-        updateDowntimeBadge(recordHeaderId, downtimeLabel);
+    let result;
+    try {
+      result = await response.json();
+    } catch (jsonError) {
+      const text = await response.text();
+      showToast(`Server error: ${text}`, "danger");
+      return;
+    }
 
-        // Show success message inside the modal instead of closing it
-        const modalBody = modal.querySelector(".modal-body");
-        if (modalBody) {
-          modalBody
-            .querySelectorAll(".alert-success")
-            .forEach((e) => e.remove());
+    console.log("Response result:", result); // Debug log
 
-          const alert = document.createElement("div");
-          alert.className = "alert alert-success";
-          alert.textContent = "Downtime saved successfully!";
-          modalBody.prepend(alert);
+    if (!result.success) {
+      throw new Error(result.message || "Failed to save downtime");
+    }
 
-          setTimeout(() => {
-            alert.remove();
-          }, 3000);
-        }
+    // SAFELY display the badge text
+    const downtimeLabel =
+      downtimeId === "custom" ? downtimeText : downtimeDisplay;
+    updateDowntimeBadge(recordHeaderId, downtimeLabel);
 
-        showToast("Downtime saved successfully!", "success");
-      })
-      .catch((error) => {
-        console.error("Error saving downtime:", error);
-        showToast(`Error: ${error.message}`, "danger");
-      });
+    bootstrap.Modal.getInstance(modal).hide();
+    showToast("Downtime saved successfully!", "success");
   } catch (error) {
     console.error("Error saving downtime:", error);
     showToast(`Error: ${error.message}`, "danger");

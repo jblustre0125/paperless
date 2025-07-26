@@ -1062,6 +1062,23 @@ try {
   <script src="../js/jsQR.min.js"></script>
   <script>
     // --- AJAX polling for operator/downtime updates per row ---
+    let lastInputTime = 0;
+    const DEBOUNCE_MS = 1000; // 1 second debounce for polling
+
+    for (let i = 1; i <= 20; i++) {
+      const boxNoInput = document.getElementById(`boxNo${i}`);
+      const timeStartInput = document.getElementById(`timeStart${i}`);
+      const timeEndInput = document.getElementById(`timeEnd${i}`);
+
+      [boxNoInput, timeStartInput, timeEndInput].forEach(input => {
+        if (input) {
+          input.addEventListener('input', function() {
+            lastInputTime = Date.now();
+          });
+        }
+      });
+    }
+
     function fetchRowStatus(rowId) {
       const boxNoInput = document.getElementById(`boxNo${rowId}`);
       const boxNo = boxNoInput ? boxNoInput.value.trim() : '';
@@ -1185,6 +1202,8 @@ try {
 
     // Poll every 1 second for each row with a box number
     setInterval(() => {
+      // Debounce: pause polling if user typed in last second
+      if (Date.now() - lastInputTime < DEBOUNCE_MS) return;
       // First, check for rows deleted by leaders
       checkForDeletedRows();
 

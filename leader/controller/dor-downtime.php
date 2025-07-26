@@ -19,6 +19,42 @@ class DorDowntime
         return $this->db->execute("SELECT * FROM AtoDorDetail");
     }
 
+    public function GetHeaderTimeRange($recordHeaderId)
+    {
+        $sql = "SELECT TimeStart, TimeEnd FROM AtoDorHeader WHERE RecordHeaderId = ?";
+        $result = $this->db->execute($sql, [$recordHeaderId]);
+        return !empty($result) ? $result[0] : null;
+    }
+
+
+    public function getHeaderById($hostnameId = null)
+    {
+        $sql = "
+        SELECT
+            h.RecordHeaderId,
+            h.RecordId,
+            h.BoxNumber,
+            h.TimeStart,
+            h.TimeEnd,
+            h.Duration,
+            d.CreatedBy,
+            m.ITEM_ID,
+            m.MP
+        FROM AtoDorHeader h
+        INNER JOIN AtoDor d ON h.RecordId = d.RecordId
+        LEFT JOIN GenModel m ON d.ModelId = m.MODEL_ID
+    ";
+
+        $params = [];
+        if ($hostnameId !== null) {
+            $sql .= " WHERE d.HostnameId = ?";
+            $params[] = $hostnameId;
+        }
+        $sql .= " ORDER BY h.RecordHeaderId ASC";
+
+        return $this->db->execute($sql, $params);
+    }
+
     public function getDowntimeList()
     {
         return $this->db->execute("SELECT DowntimeId, DowntimeCategoryId, DowntimeCode, DowntimeName FROM GenDorDowntime");
@@ -443,6 +479,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $type = $data['type'] ?? ($_POST['btnSubmit'] ?? null);
 
     switch ($type) {
+
+        case 'getDowntimeRecords':
+            if (!isset($data['recordHeaderId'])) {
+                echo json_encode(['success' => false, 'message' => 'Missing parameters']);
+                exit;
+            }
+            $recordHeaderId = $data['recordHeaderId'];
+            // Fetch all downtime records for this RecordHeaderId
+            $details = $controller->AtoDor();
+            $downtimeList = $controller->getDowntimeList();
+            $actionList = $controller->getActionList();
+            $remarksList = $controller->getRemarksList();
+            $downtimeMap = [];
+            foreach ($downtimeList as $d) {
+                $downtimeMap[$d['DowntimeId']] = $d;
+            }
+            $actionMap = [];
+            foreach ($actionList as $a) {
+                $actionMap[$a['ActionTakenId']] = $a;
+            }
+            $remarksMap = [];
+            foreach ($remarksList as $r) {
+                $remarksMap[$r['RemarksId']] = $r;
+            }
+            $records = [];
+            foreach ($details as $row) {
+                if ($row['RecordHeaderId'] == $recordHeaderId && !empty($row['DowntimeId'])) {
+                    // Ensure TimeStart and TimeEnd are always strings
+                    $timeStart = $row['TimeStart'];
+                    if (is_array($timeStart) && isset($timeStart['date'])) $timeStart = $timeStart['date'];
+                    elseif ($timeStart instanceof DateTime) $timeStart = $timeStart->format('Y-m-d H:i:s');
+
+                    $timeEnd = $row['TimeEnd'];
+                    if (is_array($timeEnd) && isset($timeEnd['date'])) $timeEnd = $timeEnd['date'];
+                    elseif ($timeEnd instanceof DateTime) $timeEnd = $timeEnd->format('Y-m-d H:i:s');
+
+                    $records[] = [
+                        'RecordDetailId' => $row['RecordDetailId'],
+                        'DowntimeId' => $row['DowntimeId'],
+                        'DowntimeCode' => $downtimeMap[$row['DowntimeId']]['DowntimeCode'] ?? null,
+                        'DowntimeName' => $downtimeMap[$row['DowntimeId']]['DowntimeName'] ?? null,
+                        'ActionTakenId' => $row['ActionTakenId'],
+                        'ActionTakenName' => $actionMap[$row['ActionTakenId']]['ActionTakenName'] ?? null,
+                        'TimeStart' => $timeStart,
+                        'TimeEnd' => $timeEnd,
+                        'Duration' => $row['Duration'],
+                        'Pic' => $row['Pic'],
+                        'RemarksId' => $row['RemarksId'],
+                        'RemarksName' => $remarksMap[$row['RemarksId']]['RemarksName'] ?? null
+                    ];
+                }
+            }
+            echo json_encode(['success' => true, 'records' => $records]);
+            exit;
         case 'getDowntimeInfo':
             if (!isset($data['recordHeaderId'])) {
                 echo json_encode(['success' => false, 'message' => 'Missing parameters']);
@@ -482,6 +572,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $downtimeData['Duration'] = ((int)$h * 60) + (int)$m;
             } else {
                 $downtimeData['Duration'] = (int)$downtimeData['Duration'];
+            }
+
+            $headerTimes = $controller->GetHeaderTimeRange($recordHeaderId);
+
+            if (empty($headerTimes) || empty($headerTimes['TimeStart']) || empty($headerTimes['TimeEnd'])) {
+                echo json_encode(['success' => false, 'message' => 'Main box time range not found']);
+                exit;
+            }
+
+            if ($headerTimes['TimeStart'] instanceof DateTime) {
+                $headerTimes['TimeStart'] = $headerTimes['TimeStart']->format('Y-m-d H:i:s');
+            }
+            if ($headerTimes['TimeEnd'] instanceof DateTime) {
+                $headerTimes['TimeEnd'] = $headerTimes['TimeEnd']->format('Y-m-d H:i:s');
+            }
+
+            $mainStart = strtotime($headerTimes['TimeStart']);
+            $mainEnd = strtotime($headerTimes['TimeEnd']);
+            $dtStart = strtotime($downtimeData['TimeStart']);
+            $dtEnd = strtotime($downtimeData['TimeEnd']);
+
+            if ($mainEnd < $mainStart) $mainEnd += 86400;
+            if ($dtEnd < $dtStart) $dtEnd += 86400;
+
+            if ($dtStart < $mainStart || $dtEnd > $mainEnd) {
+                echo json_encode(['success' => false, 'message' => 'Downtime must be within the box time range']);
+                exit;
             }
 
             echo json_encode($controller->saveDowntime($recordHeaderId, $downtimeData));

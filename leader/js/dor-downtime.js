@@ -247,6 +247,53 @@ async function handleSaveDowntime(event) {
       throw new Error("Start and End times are required.");
     }
 
+    //fetch main box times from server
+    const headerRes = await fetch("../controller/dor-downtime.php", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "getHeaderTimes",
+        recordHeaderId: recordHeaderId,
+      }),
+    });
+
+    let headerData;
+    try {
+      headerData = await headerRes.json();
+    } catch (jsonError) {
+      const text = await headerRes.text();
+      showToast(`Server error: ${text}`, "danger");
+      return;
+    }
+
+    if (!headerData.success) {
+      throw new Error("Could not fetch main box time range.");
+    }
+
+    const mainTimeStart = headerData.timeStart;
+    const mainTimeEnd = headerData.timeEnd;
+
+    //validate downtime timers are within main box times
+    function toMinutes(t) {
+      const [h, m] = t.split(":").map(Number);
+      return h * 60 + m;
+    }
+
+    const tStart = toMinutes(timeStart);
+    const tEnd = toMinutes(timeEnd);
+    const mStart = toMinutes(mainTimeStart);
+    const mEnd = toMinutes(mainTimeEnd);
+
+    function isWithinRange(start, end, rangeStart, rangeEnd) {
+      if (rangeEnd < rangeStart) rangeEnd += 24 * 60;
+      if (end < start) end += 24 * 60;
+      return start >= rangeStart && end <= rangeEnd;
+    }
+
+    if (!isWithinRange(tStart, tEnd, mStart, mEnd)) {
+      throw new Error("Downtime must be within the box range.");
+    }
+
     const duration = calculateDuration(timeStart, timeEnd);
     if (duration === "Invalid") {
       throw new Error("End time must be after Start time.");
@@ -312,8 +359,15 @@ async function handleSaveDowntime(event) {
       }),
     });
 
-    console.log("Response status:", response.status); // Debug log
-    const result = await response.json();
+    let result;
+    try {
+      result = await response.json();
+    } catch (jsonError) {
+      const text = await response.text();
+      showToast(`Server error: ${text}`, "danger");
+      return;
+    }
+
     console.log("Response result:", result); // Debug log
 
     if (!result.success) {

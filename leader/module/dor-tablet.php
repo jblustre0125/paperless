@@ -81,6 +81,7 @@ $dorJigInfo = $jigController->getDorJigInfo($recordId);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= $title ?></title>
     <link rel="stylesheet" href="../../css/bootstrap.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <link href="../css/leader-dashboard.css" rel="stylesheet">
     <link href="../../css/dor-navbar.css" rel="stylesheet">
     <link rel="stylesheet" href="../css/dor-tablet.css">
@@ -211,6 +212,10 @@ $dorJigInfo = $jigController->getDorJigInfo($recordId);
             border-radius: 4px !important;
             font-size: 0.75rem !important;
             transition: all 0.2s ease !important;
+        }
+
+        .modal-xl {
+            max-width: 90% !important;
         }
 
         .btn-remove-operator:hover {
@@ -630,7 +635,7 @@ $dorJigInfo = $jigController->getDorJigInfo($recordId);
                                                 class="fw-bold text-primary">0 mins</span>
                                         </small>
                                         <small class="badge bg-light text-dark border p-2" style="font-size: 0.875rem;">
-                                            <i class="bi bi-pause-circle me-1"></i>Total Downtime: <span id="totalDowntime"
+                                            <i class="bi bi-exclamation-circle me-1 "></i>Total Downtime: <span id="totalDowntime"
                                                 class="fw-bold text-primary">0</span>
                                         </small>
                                     </div>
@@ -937,7 +942,7 @@ $dorJigInfo = $jigController->getDorJigInfo($recordId);
                                     aria-labelledby="downtimeModalLabel<?= $recordHeaderId ?>" aria-hidden="true"
                                     data-record-id="<?= $recordHeaderId ?>">
 
-                                    <div class="modal-dialog modal-lg modal-dialog-centered">
+                                    <div class="modal-dialog modal-xl modal-dialog-centered">
                                         <div class="modal-content shadow">
                                             <div class="modal-header bg-secondary text-white d-flex justify-content-between">
                                                 <h5 class="modal-title" id="downtimeModalLabel<?= $recordHeaderId ?>">
@@ -967,11 +972,11 @@ $dorJigInfo = $jigController->getDorJigInfo($recordId);
                                                         <tbody>
                                                             <tr>
                                                                 <td>
-                                                                    <input type="text" class="form-control text-center time-start" placeholder="HH:mm"
+                                                                    <input type="number" class="form-control text-center time-start" placeholder="HH:mm"
                                                                         maxlength="5" pattern="[0-9]{2}:[0-9]{2}" id="timeStart<?= $recordHeaderId ?>" />
                                                                 </td>
                                                                 <td>
-                                                                    <input type="text" class="form-control text-center time-end" placeholder="HH:mm"
+                                                                    <input type="number" class="form-control text-center time-end" placeholder="HH:mm"
                                                                         maxlength="5" pattern="[0-9]{2}:[0-9]{2}" id="timeEnd<?= $recordHeaderId ?>" />
                                                                 </td>
                                                                 <td>
@@ -1061,6 +1066,136 @@ $dorJigInfo = $jigController->getDorJigInfo($recordId);
                                                     <input type="text" id="picInput<?= $recordHeaderId ?>" class="form-control"
                                                         placeholder="Enter PIC name">
                                                 </div>
+
+                                                <!-- Downtime Records History -->
+                                                <div class="mb-3">
+                                                    <div class="card border-0 shadow-sm rounded">
+                                                        <div class="card-header bg-light d-flex align-items-center justify-content-between"
+                                                            style="cursor:pointer;" data-bs-toggle="collapse"
+                                                            data-bs-target="#downtimeHistoryCollapse<?= $recordHeaderId ?>" aria-expanded="false"
+                                                            aria-controls="downtimeHistoryCollapse<?= $recordHeaderId ?>">
+                                                            <h6 class="mb-0 d-flex align-items-center">
+                                                                <i class="bi bi-clock-history me-2 text-primary"></i> Downtime Records History
+                                                            </h6>
+                                                            <button class="btn btn-sm btn-outline-secondary px-2 py-1" type="button">
+                                                                <span class="collapse-icon" id="collapseIcon<?= $recordHeaderId ?>"><i
+                                                                        class="bi bi-chevron-down"></i></span>
+                                                            </button>
+                                                        </div>
+                                                        <div id="downtimeHistoryCollapse<?= $recordHeaderId ?>" class="collapse">
+                                                            <div class="card-body p-0">
+                                                                <div class="table-responsive rounded">
+                                                                    <table class="table table-hover table-sm text-center align-middle mb-0"
+                                                                        style="background: #fff;">
+                                                                        <thead class="table-light">
+                                                                            <tr>
+                                                                                <th style="width:60px; min-width:60px;"><i
+                                                                                        class="bi bi-clock me-1 text-primary"></i>Start</th>
+                                                                                <th style="width:60px; min-width:60px;"><i
+                                                                                        class="bi bi-clock me-1 text-danger"></i>End</th>
+                                                                                <th style="width:60px; min-width:60px;"><i
+                                                                                        class="bi bi-hourglass-split me-1 text-warning"></i>Duration</th>
+                                                                                <th style="width:60px; min-width:60px;"><i
+                                                                                        class="bi bi-exclamation-circle me-1 text-info"></i>Downtime</th>
+                                                                                <th style="width:120px; min-width:120px;"><i
+                                                                                        class="bi bi-tools me-1 text-success"></i>Action</th>
+                                                                                <th style="width:50px; min-width:50px;"><i
+                                                                                        class="bi bi-person me-1 text-secondary"></i>PIC</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody id="downtimeHistoryBody<?= $recordHeaderId ?>">
+                                                                            <tr>
+                                                                                <td colspan="6" class="text-muted py-4"><i
+                                                                                        class="bi bi-hourglass-split me-2"></i>Loading downtime records...</td>
+                                                                            </tr>
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <script>
+                                                    document.addEventListener('DOMContentLoaded', function() {
+                                                        // Toggle collapse icon
+                                                        var collapseEl = document.getElementById('downtimeHistoryCollapse<?= $recordHeaderId ?>');
+                                                        var iconEl = document.getElementById('collapseIcon<?= $recordHeaderId ?>');
+                                                        if (collapseEl && iconEl) {
+                                                            collapseEl.addEventListener('show.bs.collapse', function() {
+                                                                iconEl.innerHTML = '<i class="bi bi-chevron-up"></i>';
+                                                            });
+                                                            collapseEl.addEventListener('hide.bs.collapse', function() {
+                                                                iconEl.innerHTML = '<i class="bi bi-chevron-down"></i>';
+                                                            });
+                                                        }
+                                                        // Only fetch downtime records when card is expanded
+                                                        if (collapseEl) {
+                                                            collapseEl.addEventListener('show.bs.collapse', function() {
+                                                                fetch('../controller/dor-downtime.php', {
+                                                                        method: 'POST',
+                                                                        headers: {
+                                                                            'Content-Type': 'application/json'
+                                                                        },
+                                                                        body: JSON.stringify({
+                                                                            type: 'getDowntimeRecords',
+                                                                            recordHeaderId: '<?= $recordHeaderId ?>'
+                                                                        })
+                                                                    })
+                                                                    .then(res => res.json())
+                                                                    .then(data => {
+                                                                        const tbody = document.getElementById(
+                                                                            'downtimeHistoryBody<?= $recordHeaderId ?>');
+                                                                        if (!tbody) return;
+                                                                        tbody.innerHTML = '';
+                                                                        if (!data.success || !data.records || data.records.length === 0) {
+                                                                            tbody.innerHTML =
+                                                                                '<tr><td colspan="6" class="text-muted">No downtime recorded</td></tr>';
+                                                                            return;
+                                                                        }
+                                                                        data.records.forEach(rec => {
+                                                                            // Robustly parse time, fallback to '-'
+                                                                            function formatTime(val) {
+                                                                                // Debug: log the value being formatted
+                                                                                console.log('formatTime input:', val);
+                                                                                if (!val || typeof val !== 'string') return '';
+                                                                                let d = new Date(val);
+                                                                                if (!isNaN(d.getTime())) {
+                                                                                    let hours = d.getHours().toString().padStart(2, '0');
+                                                                                    let minutes = d.getMinutes().toString().padStart(2, '0');
+                                                                                    return `${hours}:${minutes}`;
+                                                                                }
+                                                                                const match = val.match(/(\d{2}):(\d{2})/);
+                                                                                return match ? match[0] : '';
+                                                                            }
+                                                                            let dtStart = formatTime(rec.TimeStart);
+                                                                            let dtEnd = formatTime(rec.TimeEnd);
+                                                                            const duration = rec.Duration ?? '';
+                                                                            const dtCode = rec.DowntimeCode ?? '';
+                                                                            const actionTaken = rec.ActionTakenName ?? '';
+                                                                            const pic = rec.Pic ?? '';
+                                                                            // Wrap action text and add tooltip
+                                                                            const actionCell =
+                                                                                `<span class="d-inline-block text-truncate" style="max-width:120px;white-space:normal;" title="${actionTaken}">${actionTaken}</span>`;
+                                                                            tbody.innerHTML += `<tr>
+            <td style="width:60px;">${dtStart}</td>
+            <td style="width:60px;">${dtEnd}</td>
+            <td style="width:60px;">${duration}</td>
+            <td style="width:80px;">${dtCode}</td>
+            <td>${actionCell}</td>
+            <td>${pic}</td>
+          </tr>`;
+                                                                        });
+                                                                    })
+                                                                    .catch(() => {
+                                                                        const tbody = document.getElementById(
+                                                                            'downtimeHistoryBody<?= $recordHeaderId ?>');
+                                                                        if (tbody) tbody.innerHTML =
+                                                                            '<tr><td colspan="6" class="text-danger">Error loading downtime history</td></tr>';
+                                                                    });
+                                                            });
+                                                        }
+                                                    });
+                                                </script>
                                             </div>
 
                                             <div class="modal-footer">
